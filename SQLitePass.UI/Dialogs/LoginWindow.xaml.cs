@@ -60,6 +60,14 @@ namespace SQLitePass.UI.Dialogs
             UpdateBackupBadge();
         }
 
+        private void BtnToggleTheme_Click(object sender, RoutedEventArgs e)
+        {
+            var settings = AppSettingsManager.Load();
+            settings.DarkMode = !settings.DarkMode;
+            SQLitePass.UI.Services.ThemeManager.ApplyTheme(settings.DarkMode);
+            AppSettingsManager.Save(settings);
+        }
+
         private string GetMasterPassword()
         {
             return _isMasterPwdRevealed ? TxtMasterPasswordPlain.Text : TxtMasterPassword.Password;

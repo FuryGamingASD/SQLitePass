@@ -3,21 +3,31 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:SQLitePass.UI">
     <Application.Resources>
-        <!-- Default Dark Theme Brushes -->
+        <!-- Default Dark Theme Brushes (Overridden by ThemeManager at startup) -->
         <SolidColorBrush x:Key="AppBg" Color="#0F172A"/>
         <SolidColorBrush x:Key="CardBg" Color="#1E293B"/>
         <SolidColorBrush x:Key="SidebarBg" Color="#0B0F19"/>
         <SolidColorBrush x:Key="InputBg" Color="#0F172A"/>
         <SolidColorBrush x:Key="HoverBg" Color="#334155"/>
         <SolidColorBrush x:Key="BorderColor" Color="#334155"/>
+        <SolidColorBrush x:Key="BorderSubtle" Color="#1E293B"/>
         <SolidColorBrush x:Key="TextPrimary" Color="#F8FAFC"/>
         <SolidColorBrush x:Key="TextSecondary" Color="#94A3B8"/>
         <SolidColorBrush x:Key="TextMuted" Color="#64748B"/>
         <SolidColorBrush x:Key="AccentColor" Color="#38BDF8"/>
+        <SolidColorBrush x:Key="AccentBg" Color="#0E3A5F"/>
+        <SolidColorBrush x:Key="IconBadgeBg" Color="#283548"/>
         <SolidColorBrush x:Key="RowAltBg" Color="#162032"/>
         <SolidColorBrush x:Key="SelectionBg" Color="#2563EB"/>
+        <SolidColorBrush x:Key="SelectionFg" Color="#FFFFFF"/>
         <SolidColorBrush x:Key="StatusBarBg" Color="#090D16"/>
         <SolidColorBrush x:Key="MenuBg" Color="#0F172A"/>
+        <SolidColorBrush x:Key="ToolbarBg" Color="#182235"/>
+        <SolidColorBrush x:Key="HeaderBg" Color="#0B0F19"/>
+        <SolidColorBrush x:Key="BadgeBg" Color="#1E3A5F"/>
+        <SolidColorBrush x:Key="BadgeSuccessBg" Color="#064E3B"/>
+        <SolidColorBrush x:Key="BadgeSuccessFg" Color="#34D399"/>
+        <SolidColorBrush x:Key="BadgeSuccessBorder" Color="#059669"/>
 
         <!-- Global TextBox Style -->
         <Style TargetType="TextBox">

@@ -10,15 +10,52 @@
         <conv:EntropyToColorConverter x:Key="EntropyToColorConverter"/>
         <conv:PasswordMaskConverter x:Key="PasswordMaskConverter"/>
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <conv:GroupIconConverter x:Key="GroupIconConverter"/>
+        <conv:EntryIconConverter x:Key="EntryIconConverter"/>
 
+        <!-- Primary Action Button -->
+        <Style x:Key="PrimaryToolButton" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource AccentColor}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="Margin" Value="2,0,6,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Opacity" Value="0.9"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Standard Tool Button -->
         <Style x:Key="ToolButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="10,6"/>
-            <Setter Property="Margin" Value="2,0"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="Margin" Value="1,0"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
             <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="{DynamicResource HoverBg}"/>
@@ -29,7 +66,12 @@
         <!-- DataGrid Row Style -->
         <Style TargetType="DataGridRow">
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtle}"/>
             <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource HoverBg}"/>
+                </Trigger>
                 <Trigger Property="IsSelected" Value="True">
                     <Setter Property="Background" Value="{DynamicResource SelectionBg}"/>
                     <Setter Property="Foreground" Value="White"/>
@@ -37,14 +79,42 @@
             </Style.Triggers>
         </Style>
 
+        <!-- DataGrid Cell Style -->
+        <Style TargetType="DataGridCell">
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Padding" Value="4,0"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <!-- DataGrid Column Header Style -->
         <Style TargetType="DataGridColumnHeader">
-            <Setter Property="Background" Value="{DynamicResource SidebarBg}"/>
+            <Setter Property="Background" Value="{DynamicResource HeaderBg}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderColor}"/>
             <Setter Property="BorderThickness" Value="0,0,1,1"/>
-            <Setter Property="Padding" Value="8,6"/>
+            <Setter Property="Padding" Value="10,7"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+
+        <!-- TreeView Item Style -->
+        <Style TargetType="TreeViewItem">
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="Margin" Value="2,1"/>
+            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+            <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
+            <Style.Resources>
+                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="Transparent"/>
+                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="{Binding Source={DynamicResource TextPrimary}, Path=Color}"/>
+                <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="Transparent"/>
+                <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="{Binding Source={DynamicResource TextPrimary}, Path=Color}"/>
+            </Style.Resources>
         </Style>
     </Window.Resources>
 
@@ -104,7 +174,7 @@
         </Menu>
 
         <!-- TOOLBAR -->
-        <Border Grid.Row="1" Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="0,0,0,1" Padding="10,8">
+        <Border Grid.Row="1" Background="{DynamicResource ToolbarBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="0,0,0,1" Padding="10,7">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -113,12 +183,14 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Orientation="Horizontal">
-                    <Button Style="{StaticResource ToolButton}" Click="BtnAddEntry_Click" ToolTip="Aggiungi Nuova Voce (Ctrl+I)">
+                    <!-- Prominent New Entry Button -->
+                    <Button Style="{StaticResource PrimaryToolButton}" Click="BtnAddEntry_Click" ToolTip="Aggiungi Nuova Voce (Ctrl+I)">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="➕" Margin="0,0,5,0" Foreground="{DynamicResource AccentColor}"/>
-                            <TextBlock Text="Nuova Voce"/>
+                            <TextBlock Text="➕" Margin="0,0,6,0" FontSize="11" VerticalAlignment="Center"/>
+                            <TextBlock Text="Nuova Voce" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
+
                     <Button Style="{StaticResource ToolButton}" Click="BtnEditEntry_Click" ToolTip="Modifica Voce Selezionata">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="✏️" Margin="0,0,5,0"/>
@@ -152,7 +224,7 @@
                             <TextBlock Text="Apri URL"/>
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource ToolButton}" Click="BtnAutoType_Click" ToolTip="Esegui Auto-Type">
+                    <Button Style="{StaticResource ToolButton}" Click="BtnAutoType_Click" ToolTip="Esegui Auto-Type (Ctrl+V)">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="⌨️" Margin="0,0,5,0"/>
                             <TextBlock Text="Auto-Type"/>
@@ -167,17 +239,14 @@
                             <TextBlock Text="Generatore"/>
                         </StackPanel>
                     </Button>
+                    <Button Style="{StaticResource ToolButton}" Click="MenuToggleTheme_Click" ToolTip="Alterna Tema Chiaro / Scuro">
+                        <TextBlock Text="🌓" Margin="0,0,0,0" FontSize="14"/>
+                    </Button>
                     <Button Style="{StaticResource ToolButton}" Click="MenuSettings_Click" ToolTip="Impostazioni">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="⚙️" Margin="0,0,5,0"/>
-                            <TextBlock Text="Opzioni"/>
-                        </StackPanel>
+                        <TextBlock Text="⚙️" Margin="0,0,0,0"/>
                     </Button>
                     <Button Style="{StaticResource ToolButton}" Click="BtnLock_Click" ToolTip="Blocca il Vault (Ctrl+L)">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🔒" Margin="0,0,5,0" Foreground="{DynamicResource TextMuted}"/>
-                            <TextBlock Text="Blocca"/>
-                        </StackPanel>
+                        <TextBlock Text="🔒" Foreground="{DynamicResource TextMuted}"/>
                     </Button>
                 </StackPanel>
 
@@ -211,14 +280,15 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <!-- LEFT: GROUPS TREE -->
+            <!-- LEFT: GROUPS TREE (Distinct Tinted Sidebar) -->
             <Border Grid.Column="0" Background="{DynamicResource SidebarBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="0,0,1,0">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <Border Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="0,0,0,1" Padding="12,8">
+                    <!-- Sidebar Header -->
+                    <Border Background="{DynamicResource HeaderBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="0,0,0,1" Padding="12,8">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -229,13 +299,14 @@
                                     Background="Transparent" BorderThickness="0" Cursor="Hand" Foreground="{DynamicResource AccentColor}"/>
                         </Grid>
                     </Border>
+                    <!-- Groups TreeView -->
                     <TreeView x:Name="TvGroups" Grid.Row="1" Background="Transparent" BorderThickness="0"
                               SelectedItemChanged="TvGroups_SelectedItemChanged" Margin="4,6">
                         <TreeView.ItemTemplate>
                             <HierarchicalDataTemplate ItemsSource="{Binding Children}">
                                 <StackPanel Orientation="Horizontal" Margin="3,4">
-                                    <TextBlock Text="📁" Margin="0,0,7,0"/>
-                                    <TextBlock Text="{Binding Name}" FontWeight="Medium" Foreground="{DynamicResource TextPrimary}"/>
+                                    <TextBlock Text="{Binding Name, Converter={StaticResource GroupIconConverter}}" Margin="0,0,7,0" FontSize="13" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{Binding Name}" FontWeight="Medium" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"/>
                                 </StackPanel>
                             </HierarchicalDataTemplate>
                         </TreeView.ItemTemplate>
@@ -261,24 +332,70 @@
                     <RowDefinition Height="*" MinHeight="140"/>
                 </Grid.RowDefinitions>
 
-                <!-- ENTRIES DATAGRID -->
+                <!-- ENTRIES DATAGRID (Alternating White & Soft Sky Tint) -->
                 <DataGrid x:Name="DgEntries" Grid.Row="0" AutoGenerateColumns="False" IsReadOnly="True"
                           SelectionMode="Single" SelectionUnit="FullRow"
                           GridLinesVisibility="Horizontal" HeadersVisibility="Column"
-                          HorizontalGridLinesBrush="{DynamicResource BorderColor}"
+                          HorizontalGridLinesBrush="{DynamicResource BorderSubtle}"
                           Background="{DynamicResource CardBg}"
                           RowBackground="{DynamicResource CardBg}"
                           AlternatingRowBackground="{DynamicResource RowAltBg}"
-                          BorderThickness="0" RowHeight="30"
+                          BorderThickness="0" RowHeight="32"
                           SelectionChanged="DgEntries_SelectionChanged"
                           MouseDoubleClick="DgEntries_MouseDoubleClick">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="Titolo" Binding="{Binding Title}" Width="190"/>
-                        <DataGridTextColumn Header="User Name" Binding="{Binding UserName}" Width="160"/>
-                        <DataGridTextColumn x:Name="ColPassword" Header="Password" Binding="{Binding Password, Converter={StaticResource PasswordMaskConverter}}" Width="140"/>
-                        <DataGridTextColumn Header="URL" Binding="{Binding Url}" Width="210"/>
+                        <!-- Titolo with Lively Icon Badge -->
+                        <DataGridTemplateColumn Header="Titolo" Width="200" SortMemberPath="Title">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0">
+                                        <Border Width="22" Height="22" CornerRadius="4" Background="{DynamicResource IconBadgeBg}" Margin="0,0,8,0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Title, Converter={StaticResource EntryIconConverter}}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="11"/>
+                                        </Border>
+                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimary}"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- User Name -->
+                        <DataGridTemplateColumn Header="User Name" Width="160" SortMemberPath="UserName">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0">
+                                        <TextBlock Text="👤" Foreground="{DynamicResource TextMuted}" Margin="0,0,6,0" FontSize="10" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding UserName}" VerticalAlignment="Center" Foreground="{DynamicResource TextPrimary}"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- Password -->
+                        <DataGridTextColumn x:Name="ColPassword" Header="Password" Binding="{Binding Password, Converter={StaticResource PasswordMaskConverter}}" Width="140" FontFamily="Consolas"/>
+
+                        <!-- URL -->
+                        <DataGridTemplateColumn Header="URL" Width="210" SortMemberPath="Url">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0">
+                                        <TextBlock Text="🌐" Foreground="{DynamicResource AccentColor}" Margin="0,0,6,0" FontSize="10" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding Url}" VerticalAlignment="Center" Foreground="{DynamicResource AccentColor}" TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- Notes -->
                         <DataGridTextColumn Header="Note" Binding="{Binding Notes}" Width="*"/>
-                        <DataGridTextColumn Header="Ultima Modifica" Binding="{Binding UpdatedAt, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}" Width="135"/>
+
+                        <!-- Ultima Modifica -->
+                        <DataGridTemplateColumn Header="Ultima Modifica" Width="135" SortMemberPath="UpdatedAt">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding UpdatedAt, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}" VerticalAlignment="Center" Margin="6,0" Foreground="{DynamicResource TextMuted}" FontSize="12"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
                     </DataGrid.Columns>
                     <DataGrid.ContextMenu>
                         <ContextMenu>
@@ -354,7 +471,7 @@
                             <!-- Notes Preview -->
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Note:" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,4"/>
-                                <Border Background="{DynamicResource SidebarBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="6" Padding="10" MinHeight="80">
+                                <Border Background="{DynamicResource HeaderBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="6" Padding="10" MinHeight="80">
                                     <TextBlock x:Name="PrevNotes" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimary}"/>
                                 </Border>
                             </StackPanel>
