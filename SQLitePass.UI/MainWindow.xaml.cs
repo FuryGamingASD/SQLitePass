@@ -105,9 +105,22 @@ namespace SQLitePass.UI
 
         private void InitializeTrayIcon()
         {
+            System.Drawing.Icon trayIconImage = SystemIcons.Shield;
+            try
+            {
+                var uri = new Uri("pack://application:,,,/Resources/app.ico");
+                var streamInfo = System.Windows.Application.GetResourceStream(uri);
+                if (streamInfo != null)
+                {
+                    using var s = streamInfo.Stream;
+                    trayIconImage = new System.Drawing.Icon(s);
+                }
+            }
+            catch { }
+
             _trayIcon = new Hardcodet.Wpf.TaskbarNotification.TaskbarIcon
             {
-                Icon = SystemIcons.Shield,
+                Icon = trayIconImage,
                 ToolTipText = "SQLitePass - Vault Protetto"
             };
 

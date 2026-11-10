@@ -18,6 +18,7 @@
     <AssemblyName>SQLitePass</AssemblyName>
     <RootNamespace>SQLitePass.UI</RootNamespace>
     <StartupObject>SQLitePass.UI.Program</StartupObject>
+    <ApplicationIcon>Resources\app.ico</ApplicationIcon>
     <Version>1.0.0</Version>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
@@ -26,6 +27,11 @@
   <ItemGroup>
     <ApplicationDefinition Remove="App.xaml" />
     <Page Include="App.xaml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Resources\app_icon.png" />
+    <Resource Include="Resources\app.ico" />
   </ItemGroup>
 
 </Project>

@@ -21,7 +21,7 @@ if ($LASTEXITCODE -ne 0) {
 
 # 3. Create Velopack Setup & Portable packages
 Write-Host "`n[2/3] Packing installer with Velopack..." -ForegroundColor Yellow
-vpk pack -u SQLitePass -v $Version -p ./publish -e SQLitePass.exe -o ./releases -r win-x64
+vpk pack -u SQLitePass -v $Version -p ./publish -e SQLitePass.exe -o ./releases -r win-x64 -i ./SQLitePass.UI/Resources/app.ico --packTitle "SQLitePass"
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Packaging failed!" -ForegroundColor Red
