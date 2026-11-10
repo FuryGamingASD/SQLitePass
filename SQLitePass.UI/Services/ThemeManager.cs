@@ -40,29 +40,29 @@ namespace SQLitePass.UI.Services
             }
             else
             {
-                // Vibrant & Elegant Light Palette (Not plain flat white!)
-                // Uses cool soft slate canvas, crisp white cards, ice-blue sidebar, and alternating soft blue-tinted rows
-                res["AppBg"] = new SolidColorBrush(Color.FromRgb(241, 245, 249));         // #F1F5F9 Cool Slate Canvas
-                res["CardBg"] = new SolidColorBrush(Color.FromRgb(255, 255, 255));        // #FFFFFF Pure White Card
-                res["SidebarBg"] = new SolidColorBrush(Color.FromRgb(235, 243, 252));     // #EBF3FC Distinct Tinted Sidebar!
-                res["InputBg"] = new SolidColorBrush(Color.FromRgb(255, 255, 255));       // #FFFFFF Clean Input
-                res["HoverBg"] = new SolidColorBrush(Color.FromRgb(224, 236, 251));       // #E0ECFB Soft Blue Hover
-                res["BorderColor"] = new SolidColorBrush(Color.FromRgb(203, 213, 225));   // #CBD5E1 Defined Slate Border
-                res["BorderSubtle"] = new SolidColorBrush(Color.FromRgb(226, 232, 240));  // #E2E8F0 Subtle Border
-                res["TextPrimary"] = new SolidColorBrush(Color.FromRgb(15, 23, 42));      // #0F172A Deep Navy Text
-                res["TextSecondary"] = new SolidColorBrush(Color.FromRgb(71, 85, 105));   // #475569 Slate Muted Text
+                // Crisp White & Vibrant Light Palette
+                // Pure White is the primary base; delicate tints alternate rows and add colorful accents without darkening
+                res["AppBg"] = new SolidColorBrush(Color.FromRgb(255, 255, 255));         // #FFFFFF Pure White Canvas
+                res["CardBg"] = new SolidColorBrush(Color.FromRgb(255, 255, 255));        // #FFFFFF Pure White
+                res["SidebarBg"] = new SolidColorBrush(Color.FromRgb(248, 250, 252));     // #F8FAFC Ultra-Clean Soft White/Slate
+                res["InputBg"] = new SolidColorBrush(Color.FromRgb(255, 255, 255));       // #FFFFFF Clean White Input
+                res["HoverBg"] = new SolidColorBrush(Color.FromRgb(235, 243, 254));       // #EBF3FE Soft Blue-Tinted Hover
+                res["BorderColor"] = new SolidColorBrush(Color.FromRgb(226, 232, 240));   // #E2E8F0 Clean Crisp Slate Border
+                res["BorderSubtle"] = new SolidColorBrush(Color.FromRgb(241, 245, 249));  // #F1F5F9 Light Border
+                res["TextPrimary"] = new SolidColorBrush(Color.FromRgb(15, 23, 42));      // #0F172A Deep Navy / Charcoal Text
+                res["TextSecondary"] = new SolidColorBrush(Color.FromRgb(71, 85, 105));   // #475569 Secondary Slate Text
                 res["TextMuted"] = new SolidColorBrush(Color.FromRgb(100, 116, 139));     // #64748B
                 res["AccentColor"] = new SolidColorBrush(Color.FromRgb(37, 99, 235));     // #2563EB Vibrant Royal Blue
-                res["AccentBg"] = new SolidColorBrush(Color.FromRgb(219, 234, 254));      // #DBEAFE Light Blue Pill
-                res["IconBadgeBg"] = new SolidColorBrush(Color.FromRgb(232, 240, 254));   // #E8F0FE Soft Blue Icon Badge
-                res["RowAltBg"] = new SolidColorBrush(Color.FromRgb(238, 245, 254));      // #EEF5FE Clear Alternating Sky-Tinted Row!
+                res["AccentBg"] = new SolidColorBrush(Color.FromRgb(239, 246, 255));      // #EFF6FF Pastel Blue Capsule
+                res["IconBadgeBg"] = new SolidColorBrush(Color.FromRgb(239, 246, 255));   // #EFF6FF Vibrant Soft Blue Badge
+                res["RowAltBg"] = new SolidColorBrush(Color.FromRgb(244, 248, 253));      // #F4F8FD Delicate Light-Blue Alternating Row
                 res["SelectionBg"] = new SolidColorBrush(Color.FromRgb(37, 99, 235));     // #2563EB Vibrant Blue Selection
                 res["SelectionFg"] = new SolidColorBrush(Colors.White);
-                res["StatusBarBg"] = new SolidColorBrush(Color.FromRgb(226, 232, 240));   // #E2E8F0 Defined Status Footer
-                res["MenuBg"] = new SolidColorBrush(Color.FromRgb(255, 255, 255));        // #FFFFFF Clean Menu
-                res["ToolbarBg"] = new SolidColorBrush(Color.FromRgb(248, 250, 252));     // #F8FAFC Soft Toolbar
-                res["HeaderBg"] = new SolidColorBrush(Color.FromRgb(230, 238, 248));      // #E6EEF8 Distinct Column Headers
-                res["BadgeBg"] = new SolidColorBrush(Color.FromRgb(224, 236, 251));       // #E0ECFB Soft Badge
+                res["StatusBarBg"] = new SolidColorBrush(Color.FromRgb(248, 250, 252));   // #F8FAFC Clean Light Footer
+                res["MenuBg"] = new SolidColorBrush(Color.FromRgb(255, 255, 255));        // #FFFFFF Pure White Menu
+                res["ToolbarBg"] = new SolidColorBrush(Color.FromRgb(255, 255, 255));     // #FFFFFF Pure White Toolbar
+                res["HeaderBg"] = new SolidColorBrush(Color.FromRgb(241, 245, 249));      // #F1F5F9 Clean Header
+                res["BadgeBg"] = new SolidColorBrush(Color.FromRgb(239, 246, 255));       // #EFF6FF Light Badge
                 res["BadgeSuccessBg"] = new SolidColorBrush(Color.FromRgb(220, 252, 231));// #DCFCE7 Mint Green
                 res["BadgeSuccessFg"] = new SolidColorBrush(Color.FromRgb(21, 128, 61));  // #15803D Forest Green
                 res["BadgeSuccessBorder"] = new SolidColorBrush(Color.FromRgb(134, 239, 172)); // #86EFAC
