@@ -857,6 +857,14 @@ namespace SQLitePass.UI
             }
         }
 
+        private void MenuToggleTheme_Click(object sender, RoutedEventArgs e)
+        {
+            var settings = AppSettingsManager.Load();
+            settings.DarkMode = !settings.DarkMode;
+            ThemeManager.ApplyTheme(settings.DarkMode);
+            AppSettingsManager.Save(settings);
+        }
+
         private async void MenuCheckUpdates_Click(object sender, RoutedEventArgs e)
         {
             await UpdateService.CheckForUpdatesAsync(silent: false);

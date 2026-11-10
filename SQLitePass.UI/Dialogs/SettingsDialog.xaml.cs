@@ -44,6 +44,7 @@ namespace SQLitePass.UI.Dialogs
             TxtSecondaryBackupDir.Text = _settings.SecondaryBackupDir ?? "";
 
             ChkShowPasswordDefault.IsChecked = _settings.ShowPasswordColumnDefault;
+            ChkDarkMode.IsChecked = _settings.DarkMode;
         }
 
         private void BtnBrowseSecondaryDir_Click(object sender, RoutedEventArgs e)
@@ -86,8 +87,10 @@ namespace SQLitePass.UI.Dialogs
             _settings.SecondaryBackupDir = string.IsNullOrWhiteSpace(TxtSecondaryBackupDir.Text) ? null : TxtSecondaryBackupDir.Text.Trim();
 
             _settings.ShowPasswordColumnDefault = ChkShowPasswordDefault.IsChecked == true;
+            _settings.DarkMode = ChkDarkMode.IsChecked == true;
 
             AppSettingsManager.Save(_settings);
+            SQLitePass.UI.Services.ThemeManager.ApplyTheme(_settings.DarkMode);
 
             DialogResult = true;
             Close();

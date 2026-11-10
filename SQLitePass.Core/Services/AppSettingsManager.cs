@@ -26,6 +26,7 @@ namespace SQLitePass.Core.Services
         public bool AutoLockOnWindowsLock { get; set; } = true;
 
         // UI & Display
+        public bool DarkMode { get; set; } = true;
         public bool ShowPasswordColumnDefault { get; set; } = false;
 
         // Backup
