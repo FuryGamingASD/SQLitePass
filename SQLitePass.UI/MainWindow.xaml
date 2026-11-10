@@ -19,53 +19,53 @@
             <Setter Property="Background" Value="{DynamicResource AccentColor}"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="10,6"/>
-            <Setter Property="Margin" Value="2,0,4,0"/>
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Margin" Value="2,0"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="7" SnapsToDevicePixels="True">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource AccentHover}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Opacity" Value="0.9"/>
-                </Trigger>
-            </Style.Triggers>
         </Style>
 
         <!-- Standard Tool Button (Clean Icon-Only Toolbar Button) -->
         <Style x:Key="ToolButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="9,6"/>
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
             <Setter Property="Margin" Value="2,0"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
-            <Setter Property="FontWeight" Value="Medium"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="7" SnapsToDevicePixels="True">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource HoverBg}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.25"/>
+                                <Setter Property="Cursor" Value="Arrow"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="{DynamicResource HoverBg}"/>
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Opacity" Value="0.3"/>
-                    <Setter Property="Cursor" Value="Arrow"/>
-                </Trigger>
-            </Style.Triggers>
         </Style>
 
         <!-- DataGrid Row Style -->
@@ -73,6 +73,7 @@
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
             <Setter Property="BorderThickness" Value="0,0,0,1"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtle}"/>
+            <Setter Property="Height" Value="36"/>
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="{DynamicResource HoverBg}"/>
@@ -88,7 +89,8 @@
         <Style TargetType="DataGridCell">
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
-            <Setter Property="Padding" Value="4,0"/>
+            <Setter Property="Padding" Value="6,0"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
             <Style.Triggers>
                 <Trigger Property="IsSelected" Value="True">
                     <Setter Property="Background" Value="Transparent"/>
@@ -102,25 +104,100 @@
             <Setter Property="Background" Value="{DynamicResource HeaderBg}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderColor}"/>
-            <Setter Property="BorderThickness" Value="0,0,1,1"/>
-            <Setter Property="Padding" Value="10,7"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="Padding" Value="10,8"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontSize" Value="11"/>
         </Style>
 
-        <!-- TreeView Item Style -->
+        <!-- TreeView Item Style (Modern Bitwarden-style rounded pill) -->
         <Style TargetType="TreeViewItem">
             <Setter Property="Padding" Value="6,4"/>
             <Setter Property="Margin" Value="2,1"/>
             <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
             <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
-            <Style.Resources>
-                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#2563EB"/>
-                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="White"/>
-                <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#3B82F6"/>
-                <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="White"/>
-            </Style.Resources>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TreeViewItem">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition/>
+                            </Grid.RowDefinitions>
+                            <Border x:Name="Bd" Background="Transparent" CornerRadius="6" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True" Margin="2,1">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="16"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ToggleButton x:Name="Expander" Focusable="False" ClickMode="Press"
+                                                  IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}">
+                                        <ToggleButton.Style>
+                                            <Style TargetType="ToggleButton">
+                                                <Setter Property="UIElement.SnapsToDevicePixels" Value="True"/>
+                                                <Setter Property="Template">
+                                                    <Setter.Value>
+                                                        <ControlTemplate TargetType="ToggleButton">
+                                                            <Border Background="Transparent" Width="14" Height="14">
+                                                                <Path x:Name="ExpandPath" Fill="{DynamicResource TextMuted}" Data="M 3 0 L 7 4 L 3 8 Z" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                                            </Border>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsChecked" Value="True">
+                                                                    <Setter TargetName="ExpandPath" Property="Data" Value="M 0 2 L 8 2 L 4 6 Z"/>
+                                                                </Trigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Style>
+                                        </ToggleButton.Style>
+                                    </ToggleButton>
+                                    <ContentPresenter x:Name="PART_Header" Grid.Column="1" ContentSource="Header" HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+                            <ItemsPresenter x:Name="ItemsHost" Grid.Row="1" Margin="14,0,0,0"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="HasItems" Value="False">
+                                <Setter TargetName="Expander" Property="Visibility" Value="Hidden"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBg}"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ActivePillBg}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!-- Small Preview Action Button -->
+        <Style x:Key="PreviewSmallButton" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource HoverBg}"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderColor}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,3"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource AccentColor}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </Window.Resources>
 
@@ -197,63 +274,63 @@
                     <ColumnDefinition Width="300"/>
                 </Grid.ColumnDefinitions>
 
-                <StackPanel Orientation="Horizontal">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <!-- New Entry Button -->
                     <Button Style="{StaticResource PrimaryToolButton}" Click="BtnAddEntry_Click" ToolTip="{DynamicResource TbNewEntry}">
-                        <TextBlock Text="➕" FontSize="14" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        <TextBlock Text="➕" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
 
                     <Button Style="{StaticResource ToolButton}" Click="BtnEditEntry_Click" ToolTip="{DynamicResource TbEdit}"
                             IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}">
-                        <TextBlock Text="✏️" FontSize="14" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        <TextBlock Text="✏️" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                     <Button Style="{StaticResource ToolButton}" Click="BtnDeleteEntry_Click" ToolTip="{DynamicResource TbDelete}"
                             IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}">
-                        <TextBlock Text="🗑️" FontSize="14" Foreground="#EF4444" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        <TextBlock Text="🗑️" FontSize="13" Foreground="#EF4444" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
 
-                    <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="6,3" Background="{DynamicResource BorderColor}"/>
+                    <Border Width="1" Height="18" Background="{DynamicResource BorderColor}" Margin="8,0" VerticalAlignment="Center"/>
 
                     <Button Style="{StaticResource ToolButton}" Click="BtnCopyUsername_Click" ToolTip="{DynamicResource TbCopyUser}"
                             IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}">
-                        <TextBlock Text="👤" FontSize="14" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        <TextBlock Text="👤" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                     <Button Style="{StaticResource ToolButton}" Click="BtnCopyPassword_Click" ToolTip="{DynamicResource TbCopyPassword}"
                             IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}">
-                        <TextBlock Text="🔑" FontSize="14" Foreground="#F59E0B" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        <TextBlock Text="🔑" FontSize="13" Foreground="#F59E0B" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                     <Button Style="{StaticResource ToolButton}" Click="BtnOpenUrl_Click" ToolTip="{DynamicResource TbOpenUrl}"
                             IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}">
-                        <TextBlock Text="🌐" FontSize="14" Foreground="{DynamicResource AccentColor}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        <TextBlock Text="🌐" FontSize="13" Foreground="{DynamicResource AccentColor}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                     <Button Style="{StaticResource ToolButton}" Click="BtnAutoType_Click" ToolTip="{DynamicResource TbAutoType}"
                             IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}">
-                        <TextBlock Text="⌨️" FontSize="14" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        <TextBlock Text="⌨️" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
 
-                    <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="6,3" Background="{DynamicResource BorderColor}"/>
+                    <Border Width="1" Height="18" Background="{DynamicResource BorderColor}" Margin="8,0" VerticalAlignment="Center"/>
 
                     <Button Style="{StaticResource ToolButton}" Click="BtnPasswordGenerator_Click" ToolTip="{DynamicResource TbGenerator}">
-                        <TextBlock Text="⚡" FontSize="14" Foreground="#F59E0B" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        <TextBlock Text="⚡" FontSize="13" Foreground="#F59E0B" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                     <Button Style="{StaticResource ToolButton}" Click="MenuToggleTheme_Click" ToolTip="{DynamicResource MenuToggleTheme}">
-                        <TextBlock Text="🌓" FontSize="14" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        <TextBlock Text="🌓" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                     <Button Style="{StaticResource ToolButton}" Click="MenuSettings_Click" ToolTip="{DynamicResource TbSettings}">
-                        <TextBlock Text="⚙️" FontSize="14" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        <TextBlock Text="⚙️" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                     <Button Style="{StaticResource ToolButton}" Click="BtnLock_Click" ToolTip="{DynamicResource TbLock}">
-                        <TextBlock Text="🔒" FontSize="14" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        <TextBlock Text="🔒" FontSize="13" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                 </StackPanel>
 
                 <!-- Search Box -->
-                <Grid Grid.Column="2">
+                <Grid Grid.Column="2" VerticalAlignment="Center">
                     <TextBox x:Name="TxtSearch" Padding="28,6,8,6" VerticalContentAlignment="Center"
                              TextChanged="TxtSearch_TextChanged"/>
-                    <TextBlock Text="🔍" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="8,0,0,0" IsHitTestVisible="False"/>
+                    <TextBlock Text="🔍" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="10,0,0,0" IsHitTestVisible="False" FontSize="11"/>
                     <TextBlock Text="{DynamicResource SearchPlaceholder}" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="30,0,0,0"
-                               IsHitTestVisible="False">
+                               IsHitTestVisible="False" FontSize="12">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Visibility" Value="Collapsed"/>
@@ -435,20 +512,19 @@
                                 <TextBlock x:Name="PrevTitle" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" Margin="0,0,0,8"/>
 
                                 <!-- Username -->
-                                <StackPanel Orientation="Horizontal" Margin="0,4">
-                                    <TextBlock Text="{DynamicResource PrevUser}" FontWeight="SemiBold" Width="80" Foreground="{DynamicResource TextSecondary}"/>
-                                    <TextBlock x:Name="PrevUserName" FontWeight="Medium" Foreground="{DynamicResource TextPrimary}"/>
-                                    <Button Content="{DynamicResource Copy}" Click="BtnCopyUsername_Click" Margin="10,0,0,0" Padding="6,2"
-                                            Background="{DynamicResource HoverBg}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" FontSize="11" Cursor="Hand"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,5">
+                                    <TextBlock Text="{DynamicResource PrevUser}" FontWeight="SemiBold" Width="80" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="PrevUserName" FontWeight="Medium" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"/>
+                                    <Button Content="{DynamicResource Copy}" Click="BtnCopyUsername_Click" Margin="10,0,0,0"
+                                            Style="{StaticResource PreviewSmallButton}"/>
                                 </StackPanel>
 
                                 <!-- Password with Reveal & Quality -->
-                                <StackPanel Orientation="Horizontal" Margin="0,4">
-                                    <TextBlock Text="{DynamicResource PrevPassword}" FontWeight="SemiBold" Width="80" Foreground="{DynamicResource TextSecondary}"/>
-                                    <TextBlock x:Name="PrevPassword" Text="••••••••" FontFamily="Consolas" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
-                                    <Button Content="👁" Click="BtnPreviewTogglePassword_Click" Margin="8,0,4,0" Padding="5,1" Background="{DynamicResource HoverBg}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" Cursor="Hand"/>
-                                    <Button Content="{DynamicResource Copy}" Click="BtnCopyPassword_Click" Margin="4,0,0,0" Padding="6,2"
-                                            Background="{DynamicResource HoverBg}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" FontSize="11" Cursor="Hand"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,5">
+                                    <TextBlock Text="{DynamicResource PrevPassword}" FontWeight="SemiBold" Width="80" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center"/>
+                                    <TextBlock x:Name="PrevPassword" Text="••••••••" FontFamily="Consolas" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"/>
+                                    <Button Content="👁" Click="BtnPreviewTogglePassword_Click" Margin="8,0,4,0" Style="{StaticResource PreviewSmallButton}"/>
+                                    <Button Content="{DynamicResource Copy}" Click="BtnCopyPassword_Click" Margin="4,0,0,0" Style="{StaticResource PreviewSmallButton}"/>
                                 </StackPanel>
 
                                 <Grid Margin="0,4,0,8">

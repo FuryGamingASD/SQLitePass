@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SQLitePass - Modern UI Concept Prototype</title>
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+            },
+            surface: {
+              base: '#09090b',    // Zinc 950
+              card: '#121215',    // Slightly elevated
+              sidebar: '#0d0d10', // Quiet dark sidebar
+              border: '#27272a',  // Zinc 800 subtle
+              muted: '#71717a',   // Zinc 500
+              hover: '#1c1c21',   // Zinc 850
+              active: '#27272f',  // Pill active
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'Segoe UI', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'Consolas', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <style>
+    /* Custom scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+    
+    .tab-active {
+      background-color: #2563eb;
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+    }
+  </style>
+</head>
+<body class="bg-surface-base text-zinc-100 font-sans antialiased min-h-screen flex flex-col selection:bg-brand-600 selection:text-white">
+
+  <!-- TOP PROTOTYPE BAR (Tab switch & Theme preview toggle) -->
+  <header class="border-b border-surface-border bg-surface-card/80 backdrop-blur sticky top-0 z-50 px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+        <i data-lucide="shield-check" class="w-5 h-5 text-white"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="font-bold tracking-tight text-white text-sm">SQLitePass</span>
+          <span class="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700/60">UI Overhaul</span>
+        </div>
+        <p class="text-xs text-zinc-400">Interactive Design Prototype &bull; Inspired by Bitwarden &amp; KeePassXC Modern</p>
+      </div>
+    </div>
+
+    <!-- View Switcher -->
+    <div class="flex items-center gap-1 bg-surface-base p-1 rounded-xl border border-surface-border">
+      <button id="btn-tab-dashboard" onclick="switchView('dashboard')" class="tab-active flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all">
+        <i data-lucide="layout-dashboard" class="w-3.5 h-3.5"></i>
+        <span>1. Main Dashboard (Vault)</span>
+      </button>
+      <button id="btn-tab-unlock" onclick="switchView('unlock')" class="text-zinc-400 hover:text-white flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all">
+        <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+        <span>2. Unlock Screen (Minimal Modal)</span>
+      </button>
+    </div>
+
+    <!-- Quick info badge -->
+    <div class="hidden sm:flex items-center gap-3 text-xs text-zinc-400">
+      <span class="flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+        <span>Zero-Knowledge &bull; WAL Active</span>
+      </span>
+    </div>
+  </header>
+
+  <!-- ========================================================================= -->
+  <!-- VIEW 1: MAIN DASHBOARD (Vault View) -->
+  <!-- ========================================================================= -->
+  <main id="view-dashboard" class="flex-1 flex flex-col min-h-0 overflow-hidden">
+    
+    <!-- APP HEADER / SYSTEM BAR -->
+    <div class="h-14 border-b border-surface-border bg-surface-card px-4 flex items-center justify-between gap-4">
+      <!-- Left: Brand & Vault switcher -->
+      <div class="flex items-center gap-3 min-w-[220px]">
+        <div class="w-7 h-7 rounded-md bg-brand-600/20 text-brand-500 flex items-center justify-center border border-brand-500/30">
+          <i data-lucide="shield" class="w-4 h-4"></i>
+        </div>
+        <div>
+          <h1 class="text-xs font-semibold text-zinc-100 flex items-center gap-1.5">
+            <span>personal-vault.kpd</span>
+            <span class="text-[10px] font-normal text-zinc-500">&bull; 42 entries</span>
+          </h1>
+          <p class="text-[10px] text-zinc-500">Synced &bull; Dual-backup ready</p>
+        </div>
+      </div>
+
+      <!-- Center: Refined Unified Toolbar (Compact, Consistent Icons, No noisy oversized buttons) -->
+      <div class="flex items-center gap-1 bg-surface-base/80 p-1 rounded-lg border border-surface-border">
+        <!-- Primary Action: Clean, sized harmoniously -->
+        <button class="flex items-center gap-1.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium px-2.5 py-1.5 rounded-md transition-colors shadow-sm" title="New Entry (Ctrl+I)">
+          <i data-lucide="plus" class="w-3.5 h-3.5 stroke-[2.5]"></i>
+          <span>New</span>
+        </button>
+        
+        <div class="w-px h-4 bg-surface-border mx-1"></div>
+
+        <!-- Single-item action buttons: clean, uniform SVG line icons, tooltips on hover -->
+        <button class="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-surface-hover rounded-md transition-colors disabled:opacity-30 disabled:pointer-events-none" title="Edit Entry (Enter)">
+          <i data-lucide="pencil" class="w-4 h-4"></i>
+        </button>
+        <button class="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-surface-hover rounded-md transition-colors disabled:opacity-30 disabled:pointer-events-none" title="Copy Username (Double-click)">
+          <i data-lucide="user" class="w-4 h-4"></i>
+        </button>
+        <button class="p-1.5 text-zinc-400 hover:text-amber-400 hover:bg-surface-hover rounded-md transition-colors disabled:opacity-30 disabled:pointer-events-none" title="Copy Password (12s auto-clear)">
+          <i data-lucide="key-round" class="w-4 h-4"></i>
+        </button>
+        <button class="p-1.5 text-zinc-400 hover:text-brand-400 hover:bg-surface-hover rounded-md transition-colors disabled:opacity-30 disabled:pointer-events-none" title="Open URL in Browser">
+          <i data-lucide="external-link" class="w-4 h-4"></i>
+        </button>
+        <button class="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-surface-hover rounded-md transition-colors disabled:opacity-30 disabled:pointer-events-none" title="Global Auto-Type (Ctrl+Alt+A)">
+          <i data-lucide="keyboard" class="w-4 h-4"></i>
+        </button>
+
+        <div class="w-px h-4 bg-surface-border mx-1"></div>
+
+        <button class="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-surface-hover rounded-md transition-colors" title="Password Generator (Ctrl+W)">
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+        </button>
+        <button class="p-1.5 text-zinc-400 hover:text-red-400 hover:bg-surface-hover rounded-md transition-colors" title="Delete Entry (Del)">
+          <i data-lucide="trash-2" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Right: Search Bar & Utilities -->
+      <div class="flex items-center gap-2 max-w-sm w-full justify-end">
+        <div class="relative w-64">
+          <i data-lucide="search" class="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+          <input type="text" placeholder="Search vault... (Ctrl+F)" class="w-full bg-surface-base border border-surface-border rounded-lg pl-8 pr-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-brand-500 transition-colors">
+          <kbd class="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-mono text-zinc-500 bg-zinc-900 border border-zinc-800 px-1 rounded">⌘K</kbd>
+        </div>
+
+        <button class="p-1.5 text-zinc-400 hover:text-zinc-100 hover:bg-surface-hover rounded-lg transition-colors" title="Settings (⚙️)">
+          <i data-lucide="settings" class="w-4 h-4"></i>
+        </button>
+        <button class="p-1.5 text-zinc-400 hover:text-red-400 hover:bg-surface-hover rounded-lg transition-colors" title="Lock Vault (Ctrl+L)">
+          <i data-lucide="lock" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- MAIN BODY: THREE PANE ARCHITECTURE (Sidebar + DataGrid + Detail Inspector) -->
+    <div class="flex-1 flex overflow-hidden">
+      
+      <!-- LEFT SIDEBAR: FOLDERS / GROUPS -->
+      <aside class="w-60 border-r border-surface-border bg-surface-sidebar flex flex-col shrink-0">
+        <!-- Sidebar Category Header -->
+        <div class="px-4 py-3 flex items-center justify-between text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+          <span>Categories</span>
+          <button class="text-zinc-500 hover:text-brand-400 transition-colors p-1" title="New Folder / Group">
+            <i data-lucide="folder-plus" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+
+        <!-- Sidebar Navigation List (Bitwarden-style minimal rounded pills) -->
+        <nav class="flex-1 px-2 space-y-0.5 overflow-y-auto text-xs">
+          <a href="#" class="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-surface-active text-white font-medium group">
+            <div class="flex items-center gap-2.5">
+              <i data-lucide="layers" class="w-4 h-4 text-brand-400"></i>
+              <span>All Items</span>
+            </div>
+            <span class="text-[11px] text-zinc-400 font-mono">42</span>
+          </a>
+
+          <a href="#" class="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-surface-hover font-normal group transition-colors">
+            <div class="flex items-center gap-2.5">
+              <i data-lucide="star" class="w-4 h-4 text-amber-400/80"></i>
+              <span>Favorites</span>
+            </div>
+            <span class="text-[11px] text-zinc-600 group-hover:text-zinc-400 font-mono">7</span>
+          </a>
+
+          <div class="pt-3 pb-1 px-2.5 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Folders</div>
+
+          <a href="#" class="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-surface-hover group transition-colors">
+            <div class="flex items-center gap-2.5">
+              <i data-lucide="globe" class="w-4 h-4 text-blue-400/80"></i>
+              <span>Internet &amp; Web</span>
+            </div>
+            <span class="text-[11px] text-zinc-600 group-hover:text-zinc-400 font-mono">19</span>
+          </a>
+
+          <a href="#" class="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-surface-hover group transition-colors">
+            <div class="flex items-center gap-2.5">
+              <i data-lucide="mail" class="w-4 h-4 text-indigo-400/80"></i>
+              <span>Email Accounts</span>
+            </div>
+            <span class="text-[11px] text-zinc-600 group-hover:text-zinc-400 font-mono">6</span>
+          </a>
+
+          <a href="#" class="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-surface-hover group transition-colors">
+            <div class="flex items-center gap-2.5">
+              <i data-lucide="credit-card" class="w-4 h-4 text-emerald-400/80"></i>
+              <span>Banking &amp; Cards</span>
+            </div>
+            <span class="text-[11px] text-zinc-600 group-hover:text-zinc-400 font-mono">5</span>
+          </a>
+
+          <a href="#" class="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-surface-hover group transition-colors">
+            <div class="flex items-center gap-2.5">
+              <i data-lucide="briefcase" class="w-4 h-4 text-amber-400/80"></i>
+              <span>Work &amp; Clients</span>
+            </div>
+            <span class="text-[11px] text-zinc-600 group-hover:text-zinc-400 font-mono">8</span>
+          </a>
+
+          <a href="#" class="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-surface-hover group transition-colors">
+            <div class="flex items-center gap-2.5">
+              <i data-lucide="server" class="w-4 h-4 text-cyan-400/80"></i>
+              <span>Servers &amp; SSH</span>
+            </div>
+            <span class="text-[11px] text-zinc-600 group-hover:text-zinc-400 font-mono">4</span>
+          </a>
+
+          <div class="pt-3 pb-1 px-2.5 text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">System</div>
+
+          <a href="#" class="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-surface-hover group transition-colors">
+            <div class="flex items-center gap-2.5">
+              <i data-lucide="trash-2" class="w-4 h-4 text-zinc-500"></i>
+              <span>Trash</span>
+            </div>
+            <span class="text-[11px] text-zinc-600 group-hover:text-zinc-400 font-mono">0</span>
+          </a>
+        </nav>
+
+        <!-- Sidebar footer: subtle backup status pill -->
+        <div class="p-3 border-t border-surface-border text-[11px] flex items-center justify-between text-zinc-400">
+          <span class="flex items-center gap-1.5">
+            <i data-lucide="database" class="w-3.5 h-3.5 text-brand-400"></i>
+            <span>SQLite WAL</span>
+          </span>
+          <span class="text-[10px] font-mono text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-1.5 py-0.5 rounded">.backup OK</span>
+        </div>
+      </aside>
+
+      <!-- CENTER: ENTRIES DATAGRID (Clean, Modern Typography, No loud heavy lines) -->
+      <section class="flex-1 flex flex-col bg-surface-base overflow-hidden">
+        
+        <!-- Grid Header -->
+        <div class="grid grid-cols-12 border-b border-surface-border bg-surface-card text-[11px] font-semibold text-zinc-400 uppercase tracking-wider px-4 py-2.5 select-none">
+          <div class="col-span-4 flex items-center gap-1 cursor-pointer hover:text-zinc-200">
+            <span>Title</span>
+            <i data-lucide="chevron-down" class="w-3 h-3 text-brand-400"></i>
+          </div>
+          <div class="col-span-3">Username</div>
+          <div class="col-span-3">Website / URL</div>
+          <div class="col-span-2 text-right pr-2">Updated</div>
+        </div>
+
+        <!-- Grid Body (Rows) -->
+        <div class="flex-1 overflow-y-auto divide-y divide-surface-border/50 text-xs">
+          
+          <!-- Row 1 (Selected Row Example) -->
+          <div class="grid grid-cols-12 px-4 py-2.5 items-center bg-brand-600/10 border-l-2 border-brand-500 cursor-pointer text-white">
+            <div class="col-span-4 flex items-center gap-2.5 pr-2 truncate">
+              <div class="w-6 h-6 rounded bg-zinc-800 flex items-center justify-center shrink-0 text-brand-400">
+                <i data-lucide="github" class="w-3.5 h-3.5"></i>
+              </div>
+              <span class="font-medium truncate">GitHub Developer Account</span>
+            </div>
+            <div class="col-span-3 text-zinc-300 truncate font-mono text-[11px]">furyadmin@dev.io</div>
+            <div class="col-span-3 text-zinc-400 truncate">github.com</div>
+            <div class="col-span-2 text-right pr-2 text-zinc-500 font-mono text-[11px]">Today 21:14</div>
+          </div>
+
+          <!-- Row 2 -->
+          <div class="grid grid-cols-12 px-4 py-2.5 items-center hover:bg-surface-hover/60 cursor-pointer text-zinc-300 transition-colors">
+            <div class="col-span-4 flex items-center gap-2.5 pr-2 truncate">
+              <div class="w-6 h-6 rounded bg-zinc-800/60 flex items-center justify-center shrink-0 text-emerald-400">
+                <i data-lucide="credit-card" class="w-3.5 h-3.5"></i>
+              </div>
+              <span class="font-medium truncate text-zinc-100">Banca Intesa Sanpaolo</span>
+            </div>
+            <div class="col-span-3 text-zinc-400 truncate font-mono text-[11px]">user_8829103</div>
+            <div class="col-span-3 text-zinc-400 truncate">intesasanpaolo.com</div>
+            <div class="col-span-2 text-right pr-2 text-zinc-500 font-mono text-[11px]">Yesterday</div>
+          </div>
+
+          <!-- Row 3 -->
+          <div class="grid grid-cols-12 px-4 py-2.5 items-center hover:bg-surface-hover/60 cursor-pointer text-zinc-300 transition-colors">
+            <div class="col-span-4 flex items-center gap-2.5 pr-2 truncate">
+              <div class="w-6 h-6 rounded bg-zinc-800/60 flex items-center justify-center shrink-0 text-blue-400">
+                <i data-lucide="mail" class="w-3.5 h-3.5"></i>
+              </div>
+              <span class="font-medium truncate text-zinc-100">ProtonMail Secure</span>
+            </div>
+            <div class="col-span-3 text-zinc-400 truncate font-mono text-[11px]">fury@proton.me</div>
+            <div class="col-span-3 text-zinc-400 truncate">mail.proton.me</div>
+            <div class="col-span-2 text-right pr-2 text-zinc-500 font-mono text-[11px]">08 Nov</div>
+          </div>
+
+          <!-- Row 4 -->
+          <div class="grid grid-cols-12 px-4 py-2.5 items-center hover:bg-surface-hover/60 cursor-pointer text-zinc-300 transition-colors">
+            <div class="col-span-4 flex items-center gap-2.5 pr-2 truncate">
+              <div class="w-6 h-6 rounded bg-zinc-800/60 flex items-center justify-center shrink-0 text-amber-400">
+                <i data-lucide="server" class="w-3.5 h-3.5"></i>
+              </div>
+              <span class="font-medium truncate text-zinc-100">Hetzner Cloud VPS Root</span>
+            </div>
+            <div class="col-span-3 text-zinc-400 truncate font-mono text-[11px]">root@159.69.21.40</div>
+            <div class="col-span-3 text-zinc-400 truncate">console.hetzner.cloud</div>
+            <div class="col-span-2 text-right pr-2 text-zinc-500 font-mono text-[11px]">02 Nov</div>
+          </div>
+
+          <!-- Row 5 -->
+          <div class="grid grid-cols-12 px-4 py-2.5 items-center hover:bg-surface-hover/60 cursor-pointer text-zinc-300 transition-colors">
+            <div class="col-span-4 flex items-center gap-2.5 pr-2 truncate">
+              <div class="w-6 h-6 rounded bg-zinc-800/60 flex items-center justify-center shrink-0 text-purple-400">
+                <i data-lucide="shopping-bag" class="w-3.5 h-3.5"></i>
+              </div>
+              <span class="font-medium truncate text-zinc-100">Amazon Prime Italy</span>
+            </div>
+            <div class="col-span-3 text-zinc-400 truncate font-mono text-[11px]">furyadmin@gmail.com</div>
+            <div class="col-span-3 text-zinc-400 truncate">amazon.it</div>
+            <div class="col-span-2 text-right pr-2 text-zinc-500 font-mono text-[11px]">28 Oct</div>
+          </div>
+        </div>
+
+        <!-- BOTTOM STATUS BAR -->
+        <div class="h-8 border-t border-surface-border bg-surface-card px-4 flex items-center justify-between text-[11px] text-zinc-400">
+          <div class="flex items-center gap-3">
+            <span>5 items shown of 42</span>
+            <span class="text-zinc-600">&bull;</span>
+            <span class="text-amber-400/90 flex items-center gap-1 font-mono">
+              <i data-lucide="clipboard-check" class="w-3 h-3"></i>
+              <span>Clipboard auto-clears in 11s</span>
+            </span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="flex items-center gap-1.5 text-emerald-400">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>Protected by Argon2id + AES-GCM</span>
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT: DETAIL INSPECTOR PANE (Modern Bitwarden Style Drawer) -->
+      <aside class="w-80 border-l border-surface-border bg-surface-card flex flex-col shrink-0">
+        <!-- Inspector Top Header -->
+        <div class="px-5 py-4 border-b border-surface-border flex items-start justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-surface-base border border-surface-border flex items-center justify-center text-brand-400">
+              <i data-lucide="github" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h2 class="text-sm font-semibold text-white">GitHub Developer</h2>
+              <p class="text-xs text-zinc-400">Login Credential</p>
+            </div>
+          </div>
+          <button class="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-surface-hover" title="Edit entry">
+            <i data-lucide="pencil" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <!-- Inspector Fields -->
+        <div class="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
+          <!-- Username field -->
+          <div class="bg-surface-base p-3 rounded-lg border border-surface-border space-y-1">
+            <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block">Username</span>
+            <div class="flex items-center justify-between">
+              <span class="text-zinc-100 font-mono select-all">furyadmin@dev.io</span>
+              <button class="text-zinc-400 hover:text-brand-400 transition-colors p-1" title="Copy username">
+                <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Password field with entropy badge -->
+          <div class="bg-surface-base p-3 rounded-lg border border-surface-border space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block">Password</span>
+              <span class="text-[10px] font-mono font-medium text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-1.5 py-0.5 rounded">114 bits (Very Strong)</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-zinc-200 font-mono tracking-widest text-sm select-none">&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</span>
+              <div class="flex items-center gap-1">
+                <button class="text-zinc-400 hover:text-zinc-100 p-1" title="Reveal password">
+                  <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+                </button>
+                <button class="text-zinc-400 hover:text-amber-400 p-1" title="Copy password">
+                  <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+            </div>
+            <!-- Minimal Entropy Quality bar -->
+            <div class="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+              <div class="bg-emerald-500 h-full w-[90%] rounded-full"></div>
+            </div>
+          </div>
+
+          <!-- URL field -->
+          <div class="bg-surface-base p-3 rounded-lg border border-surface-border space-y-1">
+            <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block">Website</span>
+            <div class="flex items-center justify-between">
+              <a href="#" class="text-brand-400 hover:underline truncate max-w-[200px]">https://github.com</a>
+              <button class="text-zinc-400 hover:text-white p-1" title="Launch browser">
+                <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Notes field -->
+          <div class="bg-surface-base p-3 rounded-lg border border-surface-border space-y-1">
+            <span class="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider block">Notes</span>
+            <p class="text-zinc-300 whitespace-pre-wrap leading-relaxed text-[11px]">Primary 2FA recovery codes stored in encrypted safe. SSH public key linked to corporate laptop.</p>
+          </div>
+        </div>
+
+        <!-- Inspector footer: Auto-Type button -->
+        <div class="p-4 border-t border-surface-border bg-surface-sidebar">
+          <button class="w-full bg-surface-hover hover:bg-zinc-800 text-zinc-200 border border-surface-border font-medium py-2 rounded-lg flex items-center justify-center gap-2 transition-colors">
+            <i data-lucide="keyboard" class="w-4 h-4 text-brand-400"></i>
+            <span>Execute Auto-Type</span>
+          </button>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- VIEW 2: UNLOCK SCREEN (Clean Centered Modal, No Box-in-Box) -->
+  <!-- ========================================================================= -->
+  <main id="view-unlock" class="hidden flex-1 flex items-center justify-center p-6 bg-gradient-to-b from-surface-base via-[#0c0d12] to-surface-base relative overflow-hidden">
+    
+    <!-- Subtle background radial lighting -->
+    <div class="absolute w-[500px] h-[500px] bg-brand-600/10 rounded-full blur-3xl pointer-events-none -top-20"></div>
+
+    <!-- Centered Dialog / Modal (Single clean card) -->
+    <div class="w-full max-w-md bg-surface-card border border-surface-border/80 rounded-2xl shadow-2xl p-8 relative z-10 space-y-6">
+      
+      <!-- Brand & Header -->
+      <div class="text-center space-y-2">
+        <div class="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/25 border border-white/10">
+          <i data-lucide="shield-check" class="w-8 h-8 text-white"></i>
+        </div>
+        <h2 class="text-xl font-bold tracking-tight text-white">Unlock SQLitePass</h2>
+        <p class="text-xs text-zinc-400 max-w-xs mx-auto">Zero-knowledge local vault protected by Argon2id &amp; AES-256-GCM</p>
+      </div>
+
+      <!-- Form Inputs (Consistent width, unified style, no double nested boxes) -->
+      <form class="space-y-4" onsubmit="event.preventDefault(); switchView('dashboard');">
+        
+        <!-- 1. Database File selector -->
+        <div class="space-y-1.5">
+          <label class="block text-xs font-medium text-zinc-300">Vault Database</label>
+          <div class="relative flex items-center">
+            <div class="absolute left-3 text-zinc-500 pointer-events-none">
+              <i data-lucide="database" class="w-4 h-4"></i>
+            </div>
+            <select class="w-full bg-surface-base border border-surface-border rounded-xl pl-9 pr-10 py-2.5 text-xs text-zinc-200 focus:outline-none focus:border-brand-500 appearance-none cursor-pointer">
+              <option>personal-vault.kpd (Documents)</option>
+              <option>work-passwords.kpd (External SSD)</option>
+            </select>
+            <button type="button" class="absolute right-2.5 p-1 text-zinc-400 hover:text-white" title="Browse other vault file...">
+              <i data-lucide="folder-open" class="w-4 h-4"></i>
+            </button>
+          </div>
+          <!-- Backup pill: quiet, compact, minimal green dot -->
+          <div class="flex items-center justify-between text-[11px] text-zinc-500 pt-0.5">
+            <span class="flex items-center gap-1 text-emerald-400">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+              <span>Isolated .backup synchronized</span>
+            </span>
+            <a href="#" class="hover:text-brand-400 underline transition-colors">Restore copy</a>
+          </div>
+        </div>
+
+        <!-- 2. Master Password input -->
+        <div class="space-y-1.5">
+          <label class="block text-xs font-medium text-zinc-300">Master Password</label>
+          <div class="relative flex items-center">
+            <div class="absolute left-3 text-zinc-500 pointer-events-none">
+              <i data-lucide="key" class="w-4 h-4"></i>
+            </div>
+            <input type="password" id="input-pwd" placeholder="Enter master password..." class="w-full bg-surface-base border border-surface-border rounded-xl pl-9 pr-10 py-2.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-brand-500 transition-colors">
+            <button type="button" onclick="togglePasswordVisibility()" class="absolute right-3 text-zinc-400 hover:text-zinc-200 transition-colors">
+              <i data-lucide="eye" id="icon-eye" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- 3. Key File (Optional checkbox accordion) -->
+        <div class="pt-1">
+          <label class="flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox" id="chk-keyfile" onchange="toggleKeyFileField()" class="rounded border-zinc-700 bg-surface-base text-brand-600 focus:ring-0 focus:ring-offset-0">
+            <span class="text-xs text-zinc-400 hover:text-zinc-300">Use supplementary Key File (.key)</span>
+          </label>
+          <div id="field-keyfile" class="hidden mt-2 relative flex items-center">
+            <input type="text" readonly placeholder="No key file chosen..." class="w-full bg-surface-base/50 border border-surface-border rounded-xl pl-3 pr-16 py-2 text-xs text-zinc-400">
+            <button type="button" class="absolute right-2 px-2.5 py-1 text-xs text-zinc-300 hover:text-white bg-surface-hover rounded-md border border-surface-border">Browse</button>
+          </div>
+        </div>
+
+        <!-- 4. Action Buttons: Clean primary button + subtle quiet secondary -->
+        <div class="pt-3 space-y-3">
+          <button type="submit" class="w-full bg-brand-600 hover:bg-brand-500 text-white font-medium py-2.5 rounded-xl text-sm transition-all shadow-md shadow-brand-600/20 flex items-center justify-center gap-2">
+            <span>Unlock Vault</span>
+            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+          </button>
+
+          <div class="flex items-center justify-between text-xs pt-1">
+            <a href="#" class="text-zinc-400 hover:text-brand-400 transition-colors flex items-center gap-1">
+              <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+              <span>Create New Vault...</span>
+            </a>
+            <a href="#" class="text-zinc-500 hover:text-zinc-300 transition-colors">Exit App</a>
+          </div>
+        </div>
+
+      </form>
+
+    </div>
+  </main>
+
+  <script>
+    // Lucide Icons init
+    lucide.createIcons();
+
+    function switchView(viewName) {
+      const viewDashboard = document.getElementById('view-dashboard');
+      const viewUnlock = document.getElementById('view-unlock');
+      const btnDash = document.getElementById('btn-tab-dashboard');
+      const btnUnlock = document.getElementById('btn-tab-unlock');
+
+      if (viewName === 'dashboard') {
+        viewDashboard.classList.remove('hidden');
+        viewUnlock.classList.add('hidden');
+        btnDash.className = "tab-active flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all";
+        btnUnlock.className = "text-zinc-400 hover:text-white flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all";
+      } else {
+        viewDashboard.classList.add('hidden');
+        viewUnlock.classList.remove('hidden');
+        btnUnlock.className = "tab-active flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all";
+        btnDash.className = "text-zinc-400 hover:text-white flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all";
+      }
+      lucide.createIcons();
+    }
+
+    function togglePasswordVisibility() {
+      const pwd = document.getElementById('input-pwd');
+      const eye = document.getElementById('icon-eye');
+      if (pwd.type === 'password') {
+        pwd.type = 'text';
+      } else {
+        pwd.type = 'password';
+      }
+    }
+
+    function toggleKeyFileField() {
+      const chk = document.getElementById('chk-keyfile');
+      const field = document.getElementById('field-keyfile');
+      if (chk.checked) {
+        field.classList.remove('hidden');
+      } else {
+        field.classList.add('hidden');
+      }
+    }
+  </script>
+</body>
+</html>
