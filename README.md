@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" width="128" height="128" alt="SQLitePass Logo" />
+</p>
+
 # SQLitePass 🛡️
 
 A modern, lightweight, and ultra-resilient password manager for Windows (.NET 8 C# + WPF) inspired by the core capabilities of **KeePass 2**, but re-engineered from the ground up to **permanently eliminate database corruption and catastrophic data loss**.
