@@ -19,8 +19,8 @@
             <Setter Property="Background" Value="{DynamicResource AccentColor}"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="12,6"/>
-            <Setter Property="Margin" Value="2,0,6,0"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="Margin" Value="2,0,4,0"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Template">
@@ -39,12 +39,12 @@
             </Style.Triggers>
         </Style>
 
-        <!-- Standard Tool Button -->
+        <!-- Standard Tool Button (Clean Icon-Only Toolbar Button) -->
         <Style x:Key="ToolButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="8,5"/>
-            <Setter Property="Margin" Value="1,0"/>
+            <Setter Property="Padding" Value="9,6"/>
+            <Setter Property="Margin" Value="2,0"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
             <Setter Property="FontWeight" Value="Medium"/>
@@ -62,7 +62,7 @@
                     <Setter Property="Background" Value="{DynamicResource HoverBg}"/>
                 </Trigger>
                 <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Opacity" Value="0.35"/>
+                    <Setter Property="Opacity" Value="0.3"/>
                     <Setter Property="Cursor" Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
@@ -198,76 +198,52 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Orientation="Horizontal">
-                    <!-- Prominent New Entry Button -->
-                    <Button Style="{StaticResource PrimaryToolButton}" Click="BtnAddEntry_Click" ToolTip="Ctrl+I">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="➕" Margin="0,0,6,0" FontSize="11" VerticalAlignment="Center"/>
-                            <TextBlock Text="{DynamicResource TbNewEntry}" VerticalAlignment="Center"/>
-                        </StackPanel>
+                    <!-- New Entry Button -->
+                    <Button Style="{StaticResource PrimaryToolButton}" Click="BtnAddEntry_Click" ToolTip="{DynamicResource TbNewEntry}">
+                        <TextBlock Text="➕" FontSize="14" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
 
                     <Button Style="{StaticResource ToolButton}" Click="BtnEditEntry_Click" ToolTip="{DynamicResource TbEdit}"
                             IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="✏️" Margin="0,0,5,0"/>
-                            <TextBlock Text="{DynamicResource TbEdit}"/>
-                        </StackPanel>
+                        <TextBlock Text="✏️" FontSize="14" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                     <Button Style="{StaticResource ToolButton}" Click="BtnDeleteEntry_Click" ToolTip="{DynamicResource TbDelete}"
                             IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🗑️" Margin="0,0,5,0" Foreground="#EF4444"/>
-                            <TextBlock Text="{DynamicResource TbDelete}"/>
-                        </StackPanel>
+                        <TextBlock Text="🗑️" FontSize="14" Foreground="#EF4444" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
 
-                    <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="8,2" Background="{DynamicResource BorderColor}"/>
+                    <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="6,3" Background="{DynamicResource BorderColor}"/>
 
                     <Button Style="{StaticResource ToolButton}" Click="BtnCopyUsername_Click" ToolTip="{DynamicResource TbCopyUser}"
                             IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="👤" Margin="0,0,5,0"/>
-                            <TextBlock Text="{DynamicResource TbCopyUser}"/>
-                        </StackPanel>
+                        <TextBlock Text="👤" FontSize="14" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                     <Button Style="{StaticResource ToolButton}" Click="BtnCopyPassword_Click" ToolTip="{DynamicResource TbCopyPassword}"
                             IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🔑" Margin="0,0,5,0" Foreground="#F59E0B"/>
-                            <TextBlock Text="{DynamicResource TbCopyPassword}"/>
-                        </StackPanel>
+                        <TextBlock Text="🔑" FontSize="14" Foreground="#F59E0B" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                     <Button Style="{StaticResource ToolButton}" Click="BtnOpenUrl_Click" ToolTip="{DynamicResource TbOpenUrl}"
                             IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🌐" Margin="0,0,5,0" Foreground="{DynamicResource AccentColor}"/>
-                            <TextBlock Text="{DynamicResource TbOpenUrl}"/>
-                        </StackPanel>
+                        <TextBlock Text="🌐" FontSize="14" Foreground="{DynamicResource AccentColor}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
-                    <Button Style="{StaticResource ToolButton}" Click="BtnAutoType_Click" ToolTip="Ctrl+V"
+                    <Button Style="{StaticResource ToolButton}" Click="BtnAutoType_Click" ToolTip="{DynamicResource TbAutoType}"
                             IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="⌨️" Margin="0,0,5,0"/>
-                            <TextBlock Text="{DynamicResource TbAutoType}"/>
-                        </StackPanel>
+                        <TextBlock Text="⌨️" FontSize="14" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
 
-                    <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="8,2" Background="{DynamicResource BorderColor}"/>
+                    <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="6,3" Background="{DynamicResource BorderColor}"/>
 
                     <Button Style="{StaticResource ToolButton}" Click="BtnPasswordGenerator_Click" ToolTip="{DynamicResource TbGenerator}">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="⚡" Margin="0,0,5,0" Foreground="#F59E0B"/>
-                            <TextBlock Text="{DynamicResource TbGenerator}"/>
-                        </StackPanel>
+                        <TextBlock Text="⚡" FontSize="14" Foreground="#F59E0B" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                     <Button Style="{StaticResource ToolButton}" Click="MenuToggleTheme_Click" ToolTip="{DynamicResource MenuToggleTheme}">
-                        <TextBlock Text="🌓" Margin="0,0,0,0" FontSize="14"/>
+                        <TextBlock Text="🌓" FontSize="14" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                     <Button Style="{StaticResource ToolButton}" Click="MenuSettings_Click" ToolTip="{DynamicResource TbSettings}">
-                        <TextBlock Text="⚙️" Margin="0,0,0,0"/>
+                        <TextBlock Text="⚙️" FontSize="14" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                     <Button Style="{StaticResource ToolButton}" Click="BtnLock_Click" ToolTip="{DynamicResource TbLock}">
-                        <TextBlock Text="🔒" Foreground="{DynamicResource TextMuted}"/>
+                        <TextBlock Text="🔒" FontSize="14" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                 </StackPanel>
 
