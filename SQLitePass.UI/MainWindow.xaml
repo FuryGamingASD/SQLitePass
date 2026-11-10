@@ -12,6 +12,7 @@
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <conv:GroupIconConverter x:Key="GroupIconConverter"/>
         <conv:EntryIconConverter x:Key="EntryIconConverter"/>
+        <conv:NotNullToBoolConverter x:Key="NotNullToBoolConverter"/>
 
         <!-- Primary Action Button -->
         <Style x:Key="PrimaryToolButton" TargetType="Button">
@@ -59,6 +60,10 @@
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="{DynamicResource HoverBg}"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.35"/>
+                    <Setter Property="Cursor" Value="Arrow"/>
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -133,6 +138,11 @@
                 <Style TargetType="MenuItem">
                     <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
                     <Setter Property="Background" Value="{DynamicResource MenuBg}"/>
+                    <Style.Triggers>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45"/>
+                        </Trigger>
+                    </Style.Triggers>
                 </Style>
             </Menu.Resources>
             <MenuItem Header="{DynamicResource MenuFile}">
@@ -149,9 +159,12 @@
                 <MenuItem Header="{DynamicResource MenuExit}" Click="MenuExit_Click"/>
             </MenuItem>
             <MenuItem Header="{DynamicResource MenuEdit}">
-                <MenuItem Header="{DynamicResource MenuEditEntry}" InputGestureText="Enter" Click="BtnEditEntry_Click"/>
-                <MenuItem Header="{DynamicResource MenuDuplicateEntry}" Click="BtnDuplicateEntry_Click"/>
-                <MenuItem Header="{DynamicResource MenuDeleteEntry}" InputGestureText="Del" Click="BtnDeleteEntry_Click"/>
+                <MenuItem Header="{DynamicResource MenuEditEntry}" InputGestureText="Enter" Click="BtnEditEntry_Click"
+                          IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}"/>
+                <MenuItem Header="{DynamicResource MenuDuplicateEntry}" Click="BtnDuplicateEntry_Click"
+                          IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}"/>
+                <MenuItem Header="{DynamicResource MenuDeleteEntry}" InputGestureText="Del" Click="BtnDeleteEntry_Click"
+                          IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}"/>
                 <Separator Background="{DynamicResource BorderColor}"/>
                 <MenuItem Header="{DynamicResource MenuRenameGroup}" Click="MenuRenameGroup_Click"/>
                 <MenuItem Header="{DynamicResource MenuDeleteGroup}" Click="MenuDeleteGroup_Click"/>
@@ -163,7 +176,8 @@
             </MenuItem>
             <MenuItem Header="{DynamicResource MenuTools}">
                 <MenuItem Header="{DynamicResource MenuPasswordGenerator}" InputGestureText="Ctrl+W" Click="BtnPasswordGenerator_Click"/>
-                <MenuItem Header="{DynamicResource MenuAutoType}" InputGestureText="Ctrl+V" Click="BtnAutoType_Click"/>
+                <MenuItem Header="{DynamicResource MenuAutoType}" InputGestureText="Ctrl+V" Click="BtnAutoType_Click"
+                          IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}"/>
                 <Separator Background="{DynamicResource BorderColor}"/>
                 <MenuItem Header="{DynamicResource MenuClearClipboard}" Click="BtnClearClipboard_Click"/>
             </MenuItem>
@@ -192,13 +206,15 @@
                         </StackPanel>
                     </Button>
 
-                    <Button Style="{StaticResource ToolButton}" Click="BtnEditEntry_Click" ToolTip="{DynamicResource TbEdit}">
+                    <Button Style="{StaticResource ToolButton}" Click="BtnEditEntry_Click" ToolTip="{DynamicResource TbEdit}"
+                            IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="✏️" Margin="0,0,5,0"/>
                             <TextBlock Text="{DynamicResource TbEdit}"/>
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource ToolButton}" Click="BtnDeleteEntry_Click" ToolTip="{DynamicResource TbDelete}">
+                    <Button Style="{StaticResource ToolButton}" Click="BtnDeleteEntry_Click" ToolTip="{DynamicResource TbDelete}"
+                            IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="🗑️" Margin="0,0,5,0" Foreground="#EF4444"/>
                             <TextBlock Text="{DynamicResource TbDelete}"/>
@@ -207,25 +223,29 @@
 
                     <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="8,2" Background="{DynamicResource BorderColor}"/>
 
-                    <Button Style="{StaticResource ToolButton}" Click="BtnCopyUsername_Click" ToolTip="{DynamicResource TbCopyUser}">
+                    <Button Style="{StaticResource ToolButton}" Click="BtnCopyUsername_Click" ToolTip="{DynamicResource TbCopyUser}"
+                            IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="👤" Margin="0,0,5,0"/>
                             <TextBlock Text="{DynamicResource TbCopyUser}"/>
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource ToolButton}" Click="BtnCopyPassword_Click" ToolTip="{DynamicResource TbCopyPassword}">
+                    <Button Style="{StaticResource ToolButton}" Click="BtnCopyPassword_Click" ToolTip="{DynamicResource TbCopyPassword}"
+                            IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="🔑" Margin="0,0,5,0" Foreground="#F59E0B"/>
                             <TextBlock Text="{DynamicResource TbCopyPassword}"/>
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource ToolButton}" Click="BtnOpenUrl_Click" ToolTip="{DynamicResource TbOpenUrl}">
+                    <Button Style="{StaticResource ToolButton}" Click="BtnOpenUrl_Click" ToolTip="{DynamicResource TbOpenUrl}"
+                            IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="🌐" Margin="0,0,5,0" Foreground="{DynamicResource AccentColor}"/>
                             <TextBlock Text="{DynamicResource TbOpenUrl}"/>
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource ToolButton}" Click="BtnAutoType_Click" ToolTip="Ctrl+V">
+                    <Button Style="{StaticResource ToolButton}" Click="BtnAutoType_Click" ToolTip="Ctrl+V"
+                            IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="⌨️" Margin="0,0,5,0"/>
                             <TextBlock Text="{DynamicResource TbAutoType}"/>
@@ -313,6 +333,8 @@
                         </TreeView.ItemTemplate>
                         <TreeView.ContextMenu>
                             <ContextMenu>
+                                <MenuItem Header="{DynamicResource MenuAddEntry}" Click="BtnAddEntry_Click"/>
+                                <Separator/>
                                 <MenuItem Header="{DynamicResource AddSubgroup}" Click="BtnAddGroup_Click"/>
                                 <MenuItem Header="{DynamicResource MenuRenameGroup}" Click="MenuRenameGroup_Click"/>
                                 <MenuItem Header="{DynamicResource MenuDeleteGroup}" Click="MenuDeleteGroup_Click"/>
@@ -343,7 +365,8 @@
                           AlternatingRowBackground="{DynamicResource RowAltBg}"
                           BorderThickness="0" RowHeight="32"
                           SelectionChanged="DgEntries_SelectionChanged"
-                          MouseDoubleClick="DgEntries_MouseDoubleClick">
+                          MouseDoubleClick="DgEntries_MouseDoubleClick"
+                          ContextMenuOpening="DgEntries_ContextMenuOpening">
                     <DataGrid.Columns>
                         <!-- Titolo with Lively Icon Badge -->
                         <DataGridTemplateColumn Header="{DynamicResource ColTitle}" Width="200" SortMemberPath="Title">
@@ -399,15 +422,23 @@
                         </DataGridTemplateColumn>
                     </DataGrid.Columns>
                     <DataGrid.ContextMenu>
-                        <ContextMenu>
-                            <MenuItem Header="{DynamicResource TbCopyUser}" Click="BtnCopyUsername_Click"/>
-                            <MenuItem Header="{DynamicResource TbCopyPassword}" Click="BtnCopyPassword_Click"/>
-                            <MenuItem Header="{DynamicResource TbOpenUrl}" Click="BtnOpenUrl_Click"/>
-                            <MenuItem Header="{DynamicResource TbAutoType}" Click="BtnAutoType_Click"/>
-                            <Separator/>
-                            <MenuItem Header="{DynamicResource MenuEditEntry}" Click="BtnEditEntry_Click"/>
-                            <MenuItem Header="{DynamicResource MenuDuplicateEntry}" Click="BtnDuplicateEntry_Click"/>
-                            <MenuItem Header="{DynamicResource MenuDeleteEntry}" Click="BtnDeleteEntry_Click"/>
+                        <ContextMenu x:Name="CmDataGrid">
+                            <!-- Always available: Add New Entry -->
+                            <MenuItem Header="{DynamicResource TbNewEntry}" Click="BtnAddEntry_Click">
+                                <MenuItem.Icon>
+                                    <TextBlock Text="➕" Foreground="{DynamicResource AccentColor}"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <Separator x:Name="CmSep1"/>
+                            <!-- Items enabled only when an entry is selected -->
+                            <MenuItem x:Name="CmCopyUser" Header="{DynamicResource TbCopyUser}" Click="BtnCopyUsername_Click"/>
+                            <MenuItem x:Name="CmCopyPassword" Header="{DynamicResource TbCopyPassword}" Click="BtnCopyPassword_Click"/>
+                            <MenuItem x:Name="CmOpenUrl" Header="{DynamicResource TbOpenUrl}" Click="BtnOpenUrl_Click"/>
+                            <MenuItem x:Name="CmAutoType" Header="{DynamicResource TbAutoType}" Click="BtnAutoType_Click"/>
+                            <Separator x:Name="CmSep2"/>
+                            <MenuItem x:Name="CmEdit" Header="{DynamicResource MenuEditEntry}" Click="BtnEditEntry_Click"/>
+                            <MenuItem x:Name="CmDuplicate" Header="{DynamicResource MenuDuplicateEntry}" Click="BtnDuplicateEntry_Click"/>
+                            <MenuItem x:Name="CmDelete" Header="{DynamicResource MenuDeleteEntry}" Click="BtnDeleteEntry_Click"/>
                         </ContextMenu>
                     </DataGrid.ContextMenu>
                 </DataGrid>

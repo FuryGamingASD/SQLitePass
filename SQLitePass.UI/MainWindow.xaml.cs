@@ -402,6 +402,21 @@ namespace SQLitePass.UI
             UpdateStatusCounts();
         }
 
+        private void DgEntries_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+        {
+            bool hasSelection = _selectedEntry != null;
+
+            CmCopyUser.Visibility = hasSelection ? Visibility.Visible : Visibility.Collapsed;
+            CmCopyPassword.Visibility = hasSelection ? Visibility.Visible : Visibility.Collapsed;
+            CmOpenUrl.Visibility = hasSelection ? Visibility.Visible : Visibility.Collapsed;
+            CmAutoType.Visibility = hasSelection ? Visibility.Visible : Visibility.Collapsed;
+            CmSep1.Visibility = hasSelection ? Visibility.Visible : Visibility.Collapsed;
+            CmEdit.Visibility = hasSelection ? Visibility.Visible : Visibility.Collapsed;
+            CmDuplicate.Visibility = hasSelection ? Visibility.Visible : Visibility.Collapsed;
+            CmDelete.Visibility = hasSelection ? Visibility.Visible : Visibility.Collapsed;
+            CmSep2.Visibility = hasSelection ? Visibility.Visible : Visibility.Collapsed;
+        }
+
         private void UpdateStatusCounts()
         {
             int total = _allEntries.Count;
