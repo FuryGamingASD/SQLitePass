@@ -35,8 +35,15 @@
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderColor}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="Padding" Value="8,6"/>
             <Setter Property="CaretBrush" Value="{DynamicResource AccentColor}"/>
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="{DynamicResource HoverBg}"/>
+                    <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+                    <Setter Property="Opacity" Value="0.85"/>
+                </Trigger>
+            </Style.Triggers>
         </Style>
 
         <!-- Global PasswordBox Style -->
@@ -45,16 +52,8 @@
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderColor}"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="Padding" Value="8,6"/>
             <Setter Property="CaretBrush" Value="{DynamicResource AccentColor}"/>
-        </Style>
-
-        <!-- Global ComboBox Style -->
-        <Style TargetType="ComboBox">
-            <Setter Property="Background" Value="{DynamicResource InputBg}"/>
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderColor}"/>
-            <Setter Property="BorderThickness" Value="1"/>
         </Style>
 
         <!-- Global CheckBox Style -->

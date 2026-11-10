@@ -5,6 +5,44 @@
         Icon="/Resources/app_icon.png"
         WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
         Background="{DynamicResource AppBg}" FontFamily="Segoe UI" FontSize="13">
+    <Window.Resources>
+        <!-- Custom Template for Editable ComboBox to guarantee readable text in both Dark and Light themes -->
+        <ControlTemplate x:Key="ModernEditableComboBoxTemplate" TargetType="ComboBox">
+            <Border Background="{DynamicResource InputBg}" BorderBrush="{DynamicResource BorderColor}"
+                    BorderThickness="1" CornerRadius="6">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="28"/>
+                    </Grid.ColumnDefinitions>
+                    <!-- Editable TextBox part -->
+                    <TextBox x:Name="PART_EditableTextBox" Grid.Column="0"
+                             Background="Transparent" Foreground="{DynamicResource TextPrimary}"
+                             CaretBrush="{DynamicResource AccentColor}" BorderThickness="0"
+                             Padding="8,6" VerticalContentAlignment="Center" FontSize="12"/>
+                    <!-- Dropdown Toggle Button -->
+                    <ToggleButton Grid.Column="1" Background="Transparent" BorderThickness="0"
+                                  Focusable="False" IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                        <TextBlock Text="▼" FontSize="9" Foreground="{DynamicResource TextSecondary}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </ToggleButton>
+                    <!-- Popup dropdown items -->
+                    <Popup x:Name="PART_Popup" AllowsTransparency="True" Focusable="False"
+                           IsOpen="{Binding Path=IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}}"
+                           Placement="Bottom">
+                        <Border Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource BorderColor}"
+                                BorderThickness="1" CornerRadius="6" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                MaxHeight="200" Padding="4" Margin="0,2,0,0">
+                            <ScrollViewer SnapsToDevicePixels="True">
+                                <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Circular"/>
+                            </ScrollViewer>
+                        </Border>
+                    </Popup>
+                </Grid>
+            </Border>
+        </ControlTemplate>
+    </Window.Resources>
+
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -40,7 +78,8 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <ComboBox x:Name="CmbRecentVaults" IsEditable="True" Padding="8,6" FontSize="12"
+                    <!-- Editable ComboBox with guaranteed readable text -->
+                    <ComboBox x:Name="CmbRecentVaults" IsEditable="True" Template="{StaticResource ModernEditableComboBoxTemplate}"
                               SelectionChanged="CmbRecentVaults_SelectionChanged"/>
                     <Button Grid.Column="1" Content="{DynamicResource Browse}" Click="BtnBrowseVault_Click"
                             Margin="8,0,0,0" Padding="14,6" Background="{DynamicResource HoverBg}" Foreground="{DynamicResource TextPrimary}"
@@ -81,7 +120,8 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-                    <TextBox x:Name="TxtKeyFilePath" IsReadOnly="True" Padding="6,4"/>
+                    <TextBox x:Name="TxtKeyFilePath" IsReadOnly="True" Padding="8,6"
+                             Background="{DynamicResource InputBg}" Foreground="{DynamicResource TextPrimary}"/>
                     <Button Grid.Column="1" Content="{DynamicResource Browse}" Click="BtnBrowseKeyFile_Click"
                             Margin="6,0,0,0" Padding="10,4" Background="{DynamicResource HoverBg}" Foreground="{DynamicResource TextPrimary}"
                             BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" Cursor="Hand"/>
