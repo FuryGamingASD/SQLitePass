@@ -1,0 +1,351 @@
+<Window x:Class="SQLitePass.UI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="clr-namespace:SQLitePass.UI.Converters"
+        Title="KeePass SQLite" Height="700" Width="1060"
+        WindowStartupLocation="CenterScreen"
+        Background="#F8FAFC" FontFamily="Segoe UI" FontSize="13">
+    <Window.Resources>
+        <conv:EntropyToColorConverter x:Key="EntropyToColorConverter"/>
+        <conv:PasswordMaskConverter x:Key="PasswordMaskConverter"/>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+
+        <Style x:Key="ToolButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="Margin" Value="2,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="#1E293B"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#F1F5F9"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- MENU BAR -->
+        <Menu Grid.Row="0" Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="6,3">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Aggiungi Voce..." InputGestureText="Ctrl+I" Click="BtnAddEntry_Click"/>
+                <MenuItem Header="_Aggiungi Gruppo..." InputGestureText="Ctrl+G" Click="BtnAddGroup_Click"/>
+                <Separator/>
+                <MenuItem Header="_Blocca Vault" InputGestureText="Ctrl+L" Click="BtnLock_Click"/>
+                <Separator/>
+                <MenuItem Header="_Importa CSV KeePass..." Click="MenuImportCsv_Click"/>
+                <MenuItem Header="_Esporta CSV KeePass..." Click="MenuExportCsv_Click"/>
+                <Separator/>
+                <MenuItem Header="_Impostazioni..." Click="MenuSettings_Click"/>
+                <Separator/>
+                <MenuItem Header="_Esci" Click="MenuExit_Click"/>
+            </MenuItem>
+            <MenuItem Header="_Modifica">
+                <MenuItem Header="_Modifica Voce" InputGestureText="Enter" Click="BtnEditEntry_Click"/>
+                <MenuItem Header="_Duplica Voce" Click="BtnDuplicateEntry_Click"/>
+                <MenuItem Header="_Elimina Voce" InputGestureText="Del" Click="BtnDeleteEntry_Click"/>
+                <Separator/>
+                <MenuItem Header="Rinomina Gruppo..." Click="MenuRenameGroup_Click"/>
+                <MenuItem Header="Elimina Gruppo" Click="MenuDeleteGroup_Click"/>
+            </MenuItem>
+            <MenuItem Header="_Visualizza">
+                <MenuItem Header="_Mostra/Nascondi Colonna Password" InputGestureText="Ctrl+H" Click="MenuTogglePasswords_Click"/>
+                <MenuItem Header="_Aggiorna" InputGestureText="F5" Click="MenuRefresh_Click"/>
+            </MenuItem>
+            <MenuItem Header="_Strumenti">
+                <MenuItem Header="_Generatore Password..." InputGestureText="Ctrl+W" Click="BtnPasswordGenerator_Click"/>
+                <MenuItem Header="_Auto-Type Voce Selezionata" InputGestureText="Ctrl+V" Click="BtnAutoType_Click"/>
+                <Separator/>
+                <MenuItem Header="_Cancella Appunti Subito" Click="BtnClearClipboard_Click"/>
+            </MenuItem>
+            <MenuItem Header="_Aiuto">
+                <MenuItem Header="_Verifica Aggiornamenti..." Click="MenuCheckUpdates_Click"/>
+                <Separator/>
+                <MenuItem Header="_Informazioni su KeePass SQLite" Click="MenuAbout_Click"/>
+            </MenuItem>
+        </Menu>
+
+        <!-- TOOLBAR -->
+        <Border Grid.Row="1" Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="10,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="280"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Orientation="Horizontal">
+                    <Button Style="{StaticResource ToolButton}" Click="BtnAddEntry_Click" ToolTip="Aggiungi Nuova Voce (Ctrl+I)">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="➕" Margin="0,0,5,0" Foreground="#2563EB"/>
+                            <TextBlock Text="Nuova Voce"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource ToolButton}" Click="BtnEditEntry_Click" ToolTip="Modifica Voce Selezionata">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="✏️" Margin="0,0,5,0"/>
+                            <TextBlock Text="Modifica"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource ToolButton}" Click="BtnDeleteEntry_Click" ToolTip="Elimina Voce Selezionata">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🗑️" Margin="0,0,5,0" Foreground="#EF4444"/>
+                            <TextBlock Text="Elimina"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="8,2"/>
+
+                    <Button Style="{StaticResource ToolButton}" Click="BtnCopyUsername_Click" ToolTip="Copia Nome Utente (doppio click colonna)">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="👤" Margin="0,0,5,0"/>
+                            <TextBlock Text="Copia User"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource ToolButton}" Click="BtnCopyPassword_Click" ToolTip="Copia Password (doppio click colonna, cancella in 12s)">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🔑" Margin="0,0,5,0" Foreground="#D97706"/>
+                            <TextBlock Text="Copia Password"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource ToolButton}" Click="BtnOpenUrl_Click" ToolTip="Apri URL nel Browser">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🌐" Margin="0,0,5,0" Foreground="#2563EB"/>
+                            <TextBlock Text="Apri URL"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource ToolButton}" Click="BtnAutoType_Click" ToolTip="Esegui Auto-Type">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="⌨️" Margin="0,0,5,0"/>
+                            <TextBlock Text="Auto-Type"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="8,2"/>
+
+                    <Button Style="{StaticResource ToolButton}" Click="BtnPasswordGenerator_Click" ToolTip="Generatore di Password Sicure">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="⚡" Margin="0,0,5,0" Foreground="#F59E0B"/>
+                            <TextBlock Text="Generatore"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource ToolButton}" Click="MenuSettings_Click" ToolTip="Impostazioni">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="⚙️" Margin="0,0,5,0"/>
+                            <TextBlock Text="Opzioni"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource ToolButton}" Click="BtnLock_Click" ToolTip="Blocca il Vault (Ctrl+L)">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🔒" Margin="0,0,5,0" Foreground="#475569"/>
+                            <TextBlock Text="Blocca"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <!-- Search Box -->
+                <Grid Grid.Column="2">
+                    <TextBox x:Name="TxtSearch" Padding="28,6,8,6" Background="#F8FAFC" BorderBrush="#CBD5E1"
+                             TextChanged="TxtSearch_TextChanged" VerticalContentAlignment="Center"/>
+                    <TextBlock Text="🔍" Foreground="#94A3B8" VerticalAlignment="Center" Margin="8,0,0,0" IsHitTestVisible="False"/>
+                    <TextBlock Text="Cerca nelle voci..." Foreground="#94A3B8" VerticalAlignment="Center" Margin="30,0,0,0"
+                               IsHitTestVisible="False">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Text, ElementName=TxtSearch}" Value="">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- MAIN CONTENT (Groups Tree + Entries Grid + Details) -->
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="230" MinWidth="170" MaxWidth="420"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- LEFT: GROUPS TREE -->
+            <Border Grid.Column="0" Background="White" BorderBrush="#E2E8F0" BorderThickness="0,0,1,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="12,8">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Cartelle e Gruppi" FontWeight="SemiBold" Foreground="#475569"/>
+                            <Button Grid.Column="1" Content="➕" Click="BtnAddGroup_Click" ToolTip="Nuovo Gruppo"
+                                    Background="Transparent" BorderThickness="0" Cursor="Hand" Foreground="#2563EB"/>
+                        </Grid>
+                    </Border>
+                    <TreeView x:Name="TvGroups" Grid.Row="1" BorderThickness="0" SelectedItemChanged="TvGroups_SelectedItemChanged" Margin="4,6">
+                        <TreeView.ItemTemplate>
+                            <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                                <StackPanel Orientation="Horizontal" Margin="3,4">
+                                    <TextBlock Text="📁" Margin="0,0,7,0"/>
+                                    <TextBlock Text="{Binding Name}" FontWeight="Medium" Foreground="#0F172A"/>
+                                </StackPanel>
+                            </HierarchicalDataTemplate>
+                        </TreeView.ItemTemplate>
+                        <TreeView.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Aggiungi Sottogruppo..." Click="BtnAddGroup_Click"/>
+                                <MenuItem Header="Rinomina Gruppo..." Click="MenuRenameGroup_Click"/>
+                                <MenuItem Header="Elimina Gruppo" Click="MenuDeleteGroup_Click"/>
+                            </ContextMenu>
+                        </TreeView.ContextMenu>
+                    </TreeView>
+                </Grid>
+            </Border>
+
+            <!-- SPLITTER -->
+            <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Center" VerticalAlignment="Stretch" Background="#E2E8F0"/>
+
+            <!-- RIGHT: ENTRIES GRID + PREVIEW PANEL -->
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="2*" MinHeight="160"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*" MinHeight="140"/>
+                </Grid.RowDefinitions>
+
+                <!-- ENTRIES DATAGRID -->
+                <DataGrid x:Name="DgEntries" Grid.Row="0" AutoGenerateColumns="False" IsReadOnly="True"
+                          SelectionMode="Single" SelectionUnit="FullRow"
+                          GridLinesVisibility="Horizontal" HeadersVisibility="Column"
+                          Background="White" BorderThickness="0" RowHeight="28"
+                          SelectionChanged="DgEntries_SelectionChanged"
+                          MouseDoubleClick="DgEntries_MouseDoubleClick">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Titolo" Binding="{Binding Title}" Width="190"/>
+                        <DataGridTextColumn Header="User Name" Binding="{Binding UserName}" Width="160"/>
+                        <DataGridTextColumn x:Name="ColPassword" Header="Password" Binding="{Binding Password, Converter={StaticResource PasswordMaskConverter}}" Width="140"/>
+                        <DataGridTextColumn Header="URL" Binding="{Binding Url}" Width="210"/>
+                        <DataGridTextColumn Header="Note" Binding="{Binding Notes}" Width="*"/>
+                        <DataGridTextColumn Header="Ultima Modifica" Binding="{Binding UpdatedAt, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}" Width="135"/>
+                    </DataGrid.Columns>
+                    <DataGrid.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="Copia Nome Utente" Click="BtnCopyUsername_Click"/>
+                            <MenuItem Header="Copia Password" Click="BtnCopyPassword_Click"/>
+                            <MenuItem Header="Apri URL" Click="BtnOpenUrl_Click"/>
+                            <MenuItem Header="Esegui Auto-Type" Click="BtnAutoType_Click"/>
+                            <Separator/>
+                            <MenuItem Header="Modifica Voce..." Click="BtnEditEntry_Click"/>
+                            <MenuItem Header="Duplica Voce" Click="BtnDuplicateEntry_Click"/>
+                            <MenuItem Header="Elimina Voce" Click="BtnDeleteEntry_Click"/>
+                        </ContextMenu>
+                    </DataGrid.ContextMenu>
+                </DataGrid>
+
+                <GridSplitter Grid.Row="1" Height="4" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="#E2E8F0"/>
+
+                <!-- PREVIEW / DETAIL INSPECTOR -->
+                <Border Grid.Row="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="16">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <Grid x:Name="GridEntryPreview" Visibility="Collapsed">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" MinWidth="340"/>
+                                <ColumnDefinition Width="24"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock x:Name="PrevTitle" FontSize="18" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,0,8"/>
+
+                                <!-- Username -->
+                                <StackPanel Orientation="Horizontal" Margin="0,4">
+                                    <TextBlock Text="Utente: " FontWeight="SemiBold" Width="80" Foreground="#475569"/>
+                                    <TextBlock x:Name="PrevUserName" FontWeight="Medium" Foreground="#0F172A"/>
+                                    <Button Content="Copia" Click="BtnCopyUsername_Click" Margin="10,0,0,0" Padding="6,2"
+                                            Background="#F1F5F9" BorderThickness="0" FontSize="11" Cursor="Hand"/>
+                                </StackPanel>
+
+                                <!-- Password with Reveal & Quality -->
+                                <StackPanel Orientation="Horizontal" Margin="0,4">
+                                    <TextBlock Text="Password: " FontWeight="SemiBold" Width="80" Foreground="#475569"/>
+                                    <TextBlock x:Name="PrevPassword" Text="••••••••" FontFamily="Consolas" FontWeight="Bold" Foreground="#0F172A"/>
+                                    <Button Content="👁" Click="BtnPreviewTogglePassword_Click" Margin="8,0,4,0" Padding="5,1" Background="#F1F5F9" BorderThickness="0" Cursor="Hand"/>
+                                    <Button Content="Copia" Click="BtnCopyPassword_Click" Margin="4,0,0,0" Padding="6,2"
+                                            Background="#F1F5F9" BorderThickness="0" FontSize="11" Cursor="Hand"/>
+                                </StackPanel>
+
+                                <Grid Margin="0,4,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="80"/>
+                                        <ColumnDefinition Width="140"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Entropia:" Foreground="#64748B" FontSize="11" VerticalAlignment="Center"/>
+                                    <ProgressBar x:Name="PrevPbQuality" Grid.Column="1" Height="6" Maximum="128"
+                                                 Foreground="{Binding Value, RelativeSource={RelativeSource Self}, Converter={StaticResource EntropyToColorConverter}}"/>
+                                    <TextBlock x:Name="PrevEntropyText" Grid.Column="2" Text="0 bits" Foreground="#64748B" FontSize="11" Margin="6,0,0,0"/>
+                                </Grid>
+
+                                <!-- URL -->
+                                <StackPanel Orientation="Horizontal" Margin="0,4">
+                                    <TextBlock Text="URL: " FontWeight="SemiBold" Width="80" Foreground="#475569"/>
+                                    <TextBlock x:Name="PrevUrl" Foreground="#2563EB" Cursor="Hand" TextDecorations="Underline" MouseDown="PrevUrl_MouseDown"/>
+                                </StackPanel>
+
+                                <!-- Modified & Tags -->
+                                <StackPanel Orientation="Horizontal" Margin="0,4">
+                                    <TextBlock Text="Modificato: " FontWeight="SemiBold" Width="80" Foreground="#475569"/>
+                                    <TextBlock x:Name="PrevModified" Foreground="#64748B"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Notes Preview -->
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Note:" FontWeight="SemiBold" Foreground="#475569" Margin="0,0,0,4"/>
+                                <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="10" MinHeight="80">
+                                    <TextBlock x:Name="PrevNotes" TextWrapping="Wrap" Foreground="#1E293B"/>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+                    </ScrollViewer>
+                </Border>
+            </Grid>
+        </Grid>
+
+        <!-- STATUS BAR -->
+        <StatusBar Grid.Row="3" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="8,4">
+            <StatusBarItem>
+                <TextBlock x:Name="TxtStatusEntriesCount" Text="0 voci" Foreground="#475569"/>
+            </StatusBarItem>
+            <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="6,0"/>
+            <StatusBarItem>
+                <TextBlock x:Name="TxtStatusClipboard" Text="" Foreground="#D97706" FontWeight="SemiBold"/>
+            </StatusBarItem>
+            <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="6,0"/>
+            <StatusBarItem HorizontalAlignment="Right">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="🛡️ " Foreground="#10B981"/>
+                    <TextBlock x:Name="TxtStatusDb" Text="Vault SQLite (.kpd) • Dual Backup Attivo" Foreground="#475569"/>
+                </StackPanel>
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</Window>

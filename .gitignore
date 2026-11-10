@@ -1,0 +1,23 @@
+# Visual Studio / .NET / Build outputs
+[Bb]in/
+[Oo]bj/
+publish/
+releases/
+*.user
+*.userosscache
+*.suo
+*.userprefs
+.vs/
+.idea/
+
+# Test results
+TestResults/
+[Tt]est[Rr]esults/
+
+# Crash dumps and logs
+*.log
+*.tmp
+*.backup
+*.kpd
+*.db
+appsettings.json

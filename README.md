@@ -1,87 +1,58 @@
-# KeePass MySQL (KeePassDB)
+# SQLitePass 🛡️
 
-Un software moderno per la gestione sicura delle password (.NET 8 C# + WPF) ispirato alle funzionalità di **KeePass 2**, ma progettato nativamente per salvare e sincronizzare tutte le informazioni su un database **MySQL o MariaDB** (sia locale che remoto).
+Un password manager moderno, leggero e ultra-resiliente per Windows (.NET 8 C# + WPF) ispirato alle funzionalità di **KeePass 2**, ma riprogettato dalle fondamenta per **eliminare per sempre il rischio di corruzione dei dati**.
 
 ---
 
-## 🔒 Modello di Sicurezza Zero-Knowledge
+## 💡 Perché SQLitePass invece di KeePass?
 
-La sicurezza è il principio fondamentale del software:
-1. **Crittografia Client-Side (AES-256-GCM):**
-   * Ogni singolo campo sensibile (Titolo, Username, Password, URL, Note, Tag, Campi Personalizzati, File Allegati) viene cifrato sul client prima di essere inviato a MySQL.
-   * Il server MySQL e chiunque abbia accesso al database vedono esclusivamente payload cifrati.
-   * Ogni record utilizza un nonce/IV univoco di 12 byte generato crittograficamente e un tag di autenticazione a 128 bit (integrità garantita contro manomissioni).
-2. **Key Derivation Function (KDF):**
-   * Utilizza **Argon2id** (lo standard moderno di KeePass KDBX4), resistente ad attacchi brute-force con GPU ed ASIC.
-   * Salt casuale univoco a 128 bit salvato nei metadati del vault.
-3. **Master Key Flessibile:**
-   * Supporta **Master Password**, **Key File** opzionale (file binario/chiave `.key`) o la combinazione di entrambi (tramite doppio hashing SHA-256 composito).
-4. **Protezione Locale DPAPI:**
-   * La password di connessione al database MySQL viene memorizzata in locale protetta tramite **Windows DPAPI** (`DataProtectionScope.CurrentUser`).
+Nei file `.kdbx` tradizionali di KeePass, l'intero database è un unico blob monolitico cifrato. Se un aggiornamento di Windows, un riavvio forzato o una mancanza di corrente interrompono la scrittura, anche solo 1 byte corrotto o l'header alterato rendono **l'intero archivio irrecuperabile al 100%** (errore *"Header corrupt"* o *"HMAC mismatch"*).
+
+### La soluzione architetturale di SQLitePass:
+1. **Database SQLite Non Cifrato a Livello di File:**
+   * Il file `.kpd` è un database SQLite standard, ispezionabile e riparabile in qualunque momento (anche con software open-source terzi come *DB Browser for SQLite*).
+   * **Cifratura Zero-Knowledge a livello di campo (Field-Level Encryption):** Solo i dati sensibili (Password, Note, Allegati, Campi personalizzati) sono cifrati individualmente con **AES-256-GCM** e chiave derivata da **Argon2id**.
+   * *Il vantaggio:* Anche in caso di settori fisici danneggiati sull'hard disk, si perde al massimo quel singolo byte, mentre **tutte le altre password rimangono perfettamente integre e decifrabili**.
+2. **Modalità WAL (Write-Ahead Logging):**
+   * Transazioni ACID native con `PRAGMA journal_mode = WAL;` e `PRAGMA synchronous = NORMAL;`. Le modifiche vengono scritte in append su un log dedicato prima del commit: anche se salta la corrente durante la scrittura, al riavvio SQLite ripristina istantaneamente l'ultimo stato valido.
+3. **Dual-Backup Atomico e Isolato (`.kpd.backup`):**
+   * Il programma tiene aperto in memoria solo il file principale.
+   * Ad ogni aggiunta, modifica o eliminazione, viene eseguito uno snapshot tramite l'API online di SQLite su un file temporaneo, poi sostituito atomicamente con `File.Replace` in `.kpd.backup`.
+   * Il file di backup **non rimane mai aperto**, azzerando il rischio di corruzione simultanea.
+   * Funzione **"Ripristina da .backup"** direttamente nella schermata iniziale.
+4. **Zero Installazione Server:**
+   * SQLite è una libreria incorporata: nessun server MySQL da installare, nessun servizio in background o porta aperta.
 
 ---
 
 ## 🚀 Funzionalità KeePass 2 Incluse
 
-* **Gestione Gerarchica dei Gruppi:** Albero dei gruppi annidati (General, Windows, Network, Internet, eMail, Banking, Recycle Bin, ecc.) con creazione di sottogruppi, rinomina e cancellazione a cascata.
-* **Voci Complete:**
-  * Titolo, Nome Utente, Password (mascherata con toggle mostra/nascondi), URL, Note formattate, Tag.
-  * Date di scadenza con avviso e calendario.
-  * Cronologia delle modifiche per ogni voce (versioning con ripristino istantaneo di vecchie revisioni).
-  * Campi personalizzati stringa (protetti o visibili).
-  * File allegati binari cifrati (aggiunta, download ed esportazione).
-* **Generatore di Password Avanzato:**
-  * Lunghezza personalizzabile (fino a 64 caratteri).
-  * Inclusione di Maiuscole, Minuscole, Cifre, Simboli Speciali, Parentesi.
-  * Esclusione caratteri ambigui (`Il1O0|`).
-  * Calcolo in tempo reale dell'**entropia in bit** e barra grafica della qualità (Rosso -> Giallo -> Verde -> Ciano).
-* **Auto-Type Globale:**
-  * Emulazione battitura nativa Windows tramite Win32 API (`SendInput`).
-  * Supporto per sequenze personalizzate (es. `{USERNAME}{TAB}{PASSWORD}{ENTER}`, `{DELAY 500}`, placeholder per campi personalizzati `{S:Campo}`).
-* **Protezione Appunti (Clipboard):**
-  * Copia rapida di Username e Password con **cancellazione automatica degli appunti dopo 12 secondi** e countdown nella barra di stato.
-* **Ricerca Istantanea:**
-  * Barra di ricerca in tempo reale su tutte le voci (titolo, username, url, note, tag).
-* **Import / Export:**
-  * Compatibilità con file **CSV** standard KeePass.
-
----
-
-## 🗄️ Schema del Database MySQL
-
-All'avvio o alla creazione del vault, l'applicazione crea automaticamente il database e le seguenti tabelle:
-
-| Tabella | Descrizione |
-| :--- | :--- |
-| `kp_vault_metadata` | Metadati del vault, salt Argon2id, parametri di memoria e token canary di verifica |
-| `kp_groups` | Gruppi gerarchici (con parent_id e nome cifrato) |
-| `kp_entries` | Voci con titolo, credenziali, note e date (tutti cifrati client-side) |
-| `kp_custom_fields` | Campi personalizzati aggiuntivi cifrati associati alle voci |
-| `kp_attachments` | File allegati binari cifrati in formato BLOB |
-| `kp_history` | Snapshot delle versioni precedenti delle voci per audit e rollback |
-
----
-
-## 📦 Installer (Setup.exe) & Auto-Updater
-
-Il progetto include il supporto completo a **Velopack** per la creazione dell'installer e per la gestione automatica degli aggiornamenti via **GitHub Releases**.
-
-### File generati nella cartella `./releases/`
-* **`KeePassMySQL-win-Setup.exe`**: Il file di installazione Windows auto-estraente. Crea i collegamenti nel Desktop e nel Menu Start e gestisce l'aggiornamento automatico.
-* **`KeePassMySQL-win-Portable.zip`**: Versione portabile per chi non desidera installare nulla.
-* **`KeePassMySQL-x.x.x-full.nupkg` + `RELEASES`**: Pacchetti utilizzati dal meccanismo di Auto-Update.
-
-### Come pubblicare una nuova versione con Auto-Update:
-1. Imposta il tuo repository GitHub nel file `KeePassMySQL.UI/Services/UpdateService.cs`:
-   ```csharp
-   public static string GitHubRepoUrl { get; set; } = "https://github.com/TUO_UTENTE/TUO_REPO";
-   ```
-2. Genera il setup della nuova versione eseguendo lo script:
-   ```powershell
-   .\build-installer.ps1 -Version "1.0.1"
-   ```
-3. Vai sul tuo repository GitHub, crea una nuova **Release** (es. tag `v1.0.1`) e trascina tutti i file generati nella cartella `./releases/`.
-4. All'avvio dell'applicazione (o tramite il menu **Help -> Verifica Aggiornamenti...**), il programma rileverà la nuova versione e chiederà all'utente se desidera aggiornare e riavviare con un click!
+* **Doppio Click Intelligente sulle Colonne:**
+  * **Password:** Copia istantaneamente la password negli appunti (senza mostrarla) e attiva il countdown di cancellazione automatica (default 12s).
+  * **User Name:** Copia il nome utente negli appunti.
+  * **URL:** Apre direttamente il sito web nel browser predefinito.
+  * **Titolo / Riga:** Apre la finestra di modifica completa della voce.
+* **Global Auto-Type (`Ctrl+Alt+A`):**
+  * Scorciatoia globale Windows (`SendInput`): rileva il titolo della finestra o del browser attivo e digita automaticamente credenziali e sequenze personalizzate (es. `{USERNAME}{TAB}{PASSWORD}{ENTER}`, `{DELAY}`).
+* **Area di Notifica (System Tray):**
+  * Icona nell'area di notifica di Windows con menu contestuale rapido.
+  * Opzione *Riduci a icona nella Tray*.
+  * Opzione *Il pulsante di chiusura (X) riduce nella Tray invece di uscire*.
+* **Blocco Automatico Configurabile:**
+  * Blocco per inattività (1, 3, 5, 10, 15, 30 minuti).
+  * Blocco automatico alla riduzione a icona.
+  * Blocco automatico al blocco della postazione Windows (`Win+L`).
+* **Generatore di Password:**
+  * Calcolo in tempo reale dell'**entropia in bit** e barra grafica della qualità.
+  * Maiuscole, Minuscole, Cifre, Simboli, Parentesi ed esclusione caratteri ambigui (`Il1O0|`).
+* **Cronologia e Versioning:**
+  * Salva le versioni precedenti di ogni voce per audit e ripristino di vecchie password.
+* **Allegati e Campi Personalizzati:**
+  * Supporto per allegati binari cifrati e campi chiave/valore extra protetti.
+* **Import / Export CSV:**
+  * Compatibile con il formato di esportazione standard di KeePass.
+* **Backup Secondario Esterno:**
+  * Possibilità di indicare nelle Impostazioni una cartella secondaria (es. chiavetta USB o secondo hard disk) per una copia ridondante istantanea.
 
 ---
 
@@ -90,23 +61,26 @@ Il progetto include il supporto completo a **Velopack** per la creazione dell'in
 ### Requisiti
 * Windows 10 / 11 o Windows Server
 * **.NET 8 SDK** (già installato)
-* Un'istanza **MySQL** (v5.7, 8.0, 8.4+) o **MariaDB** (locale su localhost o remota)
-
-### Esecuzione
-Dalla root del repository:
 
 ```powershell
-# Esecuzione dei test unitari (Crittografia, KDF, Password Gen, CSV)
-dotnet test
+# Esegui i test unitari (Crittografia, KDF, SQLite, Backup atomico, CSV)
+dotnet test SQLitePass.slnx
 
-# Avvio dell'applicazione
-dotnet run --project KeePassMySQL.UI
+# Avvia l'applicazione direttamente da codice
+dotnet run --project SQLitePass.UI
 ```
 
-Al primo avvio:
-1. Configura l'indirizzo del server MySQL (es. `127.0.0.1` o IP remoto), porta (`3306`), utente e password del DB.
-2. Clicca **Test Connection** per verificare la raggiungibilità del database.
-3. Inserisci la tua **Master Password** (e facoltativamente un **Key File**).
-4. Clicca **Create New Vault** per inizializzare il database e creare il vault. Dalle volte successive basterà cliccare **Open Vault**.
-"# SQLitePass" 
-"# SQLitePass" 
+---
+
+## 📦 Installer e Auto-Update
+
+Per generare il pacchetto di installazione e la versione portatile:
+
+```powershell
+.\build-installer.ps1 -Version "1.0.0"
+```
+
+I file generati nella cartella `./releases/`:
+* **`SQLitePass-win-Setup.exe`**: Installer autonomo con creazione automatica delle icone su Desktop e Menu Start e supporto agli aggiornamenti automatici da GitHub Releases.
+* **`SQLitePass-win-Portable.zip`**: Versione portatile autonoma.
+* **`SQLitePass-x.x.x-full.nupkg` + `RELEASES`**: Pacchetti utilizzati dal modulo di auto-update.
