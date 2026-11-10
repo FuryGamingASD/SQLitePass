@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:conv="clr-namespace:SQLitePass.UI.Converters"
-        Title="Modifica Voce - SQLitePass" Height="600" Width="660"
+        Title="{DynamicResource EntryEditTitle}" Height="600" Width="660"
         Icon="/Resources/app_icon.png"
         WindowStartupLocation="CenterOwner" ResizeMode="CanResize"
         Background="{DynamicResource AppBg}" FontFamily="Segoe UI" FontSize="13">
@@ -29,7 +29,7 @@
 
         <TabControl Background="{DynamicResource CardBg}" BorderBrush="{DynamicResource BorderColor}" Padding="14">
             <!-- GENERAL TAB -->
-            <TabItem Header="Credenziali">
+            <TabItem Header="{DynamicResource TabCredentials}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <Grid Margin="10">
                         <Grid.ColumnDefinitions>
@@ -48,15 +48,15 @@
                         </Grid.RowDefinitions>
 
                         <!-- Title -->
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Titolo:" VerticalAlignment="Center" FontWeight="Medium" Margin="0,6"/>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource LblTitle}" VerticalAlignment="Center" FontWeight="Medium" Margin="0,6"/>
                         <TextBox x:Name="TxtTitle" Grid.Row="0" Grid.Column="1" Margin="0,4"/>
 
                         <!-- User name -->
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Nome Utente:" VerticalAlignment="Center" FontWeight="Medium" Margin="0,6"/>
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource LblUserName}" VerticalAlignment="Center" FontWeight="Medium" Margin="0,6"/>
                         <TextBox x:Name="TxtUserName" Grid.Row="1" Grid.Column="1" Margin="0,4"/>
 
                         <!-- Password -->
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Password:" VerticalAlignment="Center" FontWeight="Medium" Margin="0,6"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource LblPassword}" VerticalAlignment="Center" FontWeight="Medium" Margin="0,6"/>
                         <Grid Grid.Row="2" Grid.Column="1" Margin="0,4">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -67,13 +67,13 @@
                             <PasswordBox x:Name="TxtPasswordMasked" PasswordChanged="TxtPasswordMasked_PasswordChanged"/>
                             
                             <Button x:Name="BtnToggleVisibility" Grid.Column="1" Content="👁" Click="BtnToggleVisibility_Click"
-                                    Width="32" Margin="6,0,0,0" ToolTip="Mostra/Nascondi Password" Background="{DynamicResource HoverBg}" Foreground="{DynamicResource TextPrimary}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" Cursor="Hand"/>
-                            <Button Grid.Column="2" Content="⚡ Genera" Click="BtnGenerate_Click"
+                                    Width="32" Margin="6,0,0,0" ToolTip="Show/Hide" Background="{DynamicResource HoverBg}" Foreground="{DynamicResource TextPrimary}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" Cursor="Hand"/>
+                            <Button Grid.Column="2" Content="{DynamicResource BtnGenerate}" Click="BtnGenerate_Click"
                                     Margin="6,0,0,0" Padding="12,5" Background="#2563EB" Foreground="White" BorderThickness="0" FontWeight="SemiBold" Cursor="Hand"/>
                         </Grid>
 
                         <!-- Password Quality bar -->
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Qualità:" VerticalAlignment="Center" Foreground="{DynamicResource TextMuted}" Margin="0,2"/>
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource LblQuality}" VerticalAlignment="Center" Foreground="{DynamicResource TextMuted}" Margin="0,2"/>
                         <Grid Grid.Row="3" Grid.Column="1" Margin="0,2">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -85,22 +85,22 @@
                         </Grid>
 
                         <!-- URL -->
-                        <TextBlock Grid.Row="4" Grid.Column="0" Text="URL:" VerticalAlignment="Center" FontWeight="Medium" Margin="0,6"/>
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource LblUrl}" VerticalAlignment="Center" FontWeight="Medium" Margin="0,6"/>
                         <TextBox x:Name="TxtUrl" Grid.Row="4" Grid.Column="1" Margin="0,4"/>
 
                         <!-- Expiration -->
-                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Scadenza:" VerticalAlignment="Center" FontWeight="Medium" Margin="0,6"/>
+                        <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource LblExpiration}" VerticalAlignment="Center" FontWeight="Medium" Margin="0,6"/>
                         <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal" Margin="0,4">
-                            <CheckBox x:Name="ChkExpires" Content="Abilita data di scadenza" VerticalAlignment="Center" Margin="0,0,14,0" Checked="ChkExpires_Changed" Unchecked="ChkExpires_Changed"/>
+                            <CheckBox x:Name="ChkExpires" Content="{DynamicResource ChkEnableExpiry}" VerticalAlignment="Center" Margin="0,0,14,0" Checked="ChkExpires_Changed" Unchecked="ChkExpires_Changed"/>
                             <DatePicker x:Name="DpExpiry" IsEnabled="False" Width="160"/>
                         </StackPanel>
 
                         <!-- Tags -->
-                        <TextBlock Grid.Row="6" Grid.Column="0" Text="Tag:" VerticalAlignment="Center" FontWeight="Medium" Margin="0,6"/>
+                        <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource LblTags}" VerticalAlignment="Center" FontWeight="Medium" Margin="0,6"/>
                         <TextBox x:Name="TxtTags" Grid.Row="6" Grid.Column="1" Margin="0,4"/>
 
                         <!-- Notes -->
-                        <TextBlock Grid.Row="7" Grid.Column="0" Text="Note:" VerticalAlignment="Top" FontWeight="Medium" Margin="0,6"/>
+                        <TextBlock Grid.Row="7" Grid.Column="0" Text="{DynamicResource LblNotes}" VerticalAlignment="Top" FontWeight="Medium" Margin="0,6"/>
                         <TextBox x:Name="TxtNotes" Grid.Row="7" Grid.Column="1" AcceptsReturn="True" TextWrapping="Wrap"
                                  Height="110" Margin="0,4" VerticalScrollBarVisibility="Auto"/>
                     </Grid>
@@ -108,27 +108,27 @@
             </TabItem>
 
             <!-- ADVANCED / CUSTOM FIELDS TAB -->
-            <TabItem Header="Campi Personalizzati">
+            <TabItem Header="Custom Fields">
                 <Grid Margin="10">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Text="Campi Stringa Personalizzati (Cifrati Zero-Knowledge)" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                    <TextBlock Text="Custom String Fields (AES-256-GCM Encrypted)" FontWeight="SemiBold" Margin="0,0,0,8"/>
                     <DataGrid x:Name="DgCustomFields" Grid.Row="1" AutoGenerateColumns="False" CanUserAddRows="False"
                               GridLinesVisibility="Horizontal" HeadersVisibility="Column"
                               HorizontalGridLinesBrush="{DynamicResource BorderColor}"
                               Background="{DynamicResource InputBg}" RowBackground="{DynamicResource InputBg}">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Nome Campo" Binding="{Binding Key}" Width="*"/>
-                            <DataGridTextColumn Header="Valore" Binding="{Binding Value}" Width="2*"/>
-                            <DataGridCheckBoxColumn Header="Protetto" Binding="{Binding IsProtected}" Width="80"/>
+                            <DataGridTextColumn Header="Key" Binding="{Binding Key}" Width="*"/>
+                            <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="2*"/>
+                            <DataGridCheckBoxColumn Header="Protected" Binding="{Binding IsProtected}" Width="80"/>
                         </DataGrid.Columns>
                     </DataGrid>
                     <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,0">
-                        <Button Content="+ Aggiungi Campo" Click="BtnAddField_Click" Padding="12,6" Margin="0,0,8,0" Background="{DynamicResource HoverBg}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" Cursor="Hand"/>
-                        <Button Content="- Elimina Campo" Click="BtnDeleteField_Click" Padding="12,6" Background="{DynamicResource HoverBg}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" Cursor="Hand"/>
+                        <Button Content="+ Field" Click="BtnAddField_Click" Padding="12,6" Margin="0,0,8,0" Background="{DynamicResource HoverBg}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" Cursor="Hand"/>
+                        <Button Content="- Field" Click="BtnDeleteField_Click" Padding="12,6" Background="{DynamicResource HoverBg}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" Cursor="Hand"/>
                     </StackPanel>
                 </Grid>
             </TabItem>
@@ -136,10 +136,10 @@
             <!-- AUTO-TYPE TAB -->
             <TabItem Header="Auto-Type">
                 <StackPanel Margin="12">
-                    <CheckBox x:Name="ChkAutoTypeEnabled" Content="Abilita Auto-Type per questa voce" IsChecked="True" FontWeight="SemiBold" Margin="0,0,0,16"/>
-                    <TextBlock Text="Sequenza di Battitura Tasti:" FontWeight="Medium" Margin="0,0,0,6"/>
+                    <CheckBox x:Name="ChkAutoTypeEnabled" Content="Enable Auto-Type for this entry" IsChecked="True" FontWeight="SemiBold" Margin="0,0,0,16"/>
+                    <TextBlock Text="Keystroke Sequence:" FontWeight="Medium" Margin="0,0,0,6"/>
                     <TextBox x:Name="TxtAutoTypeSeq" Padding="8,6" Text="{}{USERNAME}{TAB}{PASSWORD}{ENTER}" FontFamily="Consolas"/>
-                    <TextBlock Text="Segnaposti disponibili:" Margin="0,14,0,8" Foreground="{DynamicResource TextMuted}"/>
+                    <TextBlock Text="Placeholders:" Margin="0,14,0,8" Foreground="{DynamicResource TextMuted}"/>
                     <WrapPanel>
                         <Button Content="{}{USERNAME}" Click="BtnInsertPlaceholder_Click" Margin="0,0,6,6" Padding="8,4" Background="{DynamicResource HoverBg}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" Cursor="Hand"/>
                         <Button Content="{}{PASSWORD}" Click="BtnInsertPlaceholder_Click" Margin="0,0,6,6" Padding="8,4" Background="{DynamicResource HoverBg}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" Cursor="Hand"/>
@@ -154,7 +154,7 @@
             </TabItem>
 
             <!-- ATTACHMENTS TAB -->
-            <TabItem Header="Allegati">
+            <TabItem Header="Attachments">
                 <Grid Margin="10">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*"/>
@@ -163,15 +163,15 @@
                     <ListBox x:Name="LstAttachments" DisplayMemberPath="FileName"
                              Background="{DynamicResource InputBg}" Foreground="{DynamicResource TextPrimary}" BorderBrush="{DynamicResource BorderColor}"/>
                     <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,10,0,0">
-                        <Button Content="Allega File..." Click="BtnAttachFile_Click" Padding="12,6" Margin="0,0,8,0" Background="{DynamicResource HoverBg}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" Cursor="Hand"/>
-                        <Button Content="Salva Allegato..." Click="BtnSaveAttachment_Click" Padding="12,6" Margin="0,0,8,0" Background="{DynamicResource HoverBg}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" Cursor="Hand"/>
-                        <Button Content="Rimuovi" Click="BtnRemoveAttachment_Click" Padding="12,6" Background="{DynamicResource HoverBg}" Foreground="#EF4444" BorderThickness="0" Cursor="Hand"/>
+                        <Button Content="+ File..." Click="BtnAttachFile_Click" Padding="12,6" Margin="0,0,8,0" Background="{DynamicResource HoverBg}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" Cursor="Hand"/>
+                        <Button Content="Save..." Click="BtnSaveAttachment_Click" Padding="12,6" Margin="0,0,8,0" Background="{DynamicResource HoverBg}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" Cursor="Hand"/>
+                        <Button Content="{DynamicResource Delete}" Click="BtnRemoveAttachment_Click" Padding="12,6" Background="{DynamicResource HoverBg}" Foreground="#EF4444" BorderThickness="0" Cursor="Hand"/>
                     </StackPanel>
                 </Grid>
             </TabItem>
 
             <!-- HISTORY TAB -->
-            <TabItem Header="Cronologia">
+            <TabItem Header="{DynamicResource TabHistory}">
                 <Grid Margin="10">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*"/>
@@ -181,12 +181,12 @@
                               HorizontalGridLinesBrush="{DynamicResource BorderColor}"
                               Background="{DynamicResource InputBg}" RowBackground="{DynamicResource InputBg}">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Data Revisione" Binding="{Binding SavedAt, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}" Width="160"/>
-                            <DataGridTextColumn Header="Titolo" Binding="{Binding Title}" Width="*"/>
-                            <DataGridTextColumn Header="Nome Utente" Binding="{Binding UserName}" Width="*"/>
+                            <DataGridTextColumn Header="Date" Binding="{Binding SavedAt, StringFormat='{}{0:yyyy-MM-dd HH:mm:ss}'}" Width="160"/>
+                            <DataGridTextColumn Header="{DynamicResource ColTitle}" Binding="{Binding Title}" Width="*"/>
+                            <DataGridTextColumn Header="{DynamicResource ColUserName}" Binding="{Binding UserName}" Width="*"/>
                         </DataGrid.Columns>
                     </DataGrid>
-                    <Button Grid.Row="1" Content="Ripristina Revisione Selezionata" Click="BtnRestoreHistory_Click"
+                    <Button Grid.Row="1" Content="Restore Revision" Click="BtnRestoreHistory_Click"
                             HorizontalAlignment="Left" Margin="0,10,0,0" Padding="14,6" Background="{DynamicResource HoverBg}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" Cursor="Hand"/>
                 </Grid>
             </TabItem>
@@ -194,9 +194,9 @@
 
         <!-- BOTTOM BUTTONS -->
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
-            <Button Content="Salva Voce" Click="BtnSave_Click" IsDefault="True" Padding="20,9" Margin="0,0,10,0"
+            <Button Content="{DynamicResource Save}" Click="BtnSave_Click" IsDefault="True" Padding="20,9" Margin="0,0,10,0"
                     Background="#2563EB" Foreground="White" BorderThickness="0" Cursor="Hand" FontWeight="SemiBold"/>
-            <Button Content="Annulla" Click="BtnCancel_Click" IsCancel="True" Padding="16,9"
+            <Button Content="{DynamicResource Cancel}" Click="BtnCancel_Click" IsCancel="True" Padding="16,9"
                     Background="{DynamicResource HoverBg}" Foreground="{DynamicResource TextSecondary}" BorderThickness="0" Cursor="Hand"/>
         </StackPanel>
     </Grid>

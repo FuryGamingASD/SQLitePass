@@ -12,6 +12,7 @@ namespace SQLitePass.UI
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
             var settings = SQLitePass.Core.Services.AppSettingsManager.Load();
+            SQLitePass.UI.Services.LocalizationManager.ApplyLanguage(settings.Language);
             SQLitePass.UI.Services.ThemeManager.ApplyTheme(settings.DarkMode);
 
             var login = new LoginWindow();

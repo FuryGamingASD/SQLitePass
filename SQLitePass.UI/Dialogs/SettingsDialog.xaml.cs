@@ -16,6 +16,20 @@ namespace SQLitePass.UI.Dialogs
             InitializeComponent();
             _settings = AppSettingsManager.Load();
 
+            // Language Selection
+            foreach (ComboBoxItem item in CmbLanguage.Items)
+            {
+                if (string.Equals(item.Tag?.ToString(), _settings.Language, StringComparison.OrdinalIgnoreCase))
+                {
+                    CmbLanguage.SelectedItem = item;
+                    break;
+                }
+            }
+            if (CmbLanguage.SelectedItem == null)
+            {
+                CmbLanguage.SelectedIndex = 0;
+            }
+
             TxtClipboardSeconds.Text = _settings.ClipboardClearSeconds.ToString();
 
             // Select auto-lock combo item
@@ -51,7 +65,7 @@ namespace SQLitePass.UI.Dialogs
         {
             var dialog = new OpenFolderDialog
             {
-                Title = "Seleziona cartella per backup secondario (es. chiavetta USB)"
+                Title = "Backup"
             };
             if (dialog.ShowDialog() == true)
             {
@@ -61,6 +75,11 @@ namespace SQLitePass.UI.Dialogs
 
         private void BtnSave_Click(object sender, RoutedEventArgs e)
         {
+            if (CmbLanguage.SelectedItem is ComboBoxItem langItem && langItem.Tag is string langCode)
+            {
+                _settings.Language = langCode;
+            }
+
             if (int.TryParse(TxtClipboardSeconds.Text, out int secs) && secs >= 3 && secs <= 300)
             {
                 _settings.ClipboardClearSeconds = secs;
@@ -90,6 +109,7 @@ namespace SQLitePass.UI.Dialogs
             _settings.DarkMode = ChkDarkMode.IsChecked == true;
 
             AppSettingsManager.Save(_settings);
+            SQLitePass.UI.Services.LocalizationManager.ApplyLanguage(_settings.Language);
             SQLitePass.UI.Services.ThemeManager.ApplyTheme(_settings.DarkMode);
 
             DialogResult = true;

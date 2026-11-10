@@ -135,42 +135,42 @@
                     <Setter Property="Background" Value="{DynamicResource MenuBg}"/>
                 </Style>
             </Menu.Resources>
-            <MenuItem Header="_File">
-                <MenuItem Header="_Aggiungi Voce..." InputGestureText="Ctrl+I" Click="BtnAddEntry_Click"/>
-                <MenuItem Header="_Aggiungi Gruppo..." InputGestureText="Ctrl+G" Click="BtnAddGroup_Click"/>
+            <MenuItem Header="{DynamicResource MenuFile}">
+                <MenuItem Header="{DynamicResource MenuAddEntry}" InputGestureText="Ctrl+I" Click="BtnAddEntry_Click"/>
+                <MenuItem Header="{DynamicResource MenuAddGroup}" InputGestureText="Ctrl+G" Click="BtnAddGroup_Click"/>
                 <Separator Background="{DynamicResource BorderColor}"/>
-                <MenuItem Header="_Blocca Vault" InputGestureText="Ctrl+L" Click="BtnLock_Click"/>
+                <MenuItem Header="{DynamicResource MenuLockVault}" InputGestureText="Ctrl+L" Click="BtnLock_Click"/>
                 <Separator Background="{DynamicResource BorderColor}"/>
-                <MenuItem Header="_Importa CSV KeePass..." Click="MenuImportCsv_Click"/>
-                <MenuItem Header="_Esporta CSV KeePass..." Click="MenuExportCsv_Click"/>
+                <MenuItem Header="{DynamicResource MenuImportCsv}" Click="MenuImportCsv_Click"/>
+                <MenuItem Header="{DynamicResource MenuExportCsv}" Click="MenuExportCsv_Click"/>
                 <Separator Background="{DynamicResource BorderColor}"/>
-                <MenuItem Header="_Impostazioni..." Click="MenuSettings_Click"/>
+                <MenuItem Header="{DynamicResource MenuSettings}" Click="MenuSettings_Click"/>
                 <Separator Background="{DynamicResource BorderColor}"/>
-                <MenuItem Header="_Esci" Click="MenuExit_Click"/>
+                <MenuItem Header="{DynamicResource MenuExit}" Click="MenuExit_Click"/>
             </MenuItem>
-            <MenuItem Header="_Modifica">
-                <MenuItem Header="_Modifica Voce" InputGestureText="Enter" Click="BtnEditEntry_Click"/>
-                <MenuItem Header="_Duplica Voce" Click="BtnDuplicateEntry_Click"/>
-                <MenuItem Header="_Elimina Voce" InputGestureText="Del" Click="BtnDeleteEntry_Click"/>
+            <MenuItem Header="{DynamicResource MenuEdit}">
+                <MenuItem Header="{DynamicResource MenuEditEntry}" InputGestureText="Enter" Click="BtnEditEntry_Click"/>
+                <MenuItem Header="{DynamicResource MenuDuplicateEntry}" Click="BtnDuplicateEntry_Click"/>
+                <MenuItem Header="{DynamicResource MenuDeleteEntry}" InputGestureText="Del" Click="BtnDeleteEntry_Click"/>
                 <Separator Background="{DynamicResource BorderColor}"/>
-                <MenuItem Header="Rinomina Gruppo..." Click="MenuRenameGroup_Click"/>
-                <MenuItem Header="Elimina Gruppo" Click="MenuDeleteGroup_Click"/>
+                <MenuItem Header="{DynamicResource MenuRenameGroup}" Click="MenuRenameGroup_Click"/>
+                <MenuItem Header="{DynamicResource MenuDeleteGroup}" Click="MenuDeleteGroup_Click"/>
             </MenuItem>
-            <MenuItem Header="_Visualizza">
-                <MenuItem Header="_Alterna Tema Chiaro / Scuro" Click="MenuToggleTheme_Click"/>
-                <MenuItem Header="_Mostra/Nascondi Colonna Password" InputGestureText="Ctrl+H" Click="MenuTogglePasswords_Click"/>
-                <MenuItem Header="_Aggiorna" InputGestureText="F5" Click="MenuRefresh_Click"/>
+            <MenuItem Header="{DynamicResource MenuView}">
+                <MenuItem Header="{DynamicResource MenuToggleTheme}" Click="MenuToggleTheme_Click"/>
+                <MenuItem Header="{DynamicResource MenuTogglePasswords}" InputGestureText="Ctrl+H" Click="MenuTogglePasswords_Click"/>
+                <MenuItem Header="{DynamicResource MenuRefresh}" InputGestureText="F5" Click="MenuRefresh_Click"/>
             </MenuItem>
-            <MenuItem Header="_Strumenti">
-                <MenuItem Header="_Generatore Password..." InputGestureText="Ctrl+W" Click="BtnPasswordGenerator_Click"/>
-                <MenuItem Header="_Auto-Type Voce Selezionata" InputGestureText="Ctrl+V" Click="BtnAutoType_Click"/>
+            <MenuItem Header="{DynamicResource MenuTools}">
+                <MenuItem Header="{DynamicResource MenuPasswordGenerator}" InputGestureText="Ctrl+W" Click="BtnPasswordGenerator_Click"/>
+                <MenuItem Header="{DynamicResource MenuAutoType}" InputGestureText="Ctrl+V" Click="BtnAutoType_Click"/>
                 <Separator Background="{DynamicResource BorderColor}"/>
-                <MenuItem Header="_Cancella Appunti Subito" Click="BtnClearClipboard_Click"/>
+                <MenuItem Header="{DynamicResource MenuClearClipboard}" Click="BtnClearClipboard_Click"/>
             </MenuItem>
-            <MenuItem Header="_Aiuto">
-                <MenuItem Header="_Verifica Aggiornamenti..." Click="MenuCheckUpdates_Click"/>
+            <MenuItem Header="{DynamicResource MenuHelp}">
+                <MenuItem Header="{DynamicResource MenuCheckUpdates}" Click="MenuCheckUpdates_Click"/>
                 <Separator Background="{DynamicResource BorderColor}"/>
-                <MenuItem Header="_Informazioni su SQLitePass" Click="MenuAbout_Click"/>
+                <MenuItem Header="{DynamicResource MenuAbout}" Click="MenuAbout_Click"/>
             </MenuItem>
         </Menu>
 
@@ -185,68 +185,68 @@
 
                 <StackPanel Orientation="Horizontal">
                     <!-- Prominent New Entry Button -->
-                    <Button Style="{StaticResource PrimaryToolButton}" Click="BtnAddEntry_Click" ToolTip="Aggiungi Nuova Voce (Ctrl+I)">
+                    <Button Style="{StaticResource PrimaryToolButton}" Click="BtnAddEntry_Click" ToolTip="Ctrl+I">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="➕" Margin="0,0,6,0" FontSize="11" VerticalAlignment="Center"/>
-                            <TextBlock Text="Nuova Voce" VerticalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource TbNewEntry}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
 
-                    <Button Style="{StaticResource ToolButton}" Click="BtnEditEntry_Click" ToolTip="Modifica Voce Selezionata">
+                    <Button Style="{StaticResource ToolButton}" Click="BtnEditEntry_Click" ToolTip="{DynamicResource TbEdit}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="✏️" Margin="0,0,5,0"/>
-                            <TextBlock Text="Modifica"/>
+                            <TextBlock Text="{DynamicResource TbEdit}"/>
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource ToolButton}" Click="BtnDeleteEntry_Click" ToolTip="Elimina Voce Selezionata">
+                    <Button Style="{StaticResource ToolButton}" Click="BtnDeleteEntry_Click" ToolTip="{DynamicResource TbDelete}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="🗑️" Margin="0,0,5,0" Foreground="#EF4444"/>
-                            <TextBlock Text="Elimina"/>
+                            <TextBlock Text="{DynamicResource TbDelete}"/>
                         </StackPanel>
                     </Button>
 
                     <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="8,2" Background="{DynamicResource BorderColor}"/>
 
-                    <Button Style="{StaticResource ToolButton}" Click="BtnCopyUsername_Click" ToolTip="Copia Nome Utente (doppio click colonna)">
+                    <Button Style="{StaticResource ToolButton}" Click="BtnCopyUsername_Click" ToolTip="{DynamicResource TbCopyUser}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="👤" Margin="0,0,5,0"/>
-                            <TextBlock Text="Copia User"/>
+                            <TextBlock Text="{DynamicResource TbCopyUser}"/>
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource ToolButton}" Click="BtnCopyPassword_Click" ToolTip="Copia Password (doppio click colonna, cancella in 12s)">
+                    <Button Style="{StaticResource ToolButton}" Click="BtnCopyPassword_Click" ToolTip="{DynamicResource TbCopyPassword}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="🔑" Margin="0,0,5,0" Foreground="#F59E0B"/>
-                            <TextBlock Text="Copia Password"/>
+                            <TextBlock Text="{DynamicResource TbCopyPassword}"/>
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource ToolButton}" Click="BtnOpenUrl_Click" ToolTip="Apri URL nel Browser">
+                    <Button Style="{StaticResource ToolButton}" Click="BtnOpenUrl_Click" ToolTip="{DynamicResource TbOpenUrl}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="🌐" Margin="0,0,5,0" Foreground="{DynamicResource AccentColor}"/>
-                            <TextBlock Text="Apri URL"/>
+                            <TextBlock Text="{DynamicResource TbOpenUrl}"/>
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource ToolButton}" Click="BtnAutoType_Click" ToolTip="Esegui Auto-Type (Ctrl+V)">
+                    <Button Style="{StaticResource ToolButton}" Click="BtnAutoType_Click" ToolTip="Ctrl+V">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="⌨️" Margin="0,0,5,0"/>
-                            <TextBlock Text="Auto-Type"/>
+                            <TextBlock Text="{DynamicResource TbAutoType}"/>
                         </StackPanel>
                     </Button>
 
                     <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="8,2" Background="{DynamicResource BorderColor}"/>
 
-                    <Button Style="{StaticResource ToolButton}" Click="BtnPasswordGenerator_Click" ToolTip="Generatore di Password Sicure">
+                    <Button Style="{StaticResource ToolButton}" Click="BtnPasswordGenerator_Click" ToolTip="{DynamicResource TbGenerator}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="⚡" Margin="0,0,5,0" Foreground="#F59E0B"/>
-                            <TextBlock Text="Generatore"/>
+                            <TextBlock Text="{DynamicResource TbGenerator}"/>
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource ToolButton}" Click="MenuToggleTheme_Click" ToolTip="Alterna Tema Chiaro / Scuro">
+                    <Button Style="{StaticResource ToolButton}" Click="MenuToggleTheme_Click" ToolTip="{DynamicResource MenuToggleTheme}">
                         <TextBlock Text="🌓" Margin="0,0,0,0" FontSize="14"/>
                     </Button>
-                    <Button Style="{StaticResource ToolButton}" Click="MenuSettings_Click" ToolTip="Impostazioni">
+                    <Button Style="{StaticResource ToolButton}" Click="MenuSettings_Click" ToolTip="{DynamicResource TbSettings}">
                         <TextBlock Text="⚙️" Margin="0,0,0,0"/>
                     </Button>
-                    <Button Style="{StaticResource ToolButton}" Click="BtnLock_Click" ToolTip="Blocca il Vault (Ctrl+L)">
+                    <Button Style="{StaticResource ToolButton}" Click="BtnLock_Click" ToolTip="{DynamicResource TbLock}">
                         <TextBlock Text="🔒" Foreground="{DynamicResource TextMuted}"/>
                     </Button>
                 </StackPanel>
@@ -256,7 +256,7 @@
                     <TextBox x:Name="TxtSearch" Padding="28,6,8,6" VerticalContentAlignment="Center"
                              TextChanged="TxtSearch_TextChanged"/>
                     <TextBlock Text="🔍" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="8,0,0,0" IsHitTestVisible="False"/>
-                    <TextBlock Text="Cerca nelle voci..." Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="30,0,0,0"
+                    <TextBlock Text="{DynamicResource SearchPlaceholder}" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="30,0,0,0"
                                IsHitTestVisible="False">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
@@ -295,8 +295,8 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="Cartelle e Gruppi" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}"/>
-                            <Button Grid.Column="1" Content="➕" Click="BtnAddGroup_Click" ToolTip="Nuovo Gruppo"
+                            <TextBlock Text="{DynamicResource FoldersAndGroups}" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}"/>
+                            <Button Grid.Column="1" Content="➕" Click="BtnAddGroup_Click" ToolTip="{DynamicResource NewGroup}"
                                     Background="Transparent" BorderThickness="0" Cursor="Hand" Foreground="{DynamicResource AccentColor}"/>
                         </Grid>
                     </Border>
@@ -313,9 +313,9 @@
                         </TreeView.ItemTemplate>
                         <TreeView.ContextMenu>
                             <ContextMenu>
-                                <MenuItem Header="Aggiungi Sottogruppo..." Click="BtnAddGroup_Click"/>
-                                <MenuItem Header="Rinomina Gruppo..." Click="MenuRenameGroup_Click"/>
-                                <MenuItem Header="Elimina Gruppo" Click="MenuDeleteGroup_Click"/>
+                                <MenuItem Header="{DynamicResource AddSubgroup}" Click="BtnAddGroup_Click"/>
+                                <MenuItem Header="{DynamicResource MenuRenameGroup}" Click="MenuRenameGroup_Click"/>
+                                <MenuItem Header="{DynamicResource MenuDeleteGroup}" Click="MenuDeleteGroup_Click"/>
                             </ContextMenu>
                         </TreeView.ContextMenu>
                     </TreeView>
@@ -346,7 +346,7 @@
                           MouseDoubleClick="DgEntries_MouseDoubleClick">
                     <DataGrid.Columns>
                         <!-- Titolo with Lively Icon Badge -->
-                        <DataGridTemplateColumn Header="Titolo" Width="200" SortMemberPath="Title">
+                        <DataGridTemplateColumn Header="{DynamicResource ColTitle}" Width="200" SortMemberPath="Title">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0">
@@ -360,7 +360,7 @@
                         </DataGridTemplateColumn>
 
                         <!-- User Name -->
-                        <DataGridTemplateColumn Header="User Name" Width="160" SortMemberPath="UserName">
+                        <DataGridTemplateColumn Header="{DynamicResource ColUserName}" Width="160" SortMemberPath="UserName">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0">
@@ -372,10 +372,10 @@
                         </DataGridTemplateColumn>
 
                         <!-- Password -->
-                        <DataGridTextColumn x:Name="ColPassword" Header="Password" Binding="{Binding Password, Converter={StaticResource PasswordMaskConverter}}" Width="140" FontFamily="Consolas"/>
+                        <DataGridTextColumn x:Name="ColPassword" Header="{DynamicResource ColPassword}" Binding="{Binding Password, Converter={StaticResource PasswordMaskConverter}}" Width="140" FontFamily="Consolas"/>
 
                         <!-- URL -->
-                        <DataGridTemplateColumn Header="URL" Width="210" SortMemberPath="Url">
+                        <DataGridTemplateColumn Header="{DynamicResource ColUrl}" Width="210" SortMemberPath="Url">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0">
@@ -387,10 +387,10 @@
                         </DataGridTemplateColumn>
 
                         <!-- Notes -->
-                        <DataGridTextColumn Header="Note" Binding="{Binding Notes}" Width="*"/>
+                        <DataGridTextColumn Header="{DynamicResource ColNotes}" Binding="{Binding Notes}" Width="*"/>
 
                         <!-- Ultima Modifica -->
-                        <DataGridTemplateColumn Header="Ultima Modifica" Width="135" SortMemberPath="UpdatedAt">
+                        <DataGridTemplateColumn Header="{DynamicResource ColUpdatedAt}" Width="135" SortMemberPath="UpdatedAt">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding UpdatedAt, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}" VerticalAlignment="Center" Margin="6,0" Foreground="{DynamicResource TextMuted}" FontSize="12"/>
@@ -400,14 +400,14 @@
                     </DataGrid.Columns>
                     <DataGrid.ContextMenu>
                         <ContextMenu>
-                            <MenuItem Header="Copia Nome Utente" Click="BtnCopyUsername_Click"/>
-                            <MenuItem Header="Copia Password" Click="BtnCopyPassword_Click"/>
-                            <MenuItem Header="Apri URL" Click="BtnOpenUrl_Click"/>
-                            <MenuItem Header="Esegui Auto-Type" Click="BtnAutoType_Click"/>
+                            <MenuItem Header="{DynamicResource TbCopyUser}" Click="BtnCopyUsername_Click"/>
+                            <MenuItem Header="{DynamicResource TbCopyPassword}" Click="BtnCopyPassword_Click"/>
+                            <MenuItem Header="{DynamicResource TbOpenUrl}" Click="BtnOpenUrl_Click"/>
+                            <MenuItem Header="{DynamicResource TbAutoType}" Click="BtnAutoType_Click"/>
                             <Separator/>
-                            <MenuItem Header="Modifica Voce..." Click="BtnEditEntry_Click"/>
-                            <MenuItem Header="Duplica Voce" Click="BtnDuplicateEntry_Click"/>
-                            <MenuItem Header="Elimina Voce" Click="BtnDeleteEntry_Click"/>
+                            <MenuItem Header="{DynamicResource MenuEditEntry}" Click="BtnEditEntry_Click"/>
+                            <MenuItem Header="{DynamicResource MenuDuplicateEntry}" Click="BtnDuplicateEntry_Click"/>
+                            <MenuItem Header="{DynamicResource MenuDeleteEntry}" Click="BtnDeleteEntry_Click"/>
                         </ContextMenu>
                     </DataGrid.ContextMenu>
                 </DataGrid>
@@ -429,18 +429,18 @@
 
                                 <!-- Username -->
                                 <StackPanel Orientation="Horizontal" Margin="0,4">
-                                    <TextBlock Text="Utente: " FontWeight="SemiBold" Width="80" Foreground="{DynamicResource TextSecondary}"/>
+                                    <TextBlock Text="{DynamicResource PrevUser}" FontWeight="SemiBold" Width="80" Foreground="{DynamicResource TextSecondary}"/>
                                     <TextBlock x:Name="PrevUserName" FontWeight="Medium" Foreground="{DynamicResource TextPrimary}"/>
-                                    <Button Content="Copia" Click="BtnCopyUsername_Click" Margin="10,0,0,0" Padding="6,2"
+                                    <Button Content="{DynamicResource Copy}" Click="BtnCopyUsername_Click" Margin="10,0,0,0" Padding="6,2"
                                             Background="{DynamicResource HoverBg}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" FontSize="11" Cursor="Hand"/>
                                 </StackPanel>
 
                                 <!-- Password with Reveal & Quality -->
                                 <StackPanel Orientation="Horizontal" Margin="0,4">
-                                    <TextBlock Text="Password: " FontWeight="SemiBold" Width="80" Foreground="{DynamicResource TextSecondary}"/>
+                                    <TextBlock Text="{DynamicResource PrevPassword}" FontWeight="SemiBold" Width="80" Foreground="{DynamicResource TextSecondary}"/>
                                     <TextBlock x:Name="PrevPassword" Text="••••••••" FontFamily="Consolas" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}"/>
                                     <Button Content="👁" Click="BtnPreviewTogglePassword_Click" Margin="8,0,4,0" Padding="5,1" Background="{DynamicResource HoverBg}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" Cursor="Hand"/>
-                                    <Button Content="Copia" Click="BtnCopyPassword_Click" Margin="4,0,0,0" Padding="6,2"
+                                    <Button Content="{DynamicResource Copy}" Click="BtnCopyPassword_Click" Margin="4,0,0,0" Padding="6,2"
                                             Background="{DynamicResource HoverBg}" Foreground="{DynamicResource TextPrimary}" BorderThickness="0" FontSize="11" Cursor="Hand"/>
                                 </StackPanel>
 
@@ -450,7 +450,7 @@
                                         <ColumnDefinition Width="140"/>
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="Entropia:" Foreground="{DynamicResource TextMuted}" FontSize="11" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{DynamicResource PrevEntropy}" Foreground="{DynamicResource TextMuted}" FontSize="11" VerticalAlignment="Center"/>
                                     <ProgressBar x:Name="PrevPbQuality" Grid.Column="1" Height="6" Maximum="128"
                                                  Foreground="{Binding Value, RelativeSource={RelativeSource Self}, Converter={StaticResource EntropyToColorConverter}}"/>
                                     <TextBlock x:Name="PrevEntropyText" Grid.Column="2" Text="0 bits" Foreground="{DynamicResource TextMuted}" FontSize="11" Margin="6,0,0,0"/>
@@ -458,20 +458,20 @@
 
                                 <!-- URL -->
                                 <StackPanel Orientation="Horizontal" Margin="0,4">
-                                    <TextBlock Text="URL: " FontWeight="SemiBold" Width="80" Foreground="{DynamicResource TextSecondary}"/>
+                                    <TextBlock Text="{DynamicResource PrevUrl}" FontWeight="SemiBold" Width="80" Foreground="{DynamicResource TextSecondary}"/>
                                     <TextBlock x:Name="PrevUrl" Foreground="{DynamicResource AccentColor}" Cursor="Hand" TextDecorations="Underline" MouseDown="PrevUrl_MouseDown"/>
                                 </StackPanel>
 
                                 <!-- Modified & Tags -->
                                 <StackPanel Orientation="Horizontal" Margin="0,4">
-                                    <TextBlock Text="Modificato: " FontWeight="SemiBold" Width="80" Foreground="{DynamicResource TextSecondary}"/>
+                                    <TextBlock Text="{DynamicResource PrevModified}" FontWeight="SemiBold" Width="80" Foreground="{DynamicResource TextSecondary}"/>
                                     <TextBlock x:Name="PrevModified" Foreground="{DynamicResource TextMuted}"/>
                                 </StackPanel>
                             </StackPanel>
 
                             <!-- Notes Preview -->
                             <StackPanel Grid.Column="2">
-                                <TextBlock Text="Note:" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,4"/>
+                                <TextBlock Text="{DynamicResource PrevNotes}" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,4"/>
                                 <Border Background="{DynamicResource HeaderBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="6" Padding="10" MinHeight="80">
                                     <TextBlock x:Name="PrevNotes" TextWrapping="Wrap" Foreground="{DynamicResource TextPrimary}"/>
                                 </Border>
@@ -485,7 +485,7 @@
         <!-- STATUS BAR -->
         <StatusBar Grid.Row="3" Background="{DynamicResource StatusBarBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="0,1,0,0" Padding="8,4">
             <StatusBarItem>
-                <TextBlock x:Name="TxtStatusEntriesCount" Text="0 voci" Foreground="{DynamicResource TextSecondary}"/>
+                <TextBlock x:Name="TxtStatusEntriesCount" Text="0" Foreground="{DynamicResource TextSecondary}"/>
             </StatusBarItem>
             <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="6,0" Background="{DynamicResource BorderColor}"/>
             <StatusBarItem>
@@ -495,7 +495,7 @@
             <StatusBarItem HorizontalAlignment="Right">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="🛡️ " Foreground="#10B981"/>
-                    <TextBlock x:Name="TxtStatusDb" Text="Vault SQLite (.kpd) • Dual Backup Attivo" Foreground="{DynamicResource TextSecondary}"/>
+                    <TextBlock x:Name="TxtStatusDb" Text="{DynamicResource VaultStatusDualBackup}" Foreground="{DynamicResource TextSecondary}"/>
                 </StackPanel>
             </StatusBarItem>
         </StatusBar>

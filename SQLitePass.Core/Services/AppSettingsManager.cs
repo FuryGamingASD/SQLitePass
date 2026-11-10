@@ -27,6 +27,7 @@ namespace SQLitePass.Core.Services
 
         // UI & Display
         public bool DarkMode { get; set; } = true;
+        public string Language { get; set; } = "it";
         public bool ShowPasswordColumnDefault { get; set; } = false;
 
         // Backup
