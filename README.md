@@ -69,8 +69,8 @@ In traditional KeePass `.kdbx` files, the entire database is stored as a single 
   * Automatic system culture detection with real-time runtime language switching in Settings.
 
 * **Adaptive Dual Theme Design:**
-  * **Light Theme:** Luminous pure white (`#FFFFFF`) canvas with alternating sky-tinted rows (`#F4F8FD`), vibrant category badges, and modern typography.
-  * **Dark Obsidian Theme:** Sleek deep slate palette (`#0F172A`) for low eye-strain in dim environments.
+  * **Refined Light Theme:** Soft, neutral Slate-50 (`#F8FAFC`) canvas with crisp white cards, delicate Slate-200/300 borders, soft dark text (`#0F172A`), and pastel selection pills for fatigue-free daylight use.
+  * **Dark Obsidian / Zinc Theme:** Sleek deep Zinc-950 (`#09090B`) canvas with elevated Zinc-900 surfaces and Zinc-800 borders for low eye-strain in dim environments.
   * Quick theme toggle button (🌓) available both on the main toolbar and unlock window.
 
 * **History & Versioning:**
