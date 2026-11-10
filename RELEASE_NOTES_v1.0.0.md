@@ -1,40 +1,43 @@
-# SQLitePass v1.0.0 — Prima Release Ufficiale 🚀
+# SQLitePass v1.0.0 — First Official Release 🚀
 
-**SQLitePass** è un moderno password manager desktop per Windows, progettato per offrire un'alternativa sicura, reattiva e anti-corruzione al tradizionale formato monolitico `.kdbx` di KeePass.
-
----
-
-### 🛡️ Perché SQLitePass?
-
-* **Architettura Anti-Corruzione a Due Livelli**:
-  * Il database principale SQLite (`.kpd`) opera in modalità **WAL (Write-Ahead Logging)**, garantendo integrità atomica delle transazioni anche in caso di crash o spegnimento improvviso di Windows.
-  * **Dual Isolated Backup**: a ogni salvataggio viene generata o aggiornata una copia esatta `[vault].backup` completamente disconnessa e chiusa, azzerando il rischio di corruzione simultanea.
-* **Crittografia Zero-Knowledge a livello di campo**:
-  * Il database SQLite rimane ispezionabile e riparabile a livello strutturale con qualsiasi client SQL standard, mentre le password, le note e gli allegati sensibili sono cifrati individualmente con **AES-256-GCM** e chiave derivata tramite **Argon2id**.
-* **Parità Funzionale con KeePass 2**:
-  * **Auto-Type Globale** (`Ctrl+Alt+A`) con rilevamento della finestra attiva.
-  * **Doppio click mirato**: copia rapida del nome utente, copia della password con cancellazione automatica degli appunti in 12 secondi, apertura immediata dell'URL nel browser.
-  * **Generatore di Password Sicure** con calcolo istantaneo dell'entropia in bit.
-  * **Auto-Lock Intelligente**: blocco automatico su inattività, alla riduzione a icona e al blocco della sessione Windows (`Win+L`).
-  * **Integrazione System Tray**: riduzione e chiusura nell'area di notifica di Windows.
-  * **Import / Export CSV** compatibile con KeePass 2.
-* **Graphic Design & Temi**:
-  * Tema Chiaro luminoso e pulito (predominanza bianco puro `#FFFFFF` con righe alternate soft-sky e icone di categoria vivaci).
-  * Tema Scuro *Dark Obsidian* per lavoro notturno a basso affaticamento visivo.
+**SQLitePass** is a modern, lightweight, and ultra-resilient Windows password manager designed to provide a secure and anti-corruption alternative to KeePass's monolithic `.kdbx` file format.
 
 ---
 
-### 📦 File Inclusi nel Download
+### 🛡️ Why SQLitePass?
 
-| File | Descrizione |
+* **Two-Tier Anti-Corruption Architecture**:
+  * The primary SQLite database (`.kpd`) runs in **WAL (Write-Ahead Logging)** mode, guaranteeing ACID transaction integrity even during sudden Windows crashes, bluescreens, or power cuts.
+  * **Isolated Dual-Backup**: on every modification, a synchronized `[vault].kpd.backup` copy is created atomically and immediately closed, eliminating concurrent corruption risks.
+* **Zero-Knowledge Field-Level Encryption**:
+  * The database structure remains inspectable and repairable with standard SQL tools (such as *DB Browser for SQLite*).
+  * Passwords, notes, attachments, and custom attributes are encrypted individually with **AES-256-GCM** using keys derived via **Argon2id**.
+* **Full KeePass 2 Parity**:
+  * **Global Auto-Type** (`Ctrl+Alt+A`) with active window detection.
+  * **Column Double-Click Actions**: double-click password to copy with a 12-second auto-clear timer; double-click username to copy; double-click URL to launch in browser; double-click title to edit.
+  * **Secure Password Generator** with real-time bit entropy calculation and visual quality gauge.
+  * **Intelligent Auto-Lock**: lock on inactivity, minimize to tray, or Windows workstation lock (`Win+L`).
+  * **System Tray Integration**: minimize and close to the notification area with tray context menu.
+  * **KeePass CSV Import & Export**.
+* **Multi-Language (5 Languages Built-In)**:
+  * 🇬🇧 English, 🇮🇹 Italiano, 🇫🇷 Français, 🇩🇪 Deutsch, 🇪🇸 Español with real-time switching in Settings.
+* **Dual Theme Design**:
+  * **Light Theme**: Clean, luminous pure white (`#FFFFFF`) canvas with alternating sky-tinted rows and vibrant category badges.
+  * **Dark Obsidian Theme**: Deep slate palette (`#0F172A`) for low eye fatigue.
+
+---
+
+### 📦 Downloads
+
+| File | Description |
 |---|---|
-| **`SQLitePass-win-Setup.exe`** | **Installer Ufficiale** (Consigliato): installa l'app sul PC, crea i collegamenti sul Desktop/Menu Start e supporta gli aggiornamenti automatici istantanei in un click. |
-| **`SQLitePass-win-Portable.zip`** | **Versione Portabile**: non richiede installazione. Basta estrarre lo zip su qualsiasi cartella o chiavetta USB e avviare `SQLitePass.exe`. |
-| `SQLitePass-1.0.0-full.nupkg` | Pacchetto delta per il motore di auto-aggiornamento Velopack. |
-| `RELEASES` & `releases.win.json` | Indici di versione utilizzati dall'app per rilevare automaticamente nuove release. |
+| **`SQLitePass-win-Setup.exe`** | **Official Windows Installer (Recommended)**: installs SQLitePass on your machine, creates Start Menu & Desktop shortcuts, and supports seamless one-click background updates. |
+| **`SQLitePass-win-Portable.zip`** | **Portable Standalone Edition**: zero installation required. Extract anywhere (e.g. on a USB flash drive) and run `SQLitePass.exe`. |
+| `SQLitePass-1.0.0-full.nupkg` | Delta package for the Velopack auto-updater engine. |
+| `RELEASES` & `releases.win.json` | Manifest files used by the application to check for and install updates from GitHub. |
 
 ---
 
-### ⚖️ Licenza
-Distribuito con licenza **GNU General Public License v3.0 (GPLv3)**.
-Software libero, aperto e protetto da copyleft forte.
+### ⚖️ License
+Distributed under the **GNU General Public License v3.0 (GPLv3)**.
+Free, open-source, and protected by strong copyleft.
