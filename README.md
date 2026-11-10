@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" width="128" height="128" alt="SQLitePass Logo" />
+  <img src="https://raw.githubusercontent.com/FuryGamingASD/SQLitePass/main/assets/logo.png" width="128" height="128" alt="SQLitePass Logo" />
 </p>
 
 # SQLitePass 🛡️
