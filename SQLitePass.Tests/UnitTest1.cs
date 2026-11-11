@@ -45,6 +45,18 @@ namespace SQLitePass.Tests
         }
 
         [Fact]
+        public async Task TestAutoTypeServiceExecution()
+        {
+            var entry = new PwEntry
+            {
+                Title = "Test",
+                UserName = "user",
+                Password = "pwd"
+            };
+            await AutoTypeService.ExecuteAutoTypeAsync(entry, IntPtr.Zero, 0);
+        }
+
+        [Fact]
         public void TestCanaryVerificationToken()
         {
             byte[] keyA = new byte[32];

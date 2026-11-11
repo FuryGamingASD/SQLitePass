@@ -422,6 +422,11 @@ namespace SQLitePass.UI
         {
             bool hasSelection = _selectedEntry != null;
 
+            CmCopyUser.IsEnabled = hasSelection && !string.IsNullOrWhiteSpace(_selectedEntry?.UserName);
+            CmCopyPassword.IsEnabled = hasSelection && !string.IsNullOrWhiteSpace(_selectedEntry?.Password);
+            CmOpenUrl.IsEnabled = hasSelection && !string.IsNullOrWhiteSpace(_selectedEntry?.Url);
+            CmAutoType.IsEnabled = hasSelection && (!string.IsNullOrWhiteSpace(_selectedEntry?.UserName) || !string.IsNullOrWhiteSpace(_selectedEntry?.Password));
+
             CmCopyUser.Visibility = hasSelection ? Visibility.Visible : Visibility.Collapsed;
             CmCopyPassword.Visibility = hasSelection ? Visibility.Visible : Visibility.Collapsed;
             CmOpenUrl.Visibility = hasSelection ? Visibility.Visible : Visibility.Collapsed;
@@ -765,16 +770,30 @@ namespace SQLitePass.UI
 
         private async void BtnAutoType_Click(object sender, RoutedEventArgs e)
         {
-            if (_selectedEntry == null)
+            var entryToType = _selectedEntry;
+            if (entryToType == null)
             {
                 MessageBox.Show("Seleziona una voce per eseguire l'Auto-Type.", "Informazione", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
-            WindowState = WindowState.Minimized;
-            await Task.Delay(400);
+            if (string.IsNullOrWhiteSpace(entryToType.UserName) && string.IsNullOrWhiteSpace(entryToType.Password))
+            {
+                MessageBox.Show("Questa voce non contiene credenziali (username o password) da digitare.", "Auto-Type", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
 
-            await AutoTypeService.ExecuteAutoTypeAsync(_selectedEntry, IntPtr.Zero, 250);
+            try
+            {
+                WindowState = WindowState.Minimized;
+                await Task.Delay(400);
+
+                await AutoTypeService.ExecuteAutoTypeAsync(entryToType, IntPtr.Zero, 250);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Errore durante l'esecuzione dell'Auto-Type:\n{ex.Message}", "Errore Auto-Type", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void BtnPasswordGenerator_Click(object sender, RoutedEventArgs e)

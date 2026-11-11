@@ -13,6 +13,8 @@
         <conv:GroupIconConverter x:Key="GroupIconConverter"/>
         <conv:EntryIconConverter x:Key="EntryIconConverter"/>
         <conv:NotNullToBoolConverter x:Key="NotNullToBoolConverter"/>
+        <conv:StringNotEmptyToBoolConverter x:Key="StringNotEmptyToBoolConverter"/>
+        <conv:CanAutoTypeConverter x:Key="CanAutoTypeConverter"/>
 
         <!-- Primary Action Button -->
         <Style x:Key="PrimaryToolButton" TargetType="Button">
@@ -254,7 +256,7 @@
             <MenuItem Header="{DynamicResource MenuTools}">
                 <MenuItem Header="{DynamicResource MenuPasswordGenerator}" InputGestureText="Ctrl+W" Click="BtnPasswordGenerator_Click"/>
                 <MenuItem Header="{DynamicResource MenuAutoType}" InputGestureText="Ctrl+V" Click="BtnAutoType_Click"
-                          IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}"/>
+                          IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource CanAutoTypeConverter}}"/>
                 <Separator Background="{DynamicResource BorderColor}"/>
                 <MenuItem Header="{DynamicResource MenuClearClipboard}" Click="BtnClearClipboard_Click"/>
             </MenuItem>
@@ -292,19 +294,19 @@
                     <Border Width="1" Height="18" Background="{DynamicResource BorderColor}" Margin="8,0" VerticalAlignment="Center"/>
 
                     <Button Style="{StaticResource ToolButton}" Click="BtnCopyUsername_Click" ToolTip="{DynamicResource TbCopyUser}"
-                            IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}">
+                            IsEnabled="{Binding SelectedItem.UserName, ElementName=DgEntries, Converter={StaticResource StringNotEmptyToBoolConverter}}">
                         <TextBlock Text="👤" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                     <Button Style="{StaticResource ToolButton}" Click="BtnCopyPassword_Click" ToolTip="{DynamicResource TbCopyPassword}"
-                            IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}">
+                            IsEnabled="{Binding SelectedItem.Password, ElementName=DgEntries, Converter={StaticResource StringNotEmptyToBoolConverter}}">
                         <TextBlock Text="🔑" FontSize="13" Foreground="#F59E0B" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                     <Button Style="{StaticResource ToolButton}" Click="BtnOpenUrl_Click" ToolTip="{DynamicResource TbOpenUrl}"
-                            IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}">
+                            IsEnabled="{Binding SelectedItem.Url, ElementName=DgEntries, Converter={StaticResource StringNotEmptyToBoolConverter}}">
                         <TextBlock Text="🌐" FontSize="13" Foreground="{DynamicResource AccentColor}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                     <Button Style="{StaticResource ToolButton}" Click="BtnAutoType_Click" ToolTip="{DynamicResource TbAutoType}"
-                            IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}">
+                            IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource CanAutoTypeConverter}}">
                         <TextBlock Text="⌨️" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
 

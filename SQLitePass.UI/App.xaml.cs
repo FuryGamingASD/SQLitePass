@@ -9,6 +9,12 @@ namespace SQLitePass.UI
         {
             base.OnStartup(e);
 
+            DispatcherUnhandledException += (s, args) =>
+            {
+                MessageBox.Show($"Si è verificato un errore inatteso:\n\n{args.Exception.Message}", "SQLitePass - Errore", MessageBoxButton.OK, MessageBoxImage.Error);
+                args.Handled = true;
+            };
+
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
             var settings = SQLitePass.Core.Services.AppSettingsManager.Load();
