@@ -82,6 +82,7 @@ namespace SQLitePass.UI
 
         private bool _isLocked = false;
         private bool _isLocking = false;
+        private bool _isPerformingAutoType = false;
 
         public MainWindow(SqliteStorageProvider storage, CryptoEngine crypto, VaultMetadata metadata)
         {
@@ -178,7 +179,7 @@ namespace SQLitePass.UI
             _idleLockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
             _idleLockTimer.Tick += (s, e) =>
             {
-                if (_isLocked || _isLocking) return;
+                if (_isLocked || _isLocking || _isPerformingAutoType) return;
 
                 var settings = AppSettingsManager.Load();
                 if (settings.AutoLockMinutes > 0)
@@ -200,6 +201,8 @@ namespace SQLitePass.UI
 
         private void SystemEvents_SessionSwitch(object sender, SessionSwitchEventArgs e)
         {
+            if (_isPerformingAutoType) return;
+
             if (e.Reason == SessionSwitchReason.SessionLock)
             {
                 var settings = AppSettingsManager.Load();
@@ -256,6 +259,15 @@ namespace SQLitePass.UI
             base.OnClosed(e);
         }
 
+        protected override void OnActivated(EventArgs e)
+        {
+            base.OnActivated(e);
+            if (_isLocked && !_isLocking && !_isPerformingAutoType)
+            {
+                PromptUnlock();
+            }
+        }
+
         private IntPtr HwndHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
             const int WM_HOTKEY = 0x0312;
@@ -269,31 +281,46 @@ namespace SQLitePass.UI
 
         private async void HandleGlobalAutoType()
         {
-            if (_isLocked) return;
+            if (_isLocked || _isPerformingAutoType) return;
+            _isPerformingAutoType = true;
 
-            IntPtr foregroundWin = GetForegroundWindow();
-            var titleBuilder = new System.Text.StringBuilder(256);
-            GetWindowText(foregroundWin, titleBuilder, 256);
-            string winTitle = titleBuilder.ToString();
-
-            // Find matching entry by Window Title or URL domain
-            PwEntry? match = _allEntries.FirstOrDefault(e =>
-                (!string.IsNullOrEmpty(e.Title) && winTitle.Contains(e.Title, StringComparison.OrdinalIgnoreCase)) ||
-                (!string.IsNullOrEmpty(e.Url) && winTitle.Contains(e.Url.Replace("https://", "").Replace("http://", "").Split('/')[0], StringComparison.OrdinalIgnoreCase))
-            );
-
-            if (match != null)
+            try
             {
-                await AutoTypeService.ExecuteAutoTypeAsync(match, foregroundWin, 150);
+                IntPtr foregroundWin = GetForegroundWindow();
+                var titleBuilder = new System.Text.StringBuilder(256);
+                GetWindowText(foregroundWin, titleBuilder, 256);
+                string winTitle = titleBuilder.ToString();
+
+                // Find matching entry by Window Title or URL domain
+                PwEntry? match = _allEntries.FirstOrDefault(e =>
+                    (!string.IsNullOrEmpty(e.Title) && winTitle.Contains(e.Title, StringComparison.OrdinalIgnoreCase)) ||
+                    (!string.IsNullOrEmpty(e.Url) && winTitle.Contains(e.Url.Replace("https://", "").Replace("http://", "").Split('/')[0], StringComparison.OrdinalIgnoreCase))
+                );
+
+                if (match != null)
+                {
+                    await AutoTypeService.ExecuteAutoTypeAsync(match, foregroundWin, 150);
+                }
+                else if (_selectedEntry != null)
+                {
+                    await AutoTypeService.ExecuteAutoTypeAsync(_selectedEntry, foregroundWin, 150);
+                }
             }
-            else if (_selectedEntry != null)
+            catch (Exception ex)
             {
-                await AutoTypeService.ExecuteAutoTypeAsync(_selectedEntry, foregroundWin, 150);
+                System.Diagnostics.Debug.WriteLine($"Global Auto-Type error: {ex.Message}");
+            }
+            finally
+            {
+                await Task.Delay(250);
+                _isPerformingAutoType = false;
             }
         }
 
         private void MainWindow_StateChanged(object? sender, EventArgs e)
         {
+            if (_isPerformingAutoType) return;
+
             var settings = AppSettingsManager.Load();
 
             if (WindowState == WindowState.Minimized)
@@ -783,6 +810,7 @@ namespace SQLitePass.UI
                 return;
             }
 
+            _isPerformingAutoType = true;
             try
             {
                 WindowState = WindowState.Minimized;
@@ -793,6 +821,11 @@ namespace SQLitePass.UI
             catch (Exception ex)
             {
                 MessageBox.Show($"Errore durante l'esecuzione dell'Auto-Type:\n{ex.Message}", "Errore Auto-Type", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                await Task.Delay(250);
+                _isPerformingAutoType = false;
             }
         }
 
@@ -819,7 +852,7 @@ namespace SQLitePass.UI
 
         private void LockVault(bool userInitiated)
         {
-            if (_isLocked || _isLocking) return;
+            if (_isLocked || _isLocking || _isPerformingAutoType) return;
             _isLocking = true;
 
             try
@@ -830,13 +863,10 @@ namespace SQLitePass.UI
                 GridEntryPreview.Visibility = Visibility.Collapsed;
                 _isLocked = true;
 
-                // If background lock and window is minimized or hidden in tray, stay quietly in background
-                if (!userInitiated && (WindowState == WindowState.Minimized || !IsVisible))
+                if (userInitiated)
                 {
-                    return;
+                    PromptUnlock();
                 }
-
-                PromptUnlock();
             }
             finally
             {

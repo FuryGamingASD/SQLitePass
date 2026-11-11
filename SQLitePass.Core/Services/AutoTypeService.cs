@@ -83,6 +83,11 @@ namespace SQLitePass.Core.Services
                 }
                 else
                 {
+                    IntPtr fg = GetForegroundWindow();
+                    if (fg != IntPtr.Zero)
+                    {
+                        SetForegroundWindow(fg);
+                    }
                     await Task.Delay(initialDelayMs).ConfigureAwait(false);
                 }
 
