@@ -77,6 +77,12 @@ namespace SQLitePass.UI
         [DllImport("user32.dll")]
         private static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
 
+        [DllImport("kernel32.dll")]
+        private static extern uint GetTickCount();
+
+        private bool _isLocked = false;
+        private bool _isLocking = false;
+
         public MainWindow(SqliteStorageProvider storage, CryptoEngine crypto, VaultMetadata metadata)
         {
             InitializeComponent();
@@ -156,6 +162,12 @@ namespace SQLitePass.UI
 
         private void ShowAndRestoreWindow()
         {
+            if (_isLocked)
+            {
+                PromptUnlock();
+                return;
+            }
+
             Show();
             WindowState = WindowState.Normal;
             Activate();
@@ -166,16 +178,19 @@ namespace SQLitePass.UI
             _idleLockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
             _idleLockTimer.Tick += (s, e) =>
             {
+                if (_isLocked || _isLocking) return;
+
                 var settings = AppSettingsManager.Load();
                 if (settings.AutoLockMinutes > 0)
                 {
                     var lii = new LASTINPUTINFO { cbSize = (uint)Marshal.SizeOf(typeof(LASTINPUTINFO)) };
                     if (GetLastInputInfo(ref lii))
                     {
-                        uint idleMs = (uint)Environment.TickCount - lii.dwTime;
+                        uint envTicks = GetTickCount();
+                        uint idleMs = envTicks >= lii.dwTime ? (envTicks - lii.dwTime) : (uint.MaxValue - lii.dwTime + envTicks);
                         if (idleMs >= (uint)settings.AutoLockMinutes * 60 * 1000)
                         {
-                            BtnLock_Click(this, new RoutedEventArgs());
+                            LockVault(userInitiated: false);
                         }
                     }
                 }
@@ -190,7 +205,7 @@ namespace SQLitePass.UI
                 var settings = AppSettingsManager.Load();
                 if (settings.AutoLockOnWindowsLock)
                 {
-                    Dispatcher.Invoke(() => BtnLock_Click(this, new RoutedEventArgs()));
+                    Dispatcher.Invoke(() => LockVault(userInitiated: false));
                 }
             }
         }
@@ -254,6 +269,8 @@ namespace SQLitePass.UI
 
         private async void HandleGlobalAutoType()
         {
+            if (_isLocked) return;
+
             IntPtr foregroundWin = GetForegroundWindow();
             var titleBuilder = new System.Text.StringBuilder(256);
             GetWindowText(foregroundWin, titleBuilder, 256);
@@ -283,8 +300,7 @@ namespace SQLitePass.UI
             {
                 if (settings.AutoLockOnMinimize)
                 {
-                    BtnLock_Click(this, new RoutedEventArgs());
-                    return;
+                    LockVault(userInitiated: false);
                 }
 
                 if (settings.MinimizeToTray)
@@ -779,23 +795,72 @@ namespace SQLitePass.UI
 
         private void BtnLock_Click(object sender, RoutedEventArgs e)
         {
-            _crypto.Dispose();
-            _allEntries.Clear();
-            _rootGroups.Clear();
+            LockVault(userInitiated: true);
+        }
+
+        private void LockVault(bool userInitiated)
+        {
+            if (_isLocked || _isLocking) return;
+            _isLocking = true;
+
+            try
+            {
+                _crypto.Dispose();
+                _allEntries.Clear();
+                _rootGroups.Clear();
+                GridEntryPreview.Visibility = Visibility.Collapsed;
+                _isLocked = true;
+
+                // If background lock and window is minimized or hidden in tray, stay quietly in background
+                if (!userInitiated && (WindowState == WindowState.Minimized || !IsVisible))
+                {
+                    return;
+                }
+
+                PromptUnlock();
+            }
+            finally
+            {
+                _isLocking = false;
+            }
+        }
+
+        private void PromptUnlock()
+        {
+            if (!_isLocked) return;
 
             var login = new LoginWindow();
-            if (login.ShowDialog() == true && login.AuthenticatedCrypto != null && login.StorageProvider != null && login.Metadata != null)
+            if (IsVisible && WindowState != WindowState.Minimized)
+            {
+                login.Owner = this;
+            }
+
+            bool? result = login.ShowDialog();
+            if (result == true && login.AuthenticatedCrypto != null && login.StorageProvider != null && login.Metadata != null)
             {
                 _storage = login.StorageProvider;
                 _crypto = login.AuthenticatedCrypto;
                 _metadata = login.Metadata;
+                _isLocked = false;
                 TxtStatusDb.Text = $"Vault: {Path.GetFileName(_storage.FilePath)} • Dual Backup: Attivo";
+
+                Show();
+                WindowState = WindowState.Normal;
+                Activate();
                 _ = RefreshDataAsync();
             }
             else
             {
-                _isExplicitShutdown = true;
-                System.Windows.Application.Current.Shutdown();
+                // User cancelled or closed the unlock dialog: stay safely locked in tray or minimized
+                var settings = AppSettingsManager.Load();
+                if (settings.MinimizeToTray)
+                {
+                    Hide();
+                }
+                else
+                {
+                    WindowState = WindowState.Minimized;
+                }
             }
         }
 

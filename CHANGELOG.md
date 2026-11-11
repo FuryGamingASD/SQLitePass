@@ -34,6 +34,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Enhanced DataGrid row height (36px) with clean horizontal-only dividers and high-contrast row selections.
   - Polished detail inspector card with subtle password entropy meter and rounded quick-copy buttons.
 
+### 🐛 Bug Fixes
+- **Password Generator Dialog Crash**: Fixed `NullReferenceException` caused by premature event triggers (`ValueChanged` on slider and `Checked` on checkboxes) during XAML component initialization.
+- **Silent Background Auto-Lock**: Prevented the unlock window from aggressively popping up and stealing focus over other applications when idle timeout or Windows session lock occurs while the app is in the background or minimized to the System Tray. Cancelling unlock no longer abruptly shuts down the application.
+
 ### 🛡️ Core & Packaging
 - Built official release binaries (Setup installer and Portable zip) for v1.0.1 using Velopack.
 

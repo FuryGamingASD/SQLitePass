@@ -6,17 +6,25 @@ namespace SQLitePass.UI.Dialogs
 {
     public partial class PasswordGeneratorDialog : Window
     {
+        private bool _isInitialized = false;
         public string ResultPassword { get; private set; } = string.Empty;
 
         public PasswordGeneratorDialog()
         {
             InitializeComponent();
+            _isInitialized = true;
             GenerateNewPassword();
         }
 
         private void GenerateNewPassword()
         {
-            if (TxtGeneratedPassword == null) return;
+            if (!_isInitialized || TxtGeneratedPassword == null || SliderLength == null ||
+                ChkUpper == null || ChkLower == null || ChkDigits == null ||
+                ChkSpecial == null || ChkBrackets == null || ChkExcludeLookAlike == null ||
+                PbEntropy == null || TxtEntropy == null)
+            {
+                return;
+            }
 
             var options = new PasswordGeneratorOptions
             {
