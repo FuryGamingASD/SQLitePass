@@ -48,6 +48,7 @@ namespace SQLitePass.UI.Dialogs
 
             ChkLockOnMinimize.IsChecked = _settings.AutoLockOnMinimize;
             ChkLockOnWindowsLock.IsChecked = _settings.AutoLockOnWindowsLock;
+            ChkProtectScreenCapture.IsChecked = _settings.ProtectScreenCapture;
 
             ChkMinimizeToTray.IsChecked = _settings.MinimizeToTray;
             ChkCloseToTray.IsChecked = _settings.CloseToTray;
@@ -96,6 +97,7 @@ namespace SQLitePass.UI.Dialogs
 
             _settings.AutoLockOnMinimize = ChkLockOnMinimize.IsChecked == true;
             _settings.AutoLockOnWindowsLock = ChkLockOnWindowsLock.IsChecked == true;
+            _settings.ProtectScreenCapture = ChkProtectScreenCapture.IsChecked == true;
 
             _settings.MinimizeToTray = ChkMinimizeToTray.IsChecked == true;
             _settings.CloseToTray = ChkCloseToTray.IsChecked == true;

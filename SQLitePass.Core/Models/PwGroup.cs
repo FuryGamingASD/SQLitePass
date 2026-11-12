@@ -11,6 +11,7 @@ namespace SQLitePass.Core.Models
         private int _iconIndex = 48; // Default folder icon
         private bool _isExpanded = true;
         private bool _isSelected;
+        private int _sortOrder = 0;
 
         public Guid Id { get; set; } = Guid.NewGuid();
         public Guid? ParentId { get; set; }
@@ -19,6 +20,12 @@ namespace SQLitePass.Core.Models
         {
             get => _name;
             set { if (_name != value) { _name = value; OnPropertyChanged(); } }
+        }
+
+        public int SortOrder
+        {
+            get => _sortOrder;
+            set { if (_sortOrder != value) { _sortOrder = value; OnPropertyChanged(); } }
         }
 
         public int IconIndex

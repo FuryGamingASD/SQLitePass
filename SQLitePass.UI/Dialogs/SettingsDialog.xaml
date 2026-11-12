@@ -78,6 +78,7 @@
 
                         <CheckBox x:Name="ChkLockOnMinimize" Content="{DynamicResource SettingsLockOnMinimize}" Margin="0,3"/>
                         <CheckBox x:Name="ChkLockOnWindowsLock" Content="{DynamicResource SettingsLockOnWindowsLock}" IsChecked="True" Margin="0,3"/>
+                        <CheckBox x:Name="ChkProtectScreenCapture" Content="{DynamicResource SettingsProtectScreenCapture}" IsChecked="True" Margin="0,3"/>
                     </StackPanel>
                 </Border>
 

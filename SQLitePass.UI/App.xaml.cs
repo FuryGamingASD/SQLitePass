@@ -1,4 +1,7 @@
+using System;
+using System.Threading.Tasks;
 using System.Windows;
+using SQLitePass.Core.Services;
 using SQLitePass.UI.Dialogs;
 
 namespace SQLitePass.UI
@@ -9,10 +12,27 @@ namespace SQLitePass.UI
         {
             base.OnStartup(e);
 
+            AppLogger.LogInfo("=== SQLitePass starting ===");
+
             DispatcherUnhandledException += (s, args) =>
             {
+                AppLogger.LogError("DispatcherUnhandledException caught", args.Exception);
                 MessageBox.Show($"Si è verificato un errore inatteso:\n\n{args.Exception.Message}", "SQLitePass - Errore", MessageBoxButton.OK, MessageBoxImage.Error);
                 args.Handled = true;
+            };
+
+            AppDomain.CurrentDomain.UnhandledException += (s, args) =>
+            {
+                if (args.ExceptionObject is Exception ex)
+                {
+                    AppLogger.LogError("AppDomain.UnhandledException caught", ex);
+                }
+            };
+
+            TaskScheduler.UnobservedTaskException += (s, args) =>
+            {
+                AppLogger.LogError("TaskScheduler.UnobservedTaskException caught", args.Exception);
+                args.SetObserved();
             };
 
             ShutdownMode = ShutdownMode.OnExplicitShutdown;

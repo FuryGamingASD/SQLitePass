@@ -231,6 +231,8 @@
                 <MenuItem Header="{DynamicResource MenuLockVault}" InputGestureText="Ctrl+L" Click="BtnLock_Click"/>
                 <Separator Background="{DynamicResource BorderColor}"/>
                 <MenuItem Header="{DynamicResource MenuImportCsv}" Click="MenuImportCsv_Click"/>
+                <MenuItem Header="{DynamicResource MenuImportBitwardenJson}" Click="MenuImportBitwardenJson_Click"/>
+                <MenuItem Header="{DynamicResource MenuImportBrowserCsv}" Click="MenuImportBrowserCsv_Click"/>
                 <MenuItem Header="{DynamicResource MenuExportCsv}" Click="MenuExportCsv_Click"/>
                 <Separator Background="{DynamicResource BorderColor}"/>
                 <MenuItem Header="{DynamicResource MenuSettings}" Click="MenuSettings_Click"/>
@@ -247,6 +249,12 @@
                 <Separator Background="{DynamicResource BorderColor}"/>
                 <MenuItem Header="{DynamicResource MenuRenameGroup}" Click="MenuRenameGroup_Click"/>
                 <MenuItem Header="{DynamicResource MenuDeleteGroup}" Click="MenuDeleteGroup_Click"/>
+                <Separator Background="{DynamicResource BorderColor}"/>
+                <MenuItem Header="{DynamicResource MenuMoveGroupUp}" InputGestureText="Ctrl+Up" Click="MenuMoveGroupUp_Click"/>
+                <MenuItem Header="{DynamicResource MenuMoveGroupDown}" InputGestureText="Ctrl+Down" Click="MenuMoveGroupDown_Click"/>
+                <MenuItem Header="{DynamicResource MenuMoveGroupToRoot}" Click="MenuMoveGroupToRoot_Click"/>
+                <Separator Background="{DynamicResource BorderColor}"/>
+                <MenuItem Header="{DynamicResource MenuEmptyTrash}" Click="MenuEmptyTrash_Click"/>
             </MenuItem>
             <MenuItem Header="{DynamicResource MenuView}">
                 <MenuItem Header="{DynamicResource MenuToggleTheme}" Click="MenuToggleTheme_Click"/>
@@ -377,7 +385,12 @@
                     </Border>
                     <!-- Groups TreeView -->
                     <TreeView x:Name="TvGroups" Grid.Row="1" Background="Transparent" BorderThickness="0"
-                              SelectedItemChanged="TvGroups_SelectedItemChanged" Margin="4,6">
+                              SelectedItemChanged="TvGroups_SelectedItemChanged" Margin="4,6"
+                              AllowDrop="True"
+                              PreviewMouseLeftButtonDown="TvGroups_PreviewMouseLeftButtonDown"
+                              PreviewMouseMove="TvGroups_PreviewMouseMove"
+                              PreviewDragOver="TvGroups_PreviewDragOver"
+                              Drop="TvGroups_Drop">
                         <TreeView.ItemTemplate>
                             <HierarchicalDataTemplate ItemsSource="{Binding Children}">
                                 <StackPanel Orientation="Horizontal" Margin="3,4">
@@ -393,6 +406,12 @@
                                 <MenuItem Header="{DynamicResource AddSubgroup}" Click="BtnAddGroup_Click"/>
                                 <MenuItem Header="{DynamicResource MenuRenameGroup}" Click="MenuRenameGroup_Click"/>
                                 <MenuItem Header="{DynamicResource MenuDeleteGroup}" Click="MenuDeleteGroup_Click"/>
+                                <Separator/>
+                                <MenuItem Header="{DynamicResource MenuMoveGroupUp}" Click="MenuMoveGroupUp_Click"/>
+                                <MenuItem Header="{DynamicResource MenuMoveGroupDown}" Click="MenuMoveGroupDown_Click"/>
+                                <MenuItem Header="{DynamicResource MenuMoveGroupToRoot}" Click="MenuMoveGroupToRoot_Click"/>
+                                <Separator/>
+                                <MenuItem Header="{DynamicResource MenuEmptyTrash}" Click="MenuEmptyTrash_Click"/>
                             </ContextMenu>
                         </TreeView.ContextMenu>
                     </TreeView>
@@ -412,6 +431,7 @@
 
                 <!-- ENTRIES DATAGRID (Alternating White & Soft Sky Tint) -->
                 <DataGrid x:Name="DgEntries" Grid.Row="0" AutoGenerateColumns="False" IsReadOnly="True"
+                          CanUserSortColumns="True"
                           SelectionMode="Single" SelectionUnit="FullRow"
                           GridLinesVisibility="Horizontal" HeadersVisibility="Column"
                           HorizontalGridLinesBrush="{DynamicResource BorderSubtle}"
@@ -421,10 +441,12 @@
                           BorderThickness="0" RowHeight="32"
                           SelectionChanged="DgEntries_SelectionChanged"
                           MouseDoubleClick="DgEntries_MouseDoubleClick"
+                          PreviewMouseLeftButtonDown="DgEntries_PreviewMouseLeftButtonDown"
+                          PreviewMouseMove="DgEntries_PreviewMouseMove"
                           ContextMenuOpening="DgEntries_ContextMenuOpening">
                     <DataGrid.Columns>
                         <!-- Titolo with Lively Icon Badge -->
-                        <DataGridTemplateColumn Header="{DynamicResource ColTitle}" Width="200" SortMemberPath="Title">
+                        <DataGridTemplateColumn Header="{DynamicResource ColTitle}" Width="200" SortMemberPath="Title" CanUserSort="True">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0">
@@ -438,7 +460,7 @@
                         </DataGridTemplateColumn>
 
                         <!-- User Name -->
-                        <DataGridTemplateColumn Header="{DynamicResource ColUserName}" Width="160" SortMemberPath="UserName">
+                        <DataGridTemplateColumn Header="{DynamicResource ColUserName}" Width="160" SortMemberPath="UserName" CanUserSort="True">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0">
@@ -450,10 +472,10 @@
                         </DataGridTemplateColumn>
 
                         <!-- Password -->
-                        <DataGridTextColumn x:Name="ColPassword" Header="{DynamicResource ColPassword}" Binding="{Binding Password, Converter={StaticResource PasswordMaskConverter}}" Width="140" FontFamily="Consolas"/>
+                        <DataGridTextColumn x:Name="ColPassword" Header="{DynamicResource ColPassword}" Binding="{Binding Password, Converter={StaticResource PasswordMaskConverter}}" Width="140" FontFamily="Consolas" CanUserSort="True" SortMemberPath="Password"/>
 
                         <!-- URL -->
-                        <DataGridTemplateColumn Header="{DynamicResource ColUrl}" Width="210" SortMemberPath="Url">
+                        <DataGridTemplateColumn Header="{DynamicResource ColUrl}" Width="210" SortMemberPath="Url" CanUserSort="True">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0">
@@ -465,10 +487,10 @@
                         </DataGridTemplateColumn>
 
                         <!-- Notes -->
-                        <DataGridTextColumn Header="{DynamicResource ColNotes}" Binding="{Binding Notes}" Width="*"/>
+                        <DataGridTextColumn Header="{DynamicResource ColNotes}" Binding="{Binding Notes}" Width="*" CanUserSort="True" SortMemberPath="Notes"/>
 
                         <!-- Ultima Modifica -->
-                        <DataGridTemplateColumn Header="{DynamicResource ColUpdatedAt}" Width="135" SortMemberPath="UpdatedAt">
+                        <DataGridTemplateColumn Header="{DynamicResource ColUpdatedAt}" Width="135" SortMemberPath="UpdatedAt" CanUserSort="True">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding UpdatedAt, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}" VerticalAlignment="Center" Margin="6,0" Foreground="{DynamicResource TextMuted}" FontSize="12"/>

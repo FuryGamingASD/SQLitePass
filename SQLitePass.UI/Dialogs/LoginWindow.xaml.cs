@@ -24,7 +24,19 @@ namespace SQLitePass.UI.Dialogs
         public LoginWindow()
         {
             InitializeComponent();
+            var settings = AppSettingsManager.Load();
+            SQLitePass.UI.Services.WindowSecurityService.ApplyProtection(this, settings.ProtectScreenCapture);
             LoadRecentVaults();
+            Closing += LoginWindow_Closing;
+        }
+
+        private void LoginWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+        {
+            if (_keyFileBytes != null)
+            {
+                CryptographicOperations.ZeroMemory(_keyFileBytes);
+                _keyFileBytes = null;
+            }
         }
 
         private void LoadRecentVaults()
@@ -97,7 +109,11 @@ namespace SQLitePass.UI.Dialogs
             GridKeyFile.IsEnabled = ChkUseKeyFile.IsChecked == true;
             if (ChkUseKeyFile.IsChecked != true)
             {
-                _keyFileBytes = null;
+                if (_keyFileBytes != null)
+                {
+                    CryptographicOperations.ZeroMemory(_keyFileBytes);
+                    _keyFileBytes = null;
+                }
                 TxtKeyFilePath.Text = string.Empty;
             }
         }
@@ -185,6 +201,34 @@ namespace SQLitePass.UI.Dialogs
 
             try
             {
+                // Verifica preventiva di integrità fisica (PRAGMA quick_check)
+                bool isIntegrityOk = await provider.CheckDatabaseIntegrityAsync();
+                if (!isIntegrityOk)
+                {
+                    string backupFile = provider.BackupFilePath;
+                    bool hasBackup = File.Exists(backupFile);
+                    var choice = MessageBox.Show(
+                        "Attenzione: il controllo di integrità del database ha rilevato una possibile corruzione del file.\n\n" +
+                        (hasBackup 
+                            ? "È presente una copia isolata di backup (.backup). Vuoi ripristinarla adesso prima di accedere?" 
+                            : "Nessun file di backup trovato. Vuoi tentare comunque di aprire il file?"),
+                        "Integrità Database Compromessa",
+                        hasBackup ? MessageBoxButton.YesNo : MessageBoxButton.OKCancel,
+                        MessageBoxImage.Warning
+                    );
+
+                    if (hasBackup && choice == MessageBoxResult.Yes)
+                    {
+                        File.Copy(backupFile, vaultPath, overwrite: true);
+                        AppLogger.LogInfo($"Vault '{vaultPath}' restored from backup due to failed integrity check.");
+                        MessageBox.Show("Vault ripristinato con successo dalla copia di backup. Procedi con lo sblocco.", "Ripristino Completato", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                    else if (!hasBackup && choice != MessageBoxResult.OK)
+                    {
+                        return;
+                    }
+                }
+
                 await provider.InitializeDatabaseAndSchemaAsync();
                 var metadata = await provider.LoadVaultMetadataAsync();
 
@@ -194,10 +238,22 @@ namespace SQLitePass.UI.Dialogs
                     return;
                 }
 
-                // Derivazione chiave con Argon2id
+                // Derivazione chiave con Argon2id con pulizia garantita di _keyFileBytes
                 byte[] salt = Convert.FromBase64String(metadata.SaltBase64);
-                using var mk = new MasterKey(masterPassword, _keyFileBytes);
-                byte[] derivedKey = CryptoEngine.DeriveKeyArgon2(mk, salt, metadata.KdfIterations, metadata.KdfMemoryKb, metadata.KdfParallelism);
+                byte[] derivedKey;
+                try
+                {
+                    using var mk = new MasterKey(masterPassword, _keyFileBytes);
+                    derivedKey = CryptoEngine.DeriveKeyArgon2(mk, salt, metadata.KdfIterations, metadata.KdfMemoryKb, metadata.KdfParallelism);
+                }
+                finally
+                {
+                    if (_keyFileBytes != null)
+                    {
+                        CryptographicOperations.ZeroMemory(_keyFileBytes);
+                        _keyFileBytes = null;
+                    }
+                }
 
                 var crypto = new CryptoEngine(derivedKey);
 
@@ -255,12 +311,25 @@ namespace SQLitePass.UI.Dialogs
                 byte[] salt = new byte[16];
                 RandomNumberGenerator.Fill(salt);
 
-                using var mk = new MasterKey(masterPassword, _keyFileBytes);
+                byte[] derivedKey;
                 int iterations = 3;
                 int memoryKb = 64 * 1024;
                 int parallelism = 2;
 
-                byte[] derivedKey = CryptoEngine.DeriveKeyArgon2(mk, salt, iterations, memoryKb, parallelism);
+                try
+                {
+                    using var mk = new MasterKey(masterPassword, _keyFileBytes);
+                    derivedKey = CryptoEngine.DeriveKeyArgon2(mk, salt, iterations, memoryKb, parallelism);
+                }
+                finally
+                {
+                    if (_keyFileBytes != null)
+                    {
+                        CryptographicOperations.ZeroMemory(_keyFileBytes);
+                        _keyFileBytes = null;
+                    }
+                }
+
                 var crypto = new CryptoEngine(derivedKey);
 
                 string canary = crypto.GenerateCanaryToken();

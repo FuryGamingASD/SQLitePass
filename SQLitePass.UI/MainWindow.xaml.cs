@@ -36,9 +36,10 @@ namespace SQLitePass.UI
         private PwGroup? _selectedGroup;
         private PwEntry? _selectedEntry;
 
-        private DispatcherTimer? _clipboardTimer;
-        private int _clipboardSecondsRemaining;
-        private string? _lastCopiedText;
+        private readonly ClipboardCoordinator _clipboardCoordinator;
+        private System.Windows.Point _dragStartPoint;
+        private System.Windows.Point _groupDragStartPoint;
+        private PwGroup? _dragCandidateGroup;
 
         private DispatcherTimer? _idleLockTimer;
         private bool _previewPasswordRevealed = false;
@@ -90,6 +91,8 @@ namespace SQLitePass.UI
             _storage = storage ?? throw new ArgumentNullException(nameof(storage));
             _crypto = crypto ?? throw new ArgumentNullException(nameof(crypto));
             _metadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+
+            _clipboardCoordinator = new ClipboardCoordinator(msg => TxtStatusClipboard.Text = msg);
 
             TvGroups.ItemsSource = _rootGroups;
 
@@ -239,7 +242,7 @@ namespace SQLitePass.UI
             }
 
             _idleLockTimer?.Stop();
-            _clipboardTimer?.Stop();
+            _clipboardCoordinator.Dispose();
             if (_trayIcon != null)
             {
                 _trayIcon.Dispose();
@@ -341,6 +344,7 @@ namespace SQLitePass.UI
         {
             var settings = AppSettingsManager.Load();
             Topmost = settings.AlwaysOnTop;
+            WindowSecurityService.ApplyProtection(this, settings.ProtectScreenCapture);
 
             if (settings.ShowPasswordColumnDefault)
             {
@@ -543,6 +547,375 @@ namespace SQLitePass.UI
             BtnEditEntry_Click(sender, e);
         }
 
+        #region Drag and Drop (Entries to Groups)
+
+        private void DgEntries_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            _dragStartPoint = e.GetPosition(null);
+        }
+
+        private void DgEntries_PreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (e.LeftButton == System.Windows.Input.MouseButtonState.Pressed && _selectedEntry != null)
+            {
+                System.Windows.Point currentPoint = e.GetPosition(null);
+                System.Windows.Vector diff = _dragStartPoint - currentPoint;
+
+                if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
+                    Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
+                {
+                    try
+                    {
+                        DragDrop.DoDragDrop(DgEntries, _selectedEntry, DragDropEffects.Move);
+                    }
+                    catch { }
+                }
+            }
+        }
+
+        private void TvGroups_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            _groupDragStartPoint = e.GetPosition(null);
+            _dragCandidateGroup = GetGroupByHitTest(e.GetPosition(TvGroups));
+        }
+
+        private void TvGroups_PreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+        {
+            if (e.LeftButton == System.Windows.Input.MouseButtonState.Pressed && _dragCandidateGroup != null)
+            {
+                System.Windows.Point currentPoint = e.GetPosition(null);
+                System.Windows.Vector diff = _groupDragStartPoint - currentPoint;
+
+                if (Math.Abs(diff.X) > SystemParameters.MinimumHorizontalDragDistance ||
+                    Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
+                {
+                    // Do not allow dragging the main vault root group or Cestino
+                    if (_rootGroups.Count > 0 && _dragCandidateGroup.Id == _rootGroups[0].Id)
+                        return;
+                    if (VaultOperationHandler.IsRecycleBinGroup(_dragCandidateGroup))
+                        return;
+
+                    try
+                    {
+                        DragDrop.DoDragDrop(TvGroups, _dragCandidateGroup, DragDropEffects.Move);
+                    }
+                    catch { }
+                    finally
+                    {
+                        _dragCandidateGroup = null;
+                    }
+                }
+            }
+        }
+
+        private void TvGroups_PreviewDragOver(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(typeof(PwEntry)))
+            {
+                var targetGroup = GetGroupByHitTest(e.GetPosition(TvGroups));
+                if (targetGroup != null)
+                {
+                    e.Effects = DragDropEffects.Move;
+                    e.Handled = true;
+                    return;
+                }
+            }
+            else if (e.Data.GetDataPresent(typeof(PwGroup)))
+            {
+                if (e.Data.GetData(typeof(PwGroup)) is PwGroup draggedGroup)
+                {
+                    var targetGroup = GetGroupByHitTest(e.GetPosition(TvGroups));
+                    if (targetGroup == null)
+                    {
+                        // Dropping on empty tree space -> allowed (moves to root)
+                        e.Effects = DragDropEffects.Move;
+                        e.Handled = true;
+                        return;
+                    }
+
+                    // Cannot drop group onto itself or its descendants
+                    if (targetGroup.Id == draggedGroup.Id || IsDescendantOf(targetGroup, draggedGroup))
+                    {
+                        e.Effects = DragDropEffects.None;
+                        e.Handled = true;
+                        return;
+                    }
+
+                    e.Effects = DragDropEffects.Move;
+                    e.Handled = true;
+                    return;
+                }
+            }
+
+            e.Effects = DragDropEffects.None;
+            e.Handled = true;
+        }
+
+        private async void TvGroups_Drop(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetData(typeof(PwEntry)) is PwEntry draggedEntry)
+            {
+                var targetGroup = GetGroupByHitTest(e.GetPosition(TvGroups));
+                if (targetGroup != null && draggedEntry.GroupId != targetGroup.Id)
+                {
+                    try
+                    {
+                        draggedEntry.GroupId = targetGroup.Id;
+                        await _storage.SaveEntryAsync(draggedEntry, _crypto);
+                        _entriesView.Refresh();
+                        UpdateStatusCounts();
+                        TxtStatusClipboard.Text = $"📁 Voce '{draggedEntry.Title}' spostata in '{targetGroup.Name}'";
+                        AppLogger.LogInfo($"Moved entry '{draggedEntry.Title}' to group '{targetGroup.Name}' via drag & drop");
+                    }
+                    catch (Exception ex)
+                    {
+                        AppLogger.LogError("Drag & drop move entry failed", ex);
+                        MessageBox.Show($"Impossibile spostare la voce:\n{ex.Message}", "Errore", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                }
+            }
+            else if (e.Data.GetData(typeof(PwGroup)) is PwGroup draggedGroup)
+            {
+                var targetItem = GetTreeViewItemFromHitTest(e.GetPosition(TvGroups));
+                var targetGroup = targetItem?.DataContext as PwGroup;
+
+                // Drop onto empty area -> Move to root
+                if (targetGroup == null)
+                {
+                    var rootParent = _rootGroups.FirstOrDefault();
+                    if (rootParent != null && draggedGroup.ParentId != rootParent.Id && draggedGroup.Id != rootParent.Id)
+                    {
+                        await MoveGroupInsideAsync(draggedGroup, rootParent);
+                    }
+                    return;
+                }
+
+                // Prevent dropping onto self or descendant
+                if (targetGroup.Id == draggedGroup.Id || IsDescendantOf(targetGroup, draggedGroup))
+                    return;
+
+                if (targetItem != null && targetItem.ActualHeight > 0)
+                {
+                    System.Windows.Point pt = e.GetPosition(targetItem);
+                    double relY = pt.Y / targetItem.ActualHeight;
+
+                    // If target is root vault and dropping above/below -> put inside root
+                    bool isRoot = _rootGroups.Count > 0 && targetGroup.Id == _rootGroups[0].Id;
+
+                    if (relY < 0.28 && !isRoot)
+                    {
+                        // Insert BEFORE target
+                        await MoveGroupRelativeAsync(draggedGroup, targetGroup, insertBefore: true);
+                    }
+                    else if (relY > 0.72 && !isRoot)
+                    {
+                        // Insert AFTER target
+                        await MoveGroupRelativeAsync(draggedGroup, targetGroup, insertBefore: false);
+                    }
+                    else
+                    {
+                        // Move INSIDE target
+                        await MoveGroupInsideAsync(draggedGroup, targetGroup);
+                    }
+                }
+                else
+                {
+                    await MoveGroupInsideAsync(draggedGroup, targetGroup);
+                }
+            }
+        }
+
+        private async Task MoveGroupInsideAsync(PwGroup groupToMove, PwGroup targetParent)
+        {
+            try
+            {
+                var oldCollection = FindGroupParentCollection(groupToMove);
+                oldCollection?.Remove(groupToMove);
+
+                groupToMove.ParentId = targetParent.Id;
+                groupToMove.SortOrder = targetParent.Children.Count > 0 
+                    ? targetParent.Children.Max(c => c.SortOrder) + 1 
+                    : 0;
+
+                targetParent.Children.Add(groupToMove);
+                targetParent.IsExpanded = true;
+                groupToMove.IsSelected = true;
+
+                await _storage.SaveGroupAsync(groupToMove, _crypto);
+                TxtStatusClipboard.Text = $"📁 Gruppo '{groupToMove.Name}' spostato dentro '{targetParent.Name}'";
+                AppLogger.LogInfo($"Group '{groupToMove.Name}' moved inside '{targetParent.Name}'");
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("Move group inside failed", ex);
+                MessageBox.Show($"Impossibile spostare il gruppo:\n{ex.Message}", "Errore", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async Task MoveGroupRelativeAsync(PwGroup groupToMove, PwGroup referenceGroup, bool insertBefore)
+        {
+            try
+            {
+                var oldCollection = FindGroupParentCollection(groupToMove);
+                var targetCollection = FindGroupParentCollection(referenceGroup);
+
+                if (targetCollection == null) return;
+
+                oldCollection?.Remove(groupToMove);
+                groupToMove.ParentId = referenceGroup.ParentId;
+
+                int refIndex = targetCollection.IndexOf(referenceGroup);
+                if (refIndex < 0) refIndex = targetCollection.Count;
+
+                int insertIndex = insertBefore ? refIndex : refIndex + 1;
+                if (insertIndex > targetCollection.Count) insertIndex = targetCollection.Count;
+
+                targetCollection.Insert(insertIndex, groupToMove);
+                groupToMove.IsSelected = true;
+
+                // Re-index SortOrder sequentially
+                for (int i = 0; i < targetCollection.Count; i++)
+                {
+                    targetCollection[i].SortOrder = i;
+                }
+
+                await _storage.SaveGroupsBatchAsync(targetCollection, _crypto);
+                TxtStatusClipboard.Text = $"📁 Gruppo '{groupToMove.Name}' riordinato";
+                AppLogger.LogInfo($"Group '{groupToMove.Name}' reordered {(insertBefore ? "before" : "after")} '{referenceGroup.Name}'");
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("Move group relative failed", ex);
+                MessageBox.Show($"Impossibile riordinare il gruppo:\n{ex.Message}", "Errore", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async void MenuMoveGroupUp_Click(object sender, RoutedEventArgs e)
+        {
+            if (_selectedGroup == null) return;
+            if (_rootGroups.Count > 0 && _selectedGroup.Id == _rootGroups[0].Id) return;
+
+            var col = FindGroupParentCollection(_selectedGroup);
+            if (col == null) return;
+
+            int idx = col.IndexOf(_selectedGroup);
+            if (idx > 0)
+            {
+                col.Move(idx, idx - 1);
+                for (int i = 0; i < col.Count; i++)
+                {
+                    col[i].SortOrder = i;
+                }
+                await _storage.SaveGroupsBatchAsync(col, _crypto);
+                _selectedGroup.IsSelected = true;
+                TxtStatusClipboard.Text = $"📁 Gruppo '{_selectedGroup.Name}' spostato su";
+            }
+        }
+
+        private async void MenuMoveGroupDown_Click(object sender, RoutedEventArgs e)
+        {
+            if (_selectedGroup == null) return;
+            if (_rootGroups.Count > 0 && _selectedGroup.Id == _rootGroups[0].Id) return;
+
+            var col = FindGroupParentCollection(_selectedGroup);
+            if (col == null) return;
+
+            int idx = col.IndexOf(_selectedGroup);
+            if (idx >= 0 && idx < col.Count - 1)
+            {
+                col.Move(idx, idx + 1);
+                for (int i = 0; i < col.Count; i++)
+                {
+                    col[i].SortOrder = i;
+                }
+                await _storage.SaveGroupsBatchAsync(col, _crypto);
+                _selectedGroup.IsSelected = true;
+                TxtStatusClipboard.Text = $"📁 Gruppo '{_selectedGroup.Name}' spostato giù";
+            }
+        }
+
+        private async void MenuMoveGroupToRoot_Click(object sender, RoutedEventArgs e)
+        {
+            if (_selectedGroup == null) return;
+            if (_rootGroups.Count == 0 || _selectedGroup.Id == _rootGroups[0].Id) return;
+
+            var rootGroup = _rootGroups[0];
+            if (_selectedGroup.ParentId == rootGroup.Id)
+            {
+                TxtStatusClipboard.Text = $"Il gruppo '{_selectedGroup.Name}' è già al livello principale.";
+                return;
+            }
+
+            await MoveGroupInsideAsync(_selectedGroup, rootGroup);
+        }
+
+        private static bool IsDescendantOf(PwGroup candidate, PwGroup root)
+        {
+            if (candidate.Id == root.Id) return true;
+            foreach (var child in root.Children)
+            {
+                if (IsDescendantOf(candidate, child)) return true;
+            }
+            return false;
+        }
+
+        private ObservableCollection<PwGroup>? FindGroupParentCollection(PwGroup group)
+        {
+            if (_rootGroups.Contains(group))
+                return _rootGroups;
+
+            return FindInCollectionRecursive(_rootGroups, group);
+        }
+
+        private static ObservableCollection<PwGroup>? FindInCollectionRecursive(IEnumerable<PwGroup> groups, PwGroup target)
+        {
+            foreach (var g in groups)
+            {
+                if (g.Children.Contains(target))
+                    return g.Children;
+
+                var inSub = FindInCollectionRecursive(g.Children, target);
+                if (inSub != null) return inSub;
+            }
+            return null;
+        }
+
+        private PwGroup? GetGroupByHitTest(System.Windows.Point point)
+        {
+            var hit = System.Windows.Media.VisualTreeHelper.HitTest(TvGroups, point);
+            if (hit == null) return null;
+
+            DependencyObject? current = hit.VisualHit;
+            while (current != null && current != TvGroups)
+            {
+                if (current is TreeViewItem tvi && tvi.DataContext is PwGroup group)
+                {
+                    return group;
+                }
+                current = System.Windows.Media.VisualTreeHelper.GetParent(current);
+            }
+            return null;
+        }
+
+        private TreeViewItem? GetTreeViewItemFromHitTest(System.Windows.Point point)
+        {
+            var hit = System.Windows.Media.VisualTreeHelper.HitTest(TvGroups, point);
+            if (hit == null) return null;
+
+            DependencyObject? current = hit.VisualHit;
+            while (current != null && current != TvGroups)
+            {
+                if (current is TreeViewItem tvi)
+                {
+                    return tvi;
+                }
+                current = System.Windows.Media.VisualTreeHelper.GetParent(current);
+            }
+            return null;
+        }
+
+        #endregion
+
         #region Actions
 
         private async void BtnAddEntry_Click(object sender, RoutedEventArgs e)
@@ -628,20 +1001,51 @@ namespace SQLitePass.UI
         {
             if (_selectedEntry == null) return;
 
-            if (MessageBox.Show($"Eliminare definitivamente la voce '{_selectedEntry.Title}'?", "Conferma Eliminazione", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+            try
             {
-                try
+                var (movedToTrash, permanentlyDeleted) = await VaultOperationHandler.DeleteOrTrashEntryAsync(
+                    _selectedEntry, _storage, _crypto, _rootGroups, this);
+
+                if (movedToTrash)
                 {
-                    await _storage.DeleteEntryAsync(_selectedEntry.Id);
+                    _entriesView.Refresh();
+                    UpdatePreviewPanel();
+                    UpdateStatusCounts();
+                    TxtStatusClipboard.Text = $"🗑️ Voce '{_selectedEntry.Title}' spostata nel Cestino";
+                }
+                else if (permanentlyDeleted)
+                {
                     _allEntries.Remove(_selectedEntry);
                     _entriesView.Refresh();
                     UpdatePreviewPanel();
                     UpdateStatusCounts();
+                    TxtStatusClipboard.Text = "🗑️ Voce eliminata definitivamente dal vault";
                 }
-                catch (Exception ex)
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("Delete/Trash entry failed", ex);
+                MessageBox.Show($"Operazione non riuscita:\n{ex.Message}", "Errore", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private async void MenuEmptyTrash_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                int count = await VaultOperationHandler.EmptyRecycleBinAsync(_storage, _crypto, _rootGroups, _allEntries, this);
+                if (count > 0)
                 {
-                    MessageBox.Show($"Eliminazione voce fallita:\n{ex.Message}", "Errore", MessageBoxButton.OK, MessageBoxImage.Error);
+                    _entriesView.Refresh();
+                    UpdatePreviewPanel();
+                    UpdateStatusCounts();
+                    TxtStatusClipboard.Text = $"🗑️ Cestino svuotato ({count} voci eliminate definitivamente)";
                 }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("Empty trash failed", ex);
+                MessageBox.Show($"Impossibile svuotare il Cestino:\n{ex.Message}", "Errore", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -717,7 +1121,7 @@ namespace SQLitePass.UI
         {
             if (_selectedEntry != null && !string.IsNullOrEmpty(_selectedEntry.UserName))
             {
-                CopyToClipboardWithAutoClear(_selectedEntry.UserName, "User name");
+                _clipboardCoordinator.CopyWithAutoClear(_selectedEntry.UserName, "User name");
             }
         }
 
@@ -725,51 +1129,13 @@ namespace SQLitePass.UI
         {
             if (_selectedEntry != null && !string.IsNullOrEmpty(_selectedEntry.Password))
             {
-                CopyToClipboardWithAutoClear(_selectedEntry.Password, "Password");
+                _clipboardCoordinator.CopyWithAutoClear(_selectedEntry.Password, "Password");
             }
-        }
-
-        private void CopyToClipboardWithAutoClear(string text, string description)
-        {
-            var settings = AppSettingsManager.Load();
-            int timeoutSecs = settings.ClipboardClearSeconds > 0 ? settings.ClipboardClearSeconds : 12;
-
-            Clipboard.SetText(text);
-            _lastCopiedText = text;
-            _clipboardSecondsRemaining = timeoutSecs;
-
-            _clipboardTimer?.Stop();
-            _clipboardTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-            _clipboardTimer.Tick += (s, ev) =>
-            {
-                _clipboardSecondsRemaining--;
-                if (_clipboardSecondsRemaining > 0)
-                {
-                    TxtStatusClipboard.Text = $"📋 {description} negli appunti ({_clipboardSecondsRemaining}s)";
-                }
-                else
-                {
-                    _clipboardTimer?.Stop();
-                    try
-                    {
-                        if (Clipboard.GetText() == _lastCopiedText)
-                        {
-                            Clipboard.Clear();
-                        }
-                    }
-                    catch { }
-                    TxtStatusClipboard.Text = "📋 Appunti cancellati per sicurezza";
-                }
-            };
-            _clipboardTimer.Start();
-            TxtStatusClipboard.Text = $"📋 {description} negli appunti ({timeoutSecs}s)";
         }
 
         private void BtnClearClipboard_Click(object sender, RoutedEventArgs e)
         {
-            _clipboardTimer?.Stop();
-            Clipboard.Clear();
-            TxtStatusClipboard.Text = "📋 Appunti cancellati";
+            _clipboardCoordinator.ClearImmediately();
         }
 
         private void BtnOpenUrl_Click(object sender, RoutedEventArgs e)
@@ -858,10 +1224,17 @@ namespace SQLitePass.UI
             try
             {
                 _crypto.Dispose();
+                _clipboardCoordinator.ClearImmediately();
                 _allEntries.Clear();
                 _rootGroups.Clear();
                 GridEntryPreview.Visibility = Visibility.Collapsed;
                 _isLocked = true;
+
+                // Force garbage collection to purge any plaintext strings from RAM
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+
+                AppLogger.LogInfo($"Vault locked (userInitiated: {userInitiated})");
 
                 if (userInitiated)
                 {
@@ -946,17 +1319,97 @@ namespace SQLitePass.UI
                     var targetGroupId = _selectedGroup?.Id ?? _rootGroups.FirstOrDefault()?.Id ?? Guid.NewGuid();
                     var imported = ImportExportService.ImportFromKeePassCsv(content, targetGroupId);
 
-                    foreach (var entry in imported)
+                    if (imported.Count > 0)
                     {
-                        await _storage.SaveEntryAsync(entry, _crypto);
-                        _allEntries.Add(entry);
+                        await _storage.SaveEntriesBatchAsync(imported, _crypto);
+                        foreach (var entry in imported)
+                        {
+                            _allEntries.Add(entry);
+                        }
+                        _entriesView.Refresh();
+                        UpdateStatusCounts();
                     }
-                    _entriesView.Refresh();
-                    UpdateStatusCounts();
-                    MessageBox.Show($"Importate con successo {imported.Count} voci!", "Importazione Riuscita", MessageBoxButton.OK, MessageBoxImage.Information);
+
+                    MessageBox.Show($"Importate con successo {imported.Count} voci da KeePass CSV!", "Importazione Riuscita", MessageBoxButton.OK, MessageBoxImage.Information);
+                    AppLogger.LogInfo($"Imported {imported.Count} entries from KeePass CSV");
                 }
                 catch (Exception ex)
                 {
+                    AppLogger.LogError("KeePass CSV import failed", ex);
+                    MessageBox.Show($"Importazione fallita:\n{ex.Message}", "Errore", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        private async void MenuImportBitwardenJson_Click(object sender, RoutedEventArgs e)
+        {
+            var ofd = new OpenFileDialog
+            {
+                Title = "Importa Vault Bitwarden (JSON)",
+                Filter = "File JSON Bitwarden (*.json)|*.json|Tutti i file (*.*)|*.*"
+            };
+            if (ofd.ShowDialog() == true)
+            {
+                try
+                {
+                    string content = File.ReadAllText(ofd.FileName);
+                    var targetGroupId = _selectedGroup?.Id ?? _rootGroups.FirstOrDefault()?.Id ?? Guid.NewGuid();
+                    var imported = ImportExportService.ImportFromBitwardenJson(content, targetGroupId);
+
+                    if (imported.Count > 0)
+                    {
+                        await _storage.SaveEntriesBatchAsync(imported, _crypto);
+                        foreach (var entry in imported)
+                        {
+                            _allEntries.Add(entry);
+                        }
+                        _entriesView.Refresh();
+                        UpdateStatusCounts();
+                    }
+
+                    MessageBox.Show($"Importate con successo {imported.Count} voci da Bitwarden JSON!", "Importazione Riuscita", MessageBoxButton.OK, MessageBoxImage.Information);
+                    AppLogger.LogInfo($"Imported {imported.Count} entries from Bitwarden JSON");
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.LogError("Bitwarden JSON import failed", ex);
+                    MessageBox.Show($"Importazione fallita:\n{ex.Message}", "Errore", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        private async void MenuImportBrowserCsv_Click(object sender, RoutedEventArgs e)
+        {
+            var ofd = new OpenFileDialog
+            {
+                Title = "Importa Password dal Browser (Chrome / Edge / Firefox CSV)",
+                Filter = "File CSV Password (*.csv)|*.csv|Tutti i file (*.*)|*.*"
+            };
+            if (ofd.ShowDialog() == true)
+            {
+                try
+                {
+                    string content = File.ReadAllText(ofd.FileName);
+                    var targetGroupId = _selectedGroup?.Id ?? _rootGroups.FirstOrDefault()?.Id ?? Guid.NewGuid();
+                    var imported = ImportExportService.ImportFromBrowserCsv(content, targetGroupId);
+
+                    if (imported.Count > 0)
+                    {
+                        await _storage.SaveEntriesBatchAsync(imported, _crypto);
+                        foreach (var entry in imported)
+                        {
+                            _allEntries.Add(entry);
+                        }
+                        _entriesView.Refresh();
+                        UpdateStatusCounts();
+                    }
+
+                    MessageBox.Show($"Importate con successo {imported.Count} voci dal Browser CSV!", "Importazione Riuscita", MessageBoxButton.OK, MessageBoxImage.Information);
+                    AppLogger.LogInfo($"Imported {imported.Count} entries from Browser CSV");
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.LogError("Browser CSV import failed", ex);
                     MessageBox.Show($"Importazione fallita:\n{ex.Message}", "Errore", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }

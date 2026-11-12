@@ -18,6 +18,9 @@ namespace SQLitePass.UI.Dialogs
             InitializeComponent();
             _entry = entry ?? throw new ArgumentNullException(nameof(entry));
 
+            var settings = AppSettingsManager.Load();
+            SQLitePass.UI.Services.WindowSecurityService.ApplyProtection(this, settings.ProtectScreenCapture);
+
             // Load values
             TxtTitle.Text = _entry.Title;
             TxtUserName.Text = _entry.UserName;

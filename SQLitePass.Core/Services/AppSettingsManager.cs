@@ -24,6 +24,7 @@ namespace SQLitePass.Core.Services
         public int AutoLockMinutes { get; set; } = 5; // 0 = disabled
         public bool AutoLockOnMinimize { get; set; } = false;
         public bool AutoLockOnWindowsLock { get; set; } = true;
+        public bool ProtectScreenCapture { get; set; } = true;
 
         // UI & Display
         public bool DarkMode { get; set; } = true;
