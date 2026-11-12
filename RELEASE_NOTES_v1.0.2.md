@@ -25,6 +25,11 @@ SQLitePass v1.0.2 introduces critical security protections, blazing-fast bulk im
 ---
 
 ### ✨ User Experience & Ergonomics
+* **Visual Drag & Drop Feedback (Adorner Lines & Highlights)**:
+  - **Insertion Line Indicator**: When reordering folders, a vibrant blue horizontal guideline with an anchor dot appears above or below the target folder, showing exactly where it will be placed.
+  - **Parent Folder Highlight**: Hovering over the middle of a folder highlights it with a soft blue rounded container, providing immediate visual confirmation that the folder will become the new parent.
+  - **Account Entry Drag Highlight**: Dragging accounts/credentials from the DataGrid onto any sidebar folder highlights the target destination before releasing.
+  - **Recycle Bin (Cestino) Protection**: The Recycle Bin is strictly solitary and cannot have child folders. Dropping folders into the Recycle Bin or creating subfolders inside it is prevented with clear visual feedback.
 * **Full Folder / Group Drag & Drop**:
   - Drag and drop folders inside other folders to nest them.
   - Drag and drop folders above or below other folders to reorder them at the same level.
