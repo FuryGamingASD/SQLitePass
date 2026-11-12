@@ -31,16 +31,32 @@ In traditional KeePass `.kdbx` files, the entire database is stored as a single 
 4. **Proactive Database Integrity Check (`PRAGMA quick_check;`):**
    * Automatically verifies physical SQLite page consistency on vault unlock. If file corruption is detected, SQLitePass immediately alerts the user and offers instant one-click recovery from the synchronized `.kpd.backup` file.
 
-5. **Zero-Configuration Embedded Engine:**
+5. **High-Performance Batch Architecture & DDL Indexes:**
+   * Eliminates N+1 query overhead: loads custom fields, attachments, and history across all entries in 3 aggregated batch queries mapped in memory (reducing queries from 3,001 to 4 for a 1,000-entry vault).
+   * Schema-optimized B-Tree indexes on `kp_entries(group_id)`, `kp_groups(parent_id)`, `kp_custom_fields(entry_id)`, `kp_attachments(entry_id)`, and `kp_history(entry_id)`.
+   * Automatic space reclamation with `PRAGMA auto_vacuum = INCREMENTAL;` and database `VACUUM` executed on "Svuota Cestino" (Empty Recycle Bin).
+
+6. **Zero-Configuration Embedded Engine:**
    * Powered by embedded SQLite—no database servers, background services, daemon processes, or open ports required.
 
 ---
 
 ## 🛡️ Security & Privacy Hardening
 
+* **Change Master Password (Atomic Re-Encryption):**
+  * Re-encrypts the entire database (entries, custom fields, attachments, history) in a single atomic SQLite transaction with newly generated Argon2id salt and verification canary.
+  * Ensures zero downtime and zero risk of partial key updates.
+
+* **Windows Clipboard History & Cloud Isolation:**
+  * When copying passwords, SQLitePass sets `CanIncludeInClipboardHistory = 0`, `CanUploadToCloudStore = 0`, and `ExcludeClipboardContentFromMonitorProcessing = 0` on the clipboard `DataObject`.
+  * Passwords never appear in Windows 10/11 Clipboard History (`Win+V`) and are never synchronized to Microsoft cloud accounts.
+
+* **Optional Stealth Encryption for Usernames & URLs:**
+  * In addition to passwords and notes, users can encrypt username and URL fields (`ENC:` prefix in SQLite records) for complete zero-knowledge privacy against anyone inspecting `.kpd` files.
+
 * **Anti-Screenshot & Screen Capture Protection (Anti-Spyware):**
   * Integrated native Win32 `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE / WDA_MONITOR)`.
-  * Application windows (Unlock Vault, Dashboard, Entry Editor, Settings) appear **completely blacked out or invisible** to screen capture software, video recording tools (OBS, Discord screen share, Teams, TeamViewer), and background screenshot malware. Can be toggled in *Settings*.
+  * All application windows (Unlock Vault, Dashboard, Entry Editor, Settings, Password Generator, Group Editor) appear **completely blacked out or invisible** to screen capture software, video recording tools (OBS, Discord screen share, Teams, TeamViewer), and background screenshot malware. Can be toggled in *Settings*.
 
 * **In-Memory Key File Sanitization:**
   * Key file byte buffers (`_keyFileBytes`) are immediately zeroed out in memory using `CryptographicOperations.ZeroMemory` within guaranteed `finally` blocks upon Argon2id key derivation, dialog closing, or option deselection.
@@ -83,8 +99,18 @@ In traditional KeePass `.kdbx` files, the entire database is stored as a single 
 * **Multi-Platform Vault Import & Export:**
   * **Bitwarden JSON Import (`.json`):** Full import of unencrypted Bitwarden vault exports, including usernames, passwords, URLs, notes, custom fields, and TOTP seeds.
   * **Web Browser CSV Import (`.csv`):** Auto-detects column structures and imports passwords exported from **Google Chrome, Microsoft Edge, Mozilla Firefox, Brave, and Opera**.
+  * **RFC 4180 Multi-Line CSV Engine:** Robust character-level finite-state-machine reader correctly preserving newlines and escaped double quotes (`""`) inside multiline notes.
   * **KeePass 2 CSV Import & Export (`.csv`):** Seamless migration to and from KeePass 2.
   * **High-Performance Batch Engine:** Bulk imports run in a single atomic SQLite transaction with a single backup snapshot, importing thousands of items in under half a second.
+
+* **Productivity Keyboard Shortcuts:**
+  * **`Enter`:** Edit selected account/entry.
+  * **`Delete`:** Safely move entry to Recycle Bin (or permanently delete if already in Trash).
+  * **`F2`:** Rapidly rename selected folder/group.
+  * **`Ctrl+M`:** Change Master Password dialog.
+  * **`Ctrl+L`:** Instantly lock vault.
+  * **`Ctrl+I` / `Ctrl+G`:** New Entry / New Group.
+  * **`Ctrl+Alt+A`:** Global Auto-Type into active foreground window.
 
 * **Adaptive Dual Theme Design:**
   * **Refined Neutral Light Theme:** Soft, neutral Slate-50 (`#F8FAFC`) canvas with crisp white cards, delicate Slate-200/300 borders, soft dark text (`#0F172A`), and pastel selection pills for fatigue-free daylight use.
@@ -137,7 +163,7 @@ In traditional KeePass `.kdbx` files, the entire database is stored as a single 
 * **.NET 8 SDK**
 
 ```powershell
-# Run the test suite (13 unit tests: Cryptography, Argon2id, SQLite, Bulk Import, Drag & Drop, Integrity Check)
+# Run the test suite (15 unit tests: Cryptography, Argon2id, SQLite, Bulk Import, Drag & Drop, Integrity Check, Multi-line RFC 4180 CSV, Re-encryption)
 dotnet test SQLitePass.slnx
 
 # Run the UI application

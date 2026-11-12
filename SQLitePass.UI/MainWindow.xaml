@@ -229,6 +229,7 @@
                 <MenuItem Header="{DynamicResource MenuAddGroup}" InputGestureText="Ctrl+G" Click="BtnAddGroup_Click"/>
                 <Separator Background="{DynamicResource BorderColor}"/>
                 <MenuItem Header="{DynamicResource MenuLockVault}" InputGestureText="Ctrl+L" Click="BtnLock_Click"/>
+                <MenuItem Header="{DynamicResource MenuChangeMasterPassword}" InputGestureText="Ctrl+M" Click="MenuChangeMasterPassword_Click"/>
                 <Separator Background="{DynamicResource BorderColor}"/>
                 <MenuItem Header="{DynamicResource MenuImportCsv}" Click="MenuImportCsv_Click"/>
                 <MenuItem Header="{DynamicResource MenuImportBitwardenJson}" Click="MenuImportBitwardenJson_Click"/>
@@ -387,6 +388,7 @@
                     <TreeView x:Name="TvGroups" Grid.Row="1" Background="Transparent" BorderThickness="0"
                               SelectedItemChanged="TvGroups_SelectedItemChanged" Margin="4,6"
                               AllowDrop="True"
+                              PreviewKeyDown="TvGroups_PreviewKeyDown"
                               PreviewMouseLeftButtonDown="TvGroups_PreviewMouseLeftButtonDown"
                               PreviewMouseMove="TvGroups_PreviewMouseMove"
                               PreviewDragOver="TvGroups_PreviewDragOver"
@@ -445,6 +447,7 @@
                           BorderThickness="0" RowHeight="32"
                           SelectionChanged="DgEntries_SelectionChanged"
                           MouseDoubleClick="DgEntries_MouseDoubleClick"
+                          PreviewKeyDown="DgEntries_PreviewKeyDown"
                           PreviewMouseLeftButtonDown="DgEntries_PreviewMouseLeftButtonDown"
                           PreviewMouseMove="DgEntries_PreviewMouseMove"
                           ContextMenuOpening="DgEntries_ContextMenuOpening">

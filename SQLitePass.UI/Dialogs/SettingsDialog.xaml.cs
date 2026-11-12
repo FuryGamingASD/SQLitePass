@@ -15,6 +15,7 @@ namespace SQLitePass.UI.Dialogs
         {
             InitializeComponent();
             _settings = AppSettingsManager.Load();
+            SQLitePass.UI.Services.WindowSecurityService.ApplyProtection(this, _settings.ProtectScreenCapture);
 
             // Language Selection
             foreach (ComboBoxItem item in CmbLanguage.Items)

@@ -12,6 +12,8 @@ namespace SQLitePass.UI.Dialogs
         public PasswordGeneratorDialog()
         {
             InitializeComponent();
+            var settings = AppSettingsManager.Load();
+            SQLitePass.UI.Services.WindowSecurityService.ApplyProtection(this, settings.ProtectScreenCapture);
             _isInitialized = true;
             GenerateNewPassword();
         }

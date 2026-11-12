@@ -148,6 +148,13 @@ namespace SQLitePass.UI.Dialogs
             var ofd = new OpenFileDialog { Title = "Select file to attach" };
             if (ofd.ShowDialog() == true)
             {
+                var fi = new FileInfo(ofd.FileName);
+                if (fi.Length > 20 * 1024 * 1024)
+                {
+                    MessageBox.Show("Il file selezionato supera la dimensione massima consentita di 20 MB per singolo allegato.", "File troppo grande", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
                 byte[] data = File.ReadAllBytes(ofd.FileName);
                 _entry.Attachments.Add(new PwAttachment
                 {

@@ -28,12 +28,12 @@ namespace SQLitePass.Core.Services
         public static List<PwEntry> ImportFromKeePassCsv(string csvContent, Guid defaultGroupId)
         {
             var result = new List<PwEntry>();
-            using var reader = new StringReader(csvContent);
-            string? line = reader.ReadLine(); // header
-            while ((line = reader.ReadLine()) != null)
+            var records = ParseCsvRecords(csvContent);
+            if (records.Count <= 1) return result;
+
+            for (int r = 1; r < records.Count; r++)
             {
-                if (string.IsNullOrWhiteSpace(line)) continue;
-                var cols = ParseCsvLine(line);
+                var cols = records[r];
                 if (cols.Count >= 5)
                 {
                     var entry = new PwEntry
@@ -165,11 +165,10 @@ namespace SQLitePass.Core.Services
         public static List<PwEntry> ImportFromBrowserCsv(string csvContent, Guid defaultGroupId)
         {
             var result = new List<PwEntry>();
-            using var reader = new StringReader(csvContent);
-            string? headerLine = reader.ReadLine();
-            if (string.IsNullOrWhiteSpace(headerLine)) return result;
+            var records = ParseCsvRecords(csvContent);
+            if (records.Count <= 1) return result;
 
-            var headers = ParseCsvLine(headerLine);
+            var headers = records[0];
             int titleIdx = -1;
             int urlIdx = -1;
             int userIdx = -1;
@@ -191,12 +190,9 @@ namespace SQLitePass.Core.Services
             if (userIdx == -1 && headers.Count >= 3) userIdx = 1;
             if (passIdx == -1 && headers.Count >= 3) passIdx = 2;
 
-            string? line;
-            while ((line = reader.ReadLine()) != null)
+            for (int r = 1; r < records.Count; r++)
             {
-                if (string.IsNullOrWhiteSpace(line)) continue;
-                var cols = ParseCsvLine(line);
-
+                var cols = records[r];
                 string url = (urlIdx >= 0 && urlIdx < cols.Count) ? cols[urlIdx] : "";
                 string user = (userIdx >= 0 && userIdx < cols.Count) ? cols[userIdx] : "";
                 string pass = (passIdx >= 0 && passIdx < cols.Count) ? cols[passIdx] : "";
@@ -281,6 +277,95 @@ namespace SQLitePass.Core.Services
         {
             if (val == null) return string.Empty;
             return val.Replace("\"", "\"\"");
+        }
+
+        /// <summary>
+        /// RFC 4180 compliant finite-state machine CSV parser that supports multiline fields within double quotes.
+        /// </summary>
+        public static List<List<string>> ParseCsvRecords(string csvContent)
+        {
+            var records = new List<List<string>>();
+            if (string.IsNullOrEmpty(csvContent)) return records;
+
+            var currentRecord = new List<string>();
+            var currentField = new StringBuilder();
+            bool inQuotes = false;
+
+            for (int i = 0; i < csvContent.Length; i++)
+            {
+                char c = csvContent[i];
+
+                if (inQuotes)
+                {
+                    if (c == '\"')
+                    {
+                        if (i + 1 < csvContent.Length && csvContent[i + 1] == '\"')
+                        {
+                            currentField.Append('\"');
+                            i++; // skip escaped quote
+                        }
+                        else
+                        {
+                            inQuotes = false;
+                        }
+                    }
+                    else
+                    {
+                        currentField.Append(c);
+                    }
+                }
+                else
+                {
+                    if (c == '\"')
+                    {
+                        inQuotes = true;
+                    }
+                    else if (c == ',')
+                    {
+                        currentRecord.Add(currentField.ToString());
+                        currentField.Clear();
+                    }
+                    else if (c == '\r')
+                    {
+                        if (i + 1 < csvContent.Length && csvContent[i + 1] == '\n')
+                        {
+                            i++;
+                        }
+                        currentRecord.Add(currentField.ToString());
+                        currentField.Clear();
+                        if (currentRecord.Count > 1 || (currentRecord.Count == 1 && !string.IsNullOrWhiteSpace(currentRecord[0])))
+                        {
+                            records.Add(currentRecord);
+                        }
+                        currentRecord = new List<string>();
+                    }
+                    else if (c == '\n')
+                    {
+                        currentRecord.Add(currentField.ToString());
+                        currentField.Clear();
+                        if (currentRecord.Count > 1 || (currentRecord.Count == 1 && !string.IsNullOrWhiteSpace(currentRecord[0])))
+                        {
+                            records.Add(currentRecord);
+                        }
+                        currentRecord = new List<string>();
+                    }
+                    else
+                    {
+                        currentField.Append(c);
+                    }
+                }
+            }
+
+            if (currentRecord.Count > 0 || currentField.Length > 0)
+            {
+                currentRecord.Add(currentField.ToString());
+                if (currentRecord.Count > 1 || (currentRecord.Count == 1 && !string.IsNullOrWhiteSpace(currentRecord[0])))
+                {
+                    records.Add(currentRecord);
+                }
+            }
+
+            return records;
         }
 
         private static List<string> ParseCsvLine(string line)

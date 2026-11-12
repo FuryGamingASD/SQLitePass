@@ -1,7 +1,7 @@
 using System;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
-using System.Threading;
 using System.Threading.Tasks;
 using SQLitePass.Core.Models;
 
@@ -95,27 +95,8 @@ namespace SQLitePass.Core.Services
                     ? "{USERNAME}{TAB}{PASSWORD}{ENTER}" 
                     : entry.AutoTypeSequence;
 
-                // Replace standard tags
-                sequence = sequence.Replace("{USERNAME}", entry.UserName ?? "", StringComparison.OrdinalIgnoreCase);
-                sequence = sequence.Replace("{PASSWORD}", entry.Password ?? "", StringComparison.OrdinalIgnoreCase);
-                sequence = sequence.Replace("{TITLE}", entry.Title ?? "", StringComparison.OrdinalIgnoreCase);
-                sequence = sequence.Replace("{URL}", entry.Url ?? "", StringComparison.OrdinalIgnoreCase);
-                sequence = sequence.Replace("{NOTES}", entry.Notes ?? "", StringComparison.OrdinalIgnoreCase);
-
-                // Replace custom field tags: {S:FieldName}
-                if (entry.CustomFields != null)
-                {
-                    foreach (var cf in entry.CustomFields.ToArray())
-                    {
-                        if (cf != null && !string.IsNullOrEmpty(cf.Key))
-                        {
-                            string tag = $"{{S:{cf.Key}}}";
-                            sequence = sequence.Replace(tag, cf.Value ?? "", StringComparison.OrdinalIgnoreCase);
-                        }
-                    }
-                }
-
-                // Parse and send tokens
+                // Parse sequence template into tokens without string-replacing values first,
+                // preventing special characters (like '{' and '}') in passwords/usernames from breaking tokens.
                 var tokenRegex = new Regex(@"(\{[^}]+\})");
                 var parts = tokenRegex.Split(sequence);
 
@@ -126,7 +107,57 @@ namespace SQLitePass.Core.Services
                     if (part.StartsWith("{") && part.EndsWith("}"))
                     {
                         string upper = part.ToUpperInvariant();
-                        if (upper == "{TAB}")
+                        if (upper == "{USERNAME}")
+                        {
+                            if (!string.IsNullOrEmpty(entry.UserName))
+                            {
+                                await SendStringAsync(entry.UserName).ConfigureAwait(false);
+                                await Task.Delay(30).ConfigureAwait(false);
+                            }
+                        }
+                        else if (upper == "{PASSWORD}")
+                        {
+                            if (!string.IsNullOrEmpty(entry.Password))
+                            {
+                                await SendStringAsync(entry.Password).ConfigureAwait(false);
+                                await Task.Delay(30).ConfigureAwait(false);
+                            }
+                        }
+                        else if (upper == "{TITLE}")
+                        {
+                            if (!string.IsNullOrEmpty(entry.Title))
+                            {
+                                await SendStringAsync(entry.Title).ConfigureAwait(false);
+                                await Task.Delay(30).ConfigureAwait(false);
+                            }
+                        }
+                        else if (upper == "{URL}")
+                        {
+                            if (!string.IsNullOrEmpty(entry.Url))
+                            {
+                                await SendStringAsync(entry.Url).ConfigureAwait(false);
+                                await Task.Delay(30).ConfigureAwait(false);
+                            }
+                        }
+                        else if (upper == "{NOTES}")
+                        {
+                            if (!string.IsNullOrEmpty(entry.Notes))
+                            {
+                                await SendStringAsync(entry.Notes).ConfigureAwait(false);
+                                await Task.Delay(30).ConfigureAwait(false);
+                            }
+                        }
+                        else if (upper.StartsWith("{S:") && upper.EndsWith("}"))
+                        {
+                            string fieldKey = part.Substring(3, part.Length - 4);
+                            var cf = entry.CustomFields?.FirstOrDefault(f => string.Equals(f.Key, fieldKey, StringComparison.OrdinalIgnoreCase));
+                            if (cf != null && !string.IsNullOrEmpty(cf.Value))
+                            {
+                                await SendStringAsync(cf.Value).ConfigureAwait(false);
+                                await Task.Delay(30).ConfigureAwait(false);
+                            }
+                        }
+                        else if (upper == "{TAB}")
                         {
                             SendVirtualKey(VK_TAB);
                             await Task.Delay(50).ConfigureAwait(false);
@@ -149,10 +180,16 @@ namespace SQLitePass.Core.Services
                                 await Task.Delay(delay).ConfigureAwait(false);
                             }
                         }
+                        else
+                        {
+                            // Unrecognized token, send literal text
+                            await SendStringAsync(part).ConfigureAwait(false);
+                            await Task.Delay(30).ConfigureAwait(false);
+                        }
                     }
                     else
                     {
-                        SendString(part);
+                        await SendStringAsync(part).ConfigureAwait(false);
                         await Task.Delay(30).ConfigureAwait(false);
                     }
                 }
@@ -185,7 +222,7 @@ namespace SQLitePass.Core.Services
             SendInput(2, new[] { down, up }, Marshal.SizeOf(typeof(INPUT)));
         }
 
-        private static void SendString(string text)
+        private static async Task SendStringAsync(string text)
         {
             foreach (char c in text)
             {
@@ -214,7 +251,7 @@ namespace SQLitePass.Core.Services
                     }
                 };
                 SendInput(2, new[] { down, up }, Marshal.SizeOf(typeof(INPUT)));
-                Thread.Sleep(10);
+                await Task.Delay(10).ConfigureAwait(false);
             }
         }
     }

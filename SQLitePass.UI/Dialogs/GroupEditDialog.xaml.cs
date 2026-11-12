@@ -1,5 +1,6 @@
 using System.Windows;
 using SQLitePass.Core.Models;
+using SQLitePass.Core.Services;
 
 namespace SQLitePass.UI.Dialogs
 {
@@ -10,6 +11,8 @@ namespace SQLitePass.UI.Dialogs
         public GroupEditDialog(string initialName = "New Group")
         {
             InitializeComponent();
+            var settings = AppSettingsManager.Load();
+            SQLitePass.UI.Services.WindowSecurityService.ApplyProtection(this, settings.ProtectScreenCapture);
             TxtGroupName.Text = initialName;
             TxtGroupName.SelectAll();
             TxtGroupName.Focus();

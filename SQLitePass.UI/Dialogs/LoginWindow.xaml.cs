@@ -137,7 +137,7 @@ namespace SQLitePass.UI.Dialogs
             var ofd = new OpenFileDialog
             {
                 Title = "Seleziona Database Vault",
-                Filter = "KeePass SQLite Database (*.kpd;*.db)|*.kpd;*.db|Tutti i file (*.*)|*.*"
+                Filter = "SQLitePass Database (*.kpd;*.db)|*.kpd;*.db|Tutti i file (*.*)|*.*"
             };
             if (ofd.ShowDialog() == true)
             {
@@ -285,7 +285,7 @@ namespace SQLitePass.UI.Dialogs
             var sfd = new SaveFileDialog
             {
                 Title = "Scegli dove salvare il nuovo database del Vault",
-                Filter = "KeePass SQLite Database (*.kpd)|*.kpd",
+                Filter = "SQLitePass Database (*.kpd)|*.kpd",
                 FileName = "PasswordVault.kpd",
                 DefaultExt = ".kpd"
             };
@@ -373,7 +373,7 @@ namespace SQLitePass.UI.Dialogs
                     UserName = "utente@dominio.it",
                     Password = PasswordGenerator.Generate(new PasswordGeneratorOptions { Length = 22 }),
                     Url = "https://keepass.info",
-                    Notes = "Benvenuto in KeePass SQLite!\n\nQuesto database è protetto da cifratura Zero-Knowledge AES-256-GCM + Argon2id.\nUn file .backup isolato viene mantenuto sincronizzato automaticamente.",
+                    Notes = "Benvenuto in SQLitePass!\n\nQuesto database è protetto da cifratura Zero-Knowledge AES-256-GCM + Argon2id.\nUn file .backup isolato viene mantenuto sincronizzato automaticamente.",
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };

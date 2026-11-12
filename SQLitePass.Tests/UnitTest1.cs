@@ -382,5 +382,100 @@ namespace SQLitePass.Tests
                 if (File.Exists(testDbPath + ".backup")) File.Delete(testDbPath + ".backup");
             }
         }
+
+        [Fact]
+        public void TestParseCsvRecords_WithEmbeddedNewlinesAndQuotes()
+        {
+            string csv = "\"Group\",\"Title\",\"Username\",\"Password\",\"URL\",\"Notes\"\r\n" +
+                         "\"General\",\"Test MultiLine\",\"john_doe\",\"p@ss\"\"word\",\"https://example.com\",\"Line 1\r\nLine 2\r\nLine 3\"\r\n" +
+                         "\"Banking\",\"Bank Acct\",\"jane\",\"secret123\",\"https://bank.com\",\"Single line note\"";
+
+            var records = ImportExportService.ParseCsvRecords(csv);
+            Assert.Equal(3, records.Count);
+
+            // Record 1 (Multi-line note)
+            var row1 = records[1];
+            Assert.Equal("General", row1[0]);
+            Assert.Equal("Test MultiLine", row1[1]);
+            Assert.Equal("john_doe", row1[2]);
+            Assert.Equal("p@ss\"word", row1[3]);
+            Assert.Equal("https://example.com", row1[4]);
+            Assert.Equal("Line 1\r\nLine 2\r\nLine 3", row1[5]);
+
+            // Test KeePass import
+            var entries = ImportExportService.ImportFromKeePassCsv(csv, Guid.NewGuid());
+            Assert.Equal(2, entries.Count);
+            Assert.Equal("Line 1\r\nLine 2\r\nLine 3", entries[0].Notes);
+            Assert.Equal("Single line note", entries[1].Notes);
+        }
+
+        [Fact]
+        public async Task TestChangeMasterKeyAndReencryption()
+        {
+            string testDbPath = Path.Combine(Path.GetTempPath(), $"reencrypt_test_{Guid.NewGuid():N}.kpd");
+            try
+            {
+                var provider = new SqliteStorageProvider(testDbPath);
+                await provider.InitializeDatabaseAndSchemaAsync();
+
+                byte[] oldKey = new byte[32];
+                for (int i = 0; i < 32; i++) oldKey[i] = (byte)(i + 1);
+                using var oldCrypto = new CryptoEngine(oldKey);
+
+                byte[] newKey = new byte[32];
+                for (int i = 0; i < 32; i++) newKey[i] = (byte)(i + 50);
+                using var newCrypto = new CryptoEngine(newKey);
+
+                // Save a group first to satisfy foreign key constraint
+                var group = new PwGroup { Id = Guid.NewGuid(), Name = "Test Group", SortOrder = 0 };
+                await provider.SaveGroupAsync(group, oldCrypto);
+
+                // Save an entry with custom fields, attachment, and history
+                var entry = new PwEntry
+                {
+                    Id = Guid.NewGuid(),
+                    GroupId = group.Id,
+                    Title = "Reencrypt Entry",
+                    UserName = "original_user",
+                    Password = "original_password_123",
+                    Url = "https://example.com",
+                    Notes = "Original confidential notes"
+                };
+                entry.CustomFields.Add(new PwCustomField { Id = Guid.NewGuid(), EntryId = entry.Id, Key = "PIN", Value = "9876", IsProtected = true });
+                entry.Attachments.Add(new PwAttachment { Id = Guid.NewGuid(), EntryId = entry.Id, FileName = "doc.txt", FileSize = 4, Data = new byte[] { 1, 2, 3, 4 }, CreatedAt = DateTime.UtcNow });
+                entry.History.Add(new PwEntryHistory { Id = Guid.NewGuid(), EntryId = entry.Id, Title = "Hist Title", UserName = "hist_user", Password = "hist_password", Url = "https://hist.com", Notes = "Hist notes", SavedAt = DateTime.UtcNow });
+
+                await provider.SaveEntryAsync(entry, oldCrypto, encryptUsernameUrl: false);
+
+                // Re-encrypt database with new key and enable stealth mode
+                string newSalt = Convert.ToBase64String(new byte[32] { 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7 });
+                await provider.ChangeMasterKeyAsync(oldCrypto, newCrypto, newSalt, 3, 64 * 1024, 2, encryptUsernameUrl: true);
+
+                // Load with new crypto -> should succeed and decrypt perfectly
+                var reloadedEntries = await provider.LoadEntriesAsync(null, newCrypto);
+                Assert.Single(reloadedEntries);
+                var reloaded = reloadedEntries[0];
+
+                Assert.Equal("Reencrypt Entry", reloaded.Title);
+                Assert.Equal("original_user", reloaded.UserName);
+                Assert.Equal("original_password_123", reloaded.Password);
+                Assert.Equal("Original confidential notes", reloaded.Notes);
+                Assert.Single(reloaded.CustomFields);
+                Assert.Equal("9876", reloaded.CustomFields[0].Value);
+                Assert.Single(reloaded.Attachments);
+                Assert.Equal(new byte[] { 1, 2, 3, 4 }, reloaded.Attachments[0].Data);
+                Assert.Single(reloaded.History);
+                Assert.Equal("hist_password", reloaded.History[0].Password);
+
+                // Reclaim space with VacuumAsync
+                await provider.VacuumAsync();
+            }
+            finally
+            {
+                Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+                if (File.Exists(testDbPath)) File.Delete(testDbPath);
+                if (File.Exists(testDbPath + ".backup")) File.Delete(testDbPath + ".backup");
+            }
+        }
     }
 }

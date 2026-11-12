@@ -32,7 +32,14 @@ namespace SQLitePass.UI.Services
 
             try
             {
-                Clipboard.SetText(text);
+                // Set clipboard text with Windows 10/11 Clipboard History (Win+V) & Cloud Sync exclusion
+                var dataObject = new DataObject();
+                dataObject.SetData(DataFormats.UnicodeText, text);
+                dataObject.SetData("CanIncludeInClipboardHistory", 0);
+                dataObject.SetData("CanUploadToCloudStore", 0);
+                dataObject.SetData("ExcludeClipboardContentFromMonitorProcessing", 0);
+                Clipboard.SetDataObject(dataObject, copy: false);
+
                 _lastCopiedText = text;
                 _secondsRemaining = timeoutSecs;
 

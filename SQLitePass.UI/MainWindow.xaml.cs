@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -11,6 +10,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Threading;
 using Microsoft.Win32;
@@ -20,7 +20,6 @@ using SQLitePass.Core.Models;
 using SQLitePass.Core.Services;
 using SQLitePass.UI.Dialogs;
 using SQLitePass.UI.Services;
-using Point = System.Windows.Point;
 
 namespace SQLitePass.UI
 {
@@ -43,45 +42,13 @@ namespace SQLitePass.UI
         private PwGroup? _dragCandidateGroup;
         private TreeViewDropAdorner? _dropAdorner;
 
-        private DispatcherTimer? _idleLockTimer;
+        private SystemTrayCoordinator? _trayCoordinator;
+        private GlobalHotkeyCoordinator? _hotkeyCoordinator;
+        private InactivityLockCoordinator? _inactivityCoordinator;
+
         private bool _previewPasswordRevealed = false;
         private bool _showPasswordColumn = false;
         private bool _isExplicitShutdown = false;
-
-        // TaskbarIcon for System Tray
-        private Hardcodet.Wpf.TaskbarNotification.TaskbarIcon? _trayIcon;
-
-        // Win32 Global Hotkey (Ctrl+Alt+A) for Auto-Type
-        private const int HOTKEY_ID = 9001;
-        private const uint MOD_CONTROL = 0x0002;
-        private const uint MOD_ALT = 0x0001;
-        private const uint VK_A = 0x41;
-        private HwndSource? _hwndSource;
-
-        [DllImport("user32.dll")]
-        private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
-
-        [DllImport("user32.dll")]
-        private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
-
-        [DllImport("user32.dll")]
-        private static extern IntPtr GetForegroundWindow();
-
-        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
-        private static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder lpString, int nMaxCount);
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct LASTINPUTINFO
-        {
-            public uint cbSize;
-            public uint dwTime;
-        }
-
-        [DllImport("user32.dll")]
-        private static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);
-
-        [DllImport("kernel32.dll")]
-        private static extern uint GetTickCount();
 
         private bool _isLocked = false;
         private bool _isLocking = false;
@@ -104,66 +71,26 @@ namespace SQLitePass.UI
 
             TxtStatusDb.Text = $"Vault: {Path.GetFileName(_storage.FilePath)} • Dual Backup: Attivo";
 
-            InitializeTrayIcon();
-            InitializeIdleTimer();
+            _trayCoordinator = new SystemTrayCoordinator(
+                ShowAndRestoreWindow,
+                () => Dispatcher.Invoke(() => BtnPasswordGenerator_Click(this, new RoutedEventArgs())),
+                () => Dispatcher.Invoke(() => BtnLock_Click(this, new RoutedEventArgs())),
+                () => Dispatcher.Invoke(MenuExit_Click, this, new RoutedEventArgs())
+            );
+
+            _hotkeyCoordinator = new GlobalHotkeyCoordinator(this, (foregroundWin, winTitle) =>
+            {
+                Dispatcher.Invoke(() => HandleGlobalAutoType(foregroundWin, winTitle));
+            });
+
+            _inactivityCoordinator = new InactivityLockCoordinator(
+                () => Dispatcher.Invoke(() => LockVault(userInitiated: false)),
+                () => !_isLocked && !_isLocking && !_isPerformingAutoType
+            );
 
             Loaded += MainWindow_Loaded;
             StateChanged += MainWindow_StateChanged;
             Closing += MainWindow_Closing;
-
-            // Auto-lock when workstation is locked (Win+L)
-            SystemEvents.SessionSwitch += SystemEvents_SessionSwitch;
-        }
-
-        private void InitializeTrayIcon()
-        {
-            System.Drawing.Icon trayIconImage = SystemIcons.Shield;
-            try
-            {
-                var uri = new Uri("pack://application:,,,/Resources/app.ico");
-                var streamInfo = System.Windows.Application.GetResourceStream(uri);
-                if (streamInfo != null)
-                {
-                    using var s = streamInfo.Stream;
-                    trayIconImage = new System.Drawing.Icon(s);
-                }
-            }
-            catch { }
-
-            _trayIcon = new Hardcodet.Wpf.TaskbarNotification.TaskbarIcon
-            {
-                Icon = trayIconImage,
-                ToolTipText = "SQLitePass - Vault Protetto"
-            };
-
-            var contextMenu = new System.Windows.Controls.ContextMenu();
-
-            var itemShow = new System.Windows.Controls.MenuItem
-            {
-                Header = "Mostra SQLitePass",
-                FontWeight = FontWeights.Bold
-            };
-            itemShow.Click += (s, e) => ShowAndRestoreWindow();
-            contextMenu.Items.Add(itemShow);
-
-            var itemGen = new System.Windows.Controls.MenuItem { Header = "Generatore Password..." };
-            itemGen.Click += (s, e) => Dispatcher.Invoke(() => BtnPasswordGenerator_Click(this, new RoutedEventArgs()));
-            contextMenu.Items.Add(itemGen);
-
-            contextMenu.Items.Add(new System.Windows.Controls.Separator());
-
-            var itemLock = new System.Windows.Controls.MenuItem { Header = "Blocca Vault" };
-            itemLock.Click += (s, e) => Dispatcher.Invoke(() => BtnLock_Click(this, new RoutedEventArgs()));
-            contextMenu.Items.Add(itemLock);
-
-            contextMenu.Items.Add(new System.Windows.Controls.Separator());
-
-            var itemExit = new System.Windows.Controls.MenuItem { Header = "Esci" };
-            itemExit.Click += (s, e) => Dispatcher.Invoke(MenuExit_Click, this, new RoutedEventArgs());
-            contextMenu.Items.Add(itemExit);
-
-            _trayIcon.ContextMenu = contextMenu;
-            _trayIcon.TrayMouseDoubleClick += (s, e) => Dispatcher.Invoke(ShowAndRestoreWindow);
         }
 
         private void ShowAndRestoreWindow()
@@ -179,56 +106,6 @@ namespace SQLitePass.UI
             Activate();
         }
 
-        private void InitializeIdleTimer()
-        {
-            _idleLockTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(15) };
-            _idleLockTimer.Tick += (s, e) =>
-            {
-                if (_isLocked || _isLocking || _isPerformingAutoType) return;
-
-                var settings = AppSettingsManager.Load();
-                if (settings.AutoLockMinutes > 0)
-                {
-                    var lii = new LASTINPUTINFO { cbSize = (uint)Marshal.SizeOf(typeof(LASTINPUTINFO)) };
-                    if (GetLastInputInfo(ref lii))
-                    {
-                        uint envTicks = GetTickCount();
-                        uint idleMs = envTicks >= lii.dwTime ? (envTicks - lii.dwTime) : (uint.MaxValue - lii.dwTime + envTicks);
-                        if (idleMs >= (uint)settings.AutoLockMinutes * 60 * 1000)
-                        {
-                            LockVault(userInitiated: false);
-                        }
-                    }
-                }
-            };
-            _idleLockTimer.Start();
-        }
-
-        private void SystemEvents_SessionSwitch(object sender, SessionSwitchEventArgs e)
-        {
-            if (_isPerformingAutoType) return;
-
-            if (e.Reason == SessionSwitchReason.SessionLock)
-            {
-                var settings = AppSettingsManager.Load();
-                if (settings.AutoLockOnWindowsLock)
-                {
-                    Dispatcher.Invoke(() => LockVault(userInitiated: false));
-                }
-            }
-        }
-
-        protected override void OnSourceInitialized(EventArgs e)
-        {
-            base.OnSourceInitialized(e);
-            var helper = new WindowInteropHelper(this);
-            _hwndSource = HwndSource.FromHwnd(helper.Handle);
-            _hwndSource.AddHook(HwndHook);
-
-            // Register global hotkey Ctrl+Alt+A
-            RegisterHotKey(helper.Handle, HOTKEY_ID, MOD_CONTROL | MOD_ALT, VK_A);
-        }
-
         private void MainWindow_Closing(object? sender, CancelEventArgs e)
         {
             if (!_isExplicitShutdown)
@@ -238,29 +115,21 @@ namespace SQLitePass.UI
                 {
                     e.Cancel = true;
                     Hide();
-                    _trayIcon?.ShowBalloonTip("SQLitePass", "L'applicazione è ancora attiva in background nella System Tray.", Hardcodet.Wpf.TaskbarNotification.BalloonIcon.Info);
+                    _trayCoordinator?.ShowBalloonTip("SQLitePass", "L'applicazione è ancora attiva in background nella System Tray.", Hardcodet.Wpf.TaskbarNotification.BalloonIcon.Info);
                     return;
                 }
             }
 
-            _idleLockTimer?.Stop();
+            _inactivityCoordinator?.Dispose();
             _clipboardCoordinator.Dispose();
-            if (_trayIcon != null)
-            {
-                _trayIcon.Dispose();
-                _trayIcon = null;
-            }
+            _trayCoordinator?.Dispose();
+            _trayCoordinator = null;
         }
 
         protected override void OnClosed(EventArgs e)
         {
-            if (_hwndSource != null)
-            {
-                var helper = new WindowInteropHelper(this);
-                UnregisterHotKey(helper.Handle, HOTKEY_ID);
-                _hwndSource.RemoveHook(HwndHook);
-            }
-            SystemEvents.SessionSwitch -= SystemEvents_SessionSwitch;
+            _hotkeyCoordinator?.Dispose();
+            _hotkeyCoordinator = null;
             base.OnClosed(e);
         }
 
@@ -273,29 +142,13 @@ namespace SQLitePass.UI
             }
         }
 
-        private IntPtr HwndHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
-        {
-            const int WM_HOTKEY = 0x0312;
-            if (msg == WM_HOTKEY && wParam.ToInt32() == HOTKEY_ID)
-            {
-                HandleGlobalAutoType();
-                handled = true;
-            }
-            return IntPtr.Zero;
-        }
-
-        private async void HandleGlobalAutoType()
+        private async void HandleGlobalAutoType(IntPtr foregroundWin, string winTitle)
         {
             if (_isLocked || _isPerformingAutoType) return;
             _isPerformingAutoType = true;
 
             try
             {
-                IntPtr foregroundWin = GetForegroundWindow();
-                var titleBuilder = new System.Text.StringBuilder(256);
-                GetWindowText(foregroundWin, titleBuilder, 256);
-                string winTitle = titleBuilder.ToString();
-
                 // Find matching entry by Window Title or URL domain
                 PwEntry? match = _allEntries.FirstOrDefault(e =>
                     (!string.IsNullOrEmpty(e.Title) && winTitle.Contains(e.Title, StringComparison.OrdinalIgnoreCase)) ||
@@ -444,6 +297,18 @@ namespace SQLitePass.UI
             UpdateStatusCounts();
         }
 
+        private void TvGroups_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.F2)
+            {
+                if (_selectedGroup != null && !VaultOperationHandler.IsRecycleBinGroup(_selectedGroup))
+                {
+                    MenuRenameGroup_Click(this, new RoutedEventArgs());
+                    e.Handled = true;
+                }
+            }
+        }
+
         private void DgEntries_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             _selectedEntry = DgEntries.SelectedItem as PwEntry;
@@ -547,6 +412,26 @@ namespace SQLitePass.UI
             }
 
             BtnEditEntry_Click(sender, e);
+        }
+
+        private void DgEntries_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Delete)
+            {
+                if (_selectedEntry != null)
+                {
+                    BtnDeleteEntry_Click(this, new RoutedEventArgs());
+                    e.Handled = true;
+                }
+            }
+            else if (e.Key == Key.Enter)
+            {
+                if (_selectedEntry != null)
+                {
+                    BtnEditEntry_Click(this, new RoutedEventArgs());
+                    e.Handled = true;
+                }
+            }
         }
 
         #region Drag and Drop (Entries to Groups)
@@ -734,7 +619,7 @@ namespace SQLitePass.UI
                     try
                     {
                         draggedEntry.GroupId = targetGroup.Id;
-                        await _storage.SaveEntryAsync(draggedEntry, _crypto);
+                        await _storage.SaveEntryAsync(draggedEntry, _crypto, _metadata.EncryptUsernameUrl);
                         _entriesView.Refresh();
                         UpdateStatusCounts();
 
@@ -1116,7 +1001,7 @@ namespace SQLitePass.UI
             {
                 try
                 {
-                    await _storage.SaveEntryAsync(newEntry, _crypto);
+                    await _storage.SaveEntryAsync(newEntry, _crypto, _metadata.EncryptUsernameUrl);
                     _allEntries.Add(newEntry);
                     _entriesView.Refresh();
                     DgEntries.SelectedItem = newEntry;
@@ -1138,7 +1023,7 @@ namespace SQLitePass.UI
             {
                 try
                 {
-                    await _storage.SaveEntryAsync(_selectedEntry, _crypto);
+                    await _storage.SaveEntryAsync(_selectedEntry, _crypto, _metadata.EncryptUsernameUrl);
                     _entriesView.Refresh();
                     UpdatePreviewPanel();
                 }
@@ -1168,7 +1053,7 @@ namespace SQLitePass.UI
 
             try
             {
-                await _storage.SaveEntryAsync(dup, _crypto);
+                await _storage.SaveEntryAsync(dup, _crypto, _metadata.EncryptUsernameUrl);
                 _allEntries.Add(dup);
                 _entriesView.Refresh();
                 DgEntries.SelectedItem = dup;
@@ -1219,6 +1104,7 @@ namespace SQLitePass.UI
                 int count = await VaultOperationHandler.EmptyRecycleBinAsync(_storage, _crypto, _rootGroups, _allEntries, this);
                 if (count > 0)
                 {
+                    await _storage.VacuumAsync();
                     _entriesView.Refresh();
                     UpdatePreviewPanel();
                     UpdateStatusCounts();
@@ -1406,6 +1292,53 @@ namespace SQLitePass.UI
             gen.ShowDialog();
         }
 
+        private async void MenuChangeMasterPassword_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isLocked) return;
+
+            var dlg = new ChangeMasterPasswordDialog(_crypto, _metadata) { Owner = this };
+            if (dlg.ShowDialog() == true && dlg.NewCrypto != null)
+            {
+                try
+                {
+                    var oldCrypto = _crypto;
+                    var newCrypto = dlg.NewCrypto;
+
+                    await _storage.ChangeMasterKeyAsync(
+                        oldCrypto,
+                        newCrypto,
+                        dlg.NewSaltBase64,
+                        _metadata.KdfIterations,
+                        _metadata.KdfMemoryKb,
+                        _metadata.KdfParallelism,
+                        dlg.EncryptUsernameUrl
+                    );
+
+                    // Update memory state
+                    _crypto = newCrypto;
+                    _metadata.SaltBase64 = dlg.NewSaltBase64;
+                    _metadata.EncryptUsernameUrl = dlg.EncryptUsernameUrl;
+                    _metadata.VerificationCanary = newCrypto.GenerateCanaryToken();
+                    oldCrypto.Dispose();
+
+                    // Refresh in-memory data
+                    await RefreshDataAsync();
+
+                    MessageBox.Show(
+                        "La Master Password è stata modificata con successo!\nTutti i record del vault sono stati ricifrati con la nuova chiave.",
+                        "Master Password Aggiornata",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information
+                    );
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.LogError("Failed to change master password", ex);
+                    MessageBox.Show($"Impossibile modificare la Master Password:\n{ex.Message}", "Errore", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
         private void MenuSettings_Click(object sender, RoutedEventArgs e)
         {
             var dlg = new SettingsDialog { Owner = this };
@@ -1526,7 +1459,7 @@ namespace SQLitePass.UI
 
                     if (imported.Count > 0)
                     {
-                        await _storage.SaveEntriesBatchAsync(imported, _crypto);
+                        await _storage.SaveEntriesBatchAsync(imported, _crypto, _metadata.EncryptUsernameUrl);
                         foreach (var entry in imported)
                         {
                             _allEntries.Add(entry);
@@ -1563,7 +1496,7 @@ namespace SQLitePass.UI
 
                     if (imported.Count > 0)
                     {
-                        await _storage.SaveEntriesBatchAsync(imported, _crypto);
+                        await _storage.SaveEntriesBatchAsync(imported, _crypto, _metadata.EncryptUsernameUrl);
                         foreach (var entry in imported)
                         {
                             _allEntries.Add(entry);
@@ -1600,7 +1533,7 @@ namespace SQLitePass.UI
 
                     if (imported.Count > 0)
                     {
-                        await _storage.SaveEntriesBatchAsync(imported, _crypto);
+                        await _storage.SaveEntriesBatchAsync(imported, _crypto, _metadata.EncryptUsernameUrl);
                         foreach (var entry in imported)
                         {
                             _allEntries.Add(entry);
