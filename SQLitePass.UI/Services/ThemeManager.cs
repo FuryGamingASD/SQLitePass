@@ -60,8 +60,8 @@ namespace SQLitePass.UI.Services
                 res["AccentBg"] = new SolidColorBrush(Color.FromRgb(239, 246, 255));     // #EFF6FF Blue 50 Pastel
                 res["IconBadgeBg"] = new SolidColorBrush(Color.FromRgb(241, 245, 249));  // #F1F5F9 Slate 100
                 res["RowAltBg"] = new SolidColorBrush(Color.FromRgb(248, 250, 252));     // #F8FAFC Slate 50 Row Alt
-                res["SelectionBg"] = new SolidColorBrush(Color.FromRgb(37, 99, 235));    // #2563EB Blue Selection
-                res["SelectionFg"] = new SolidColorBrush(Colors.White);
+                res["SelectionBg"] = new SolidColorBrush(Color.FromRgb(219, 234, 254)); // #DBEAFE Soft Blue Selection
+                res["SelectionFg"] = new SolidColorBrush(Color.FromRgb(15, 23, 42));     // #0F172A Dark Slate Text
                 res["StatusBarBg"] = new SolidColorBrush(Color.FromRgb(241, 245, 249));  // #F1F5F9 Slate 100 Status
                 res["MenuBg"] = new SolidColorBrush(Color.FromRgb(255, 255, 255));       // #FFFFFF White Menu
                 res["ToolbarBg"] = new SolidColorBrush(Color.FromRgb(255, 255, 255));    // #FFFFFF White Toolbar
