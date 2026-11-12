@@ -113,9 +113,10 @@ In traditional KeePass `.kdbx` files, the entire database is stored as a single 
   * **`Ctrl+Alt+A`:** Global Auto-Type into active foreground window.
 
 * **Adaptive Dual Theme Design:**
-  * **Refined Neutral Light Theme:** Soft, neutral Slate-50 (`#F8FAFC`) canvas with crisp white cards, delicate Slate-200/300 borders, soft dark text (`#0F172A`), and pastel selection pills for fatigue-free daylight use.
+  * **Refined Neutral Light Theme:** Soft, neutral Slate-50 (`#F8FAFC`) canvas with crisp white cards, delicate Slate-200/300 borders, soft dark text (`#0F172A`), and pastel blue selection (`#DBEAFE`) for high-contrast, fatigue-free daylight use with vibrant icon rendering.
   * **Dark Obsidian / Zinc Theme:** Sleek deep Zinc-950 (`#09090B`) canvas with elevated Zinc-900 surfaces and Zinc-800 borders for low eye-strain in dim environments.
   * Quick theme toggle button (🌓) available both on the main toolbar and unlock window.
+  * **Pixel-Perfect DataGrid Gridlines:** Clean, single 1px horizontal dividers under every row with zero jagged edges or stepped column borders.
 
 * **System Tray & Desktop Integration:**
   * Notification area (System Tray) icon with quick context menu.
