@@ -390,28 +390,32 @@
                               PreviewMouseLeftButtonDown="TvGroups_PreviewMouseLeftButtonDown"
                               PreviewMouseMove="TvGroups_PreviewMouseMove"
                               PreviewDragOver="TvGroups_PreviewDragOver"
-                              Drop="TvGroups_Drop">
+                              DragLeave="TvGroups_DragLeave"
+                              Drop="TvGroups_Drop"
+                              ContextMenuOpening="TvGroups_ContextMenuOpening">
                         <TreeView.ItemTemplate>
                             <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                                <StackPanel Orientation="Horizontal" Margin="3,4">
-                                    <TextBlock Text="{Binding Name, Converter={StaticResource GroupIconConverter}}" Margin="0,0,7,0" FontSize="13" VerticalAlignment="Center"/>
-                                    <TextBlock Text="{Binding Name}" FontWeight="Medium" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"/>
-                                </StackPanel>
+                                <Border x:Name="GroupRowBorder" CornerRadius="5" Padding="6,3" Margin="0,1" MinWidth="180" Background="Transparent" SnapsToDevicePixels="True" HorizontalAlignment="Stretch">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Name, Converter={StaticResource GroupIconConverter}}" Margin="0,0,7,0" FontSize="13" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding Name}" FontWeight="Medium" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
                             </HierarchicalDataTemplate>
                         </TreeView.ItemTemplate>
                         <TreeView.ContextMenu>
-                            <ContextMenu>
-                                <MenuItem Header="{DynamicResource MenuAddEntry}" Click="BtnAddEntry_Click"/>
-                                <Separator/>
-                                <MenuItem Header="{DynamicResource AddSubgroup}" Click="BtnAddGroup_Click"/>
-                                <MenuItem Header="{DynamicResource MenuRenameGroup}" Click="MenuRenameGroup_Click"/>
-                                <MenuItem Header="{DynamicResource MenuDeleteGroup}" Click="MenuDeleteGroup_Click"/>
-                                <Separator/>
-                                <MenuItem Header="{DynamicResource MenuMoveGroupUp}" Click="MenuMoveGroupUp_Click"/>
-                                <MenuItem Header="{DynamicResource MenuMoveGroupDown}" Click="MenuMoveGroupDown_Click"/>
-                                <MenuItem Header="{DynamicResource MenuMoveGroupToRoot}" Click="MenuMoveGroupToRoot_Click"/>
-                                <Separator/>
-                                <MenuItem Header="{DynamicResource MenuEmptyTrash}" Click="MenuEmptyTrash_Click"/>
+                            <ContextMenu x:Name="CmTreeGroups">
+                                <MenuItem x:Name="CmAddEntry" Header="{DynamicResource MenuAddEntry}" Click="BtnAddEntry_Click"/>
+                                <Separator x:Name="CmTreeSep1"/>
+                                <MenuItem x:Name="CmAddSubgroup" Header="{DynamicResource AddSubgroup}" Click="BtnAddGroup_Click"/>
+                                <MenuItem x:Name="CmRenameGroup" Header="{DynamicResource MenuRenameGroup}" Click="MenuRenameGroup_Click"/>
+                                <MenuItem x:Name="CmDeleteGroup" Header="{DynamicResource MenuDeleteGroup}" Click="MenuDeleteGroup_Click"/>
+                                <Separator x:Name="CmTreeSep2"/>
+                                <MenuItem x:Name="CmMoveGroupUp" Header="{DynamicResource MenuMoveGroupUp}" Click="MenuMoveGroupUp_Click"/>
+                                <MenuItem x:Name="CmMoveGroupDown" Header="{DynamicResource MenuMoveGroupDown}" Click="MenuMoveGroupDown_Click"/>
+                                <MenuItem x:Name="CmMoveGroupToRoot" Header="{DynamicResource MenuMoveGroupToRoot}" Click="MenuMoveGroupToRoot_Click"/>
+                                <Separator x:Name="CmTreeSep3"/>
+                                <MenuItem x:Name="CmEmptyTrash" Header="{DynamicResource MenuEmptyTrash}" Click="MenuEmptyTrash_Click"/>
                             </ContextMenu>
                         </TreeView.ContextMenu>
                     </TreeView>

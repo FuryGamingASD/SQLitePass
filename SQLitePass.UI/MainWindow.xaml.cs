@@ -40,6 +40,8 @@ namespace SQLitePass.UI
         private System.Windows.Point _dragStartPoint;
         private System.Windows.Point _groupDragStartPoint;
         private PwGroup? _dragCandidateGroup;
+        private TreeViewDropAdorner? _currentDropAdorner;
+        private UIElement? _currentAdornedElement;
 
         private DispatcherTimer? _idleLockTimer;
         private bool _previewPasswordRevealed = false;
@@ -569,6 +571,10 @@ namespace SQLitePass.UI
                         DragDrop.DoDragDrop(DgEntries, _selectedEntry, DragDropEffects.Move);
                     }
                     catch { }
+                    finally
+                    {
+                        ClearDropAdorner();
+                    }
                 }
             }
         }
@@ -603,6 +609,7 @@ namespace SQLitePass.UI
                     finally
                     {
                         _dragCandidateGroup = null;
+                        ClearDropAdorner();
                     }
                 }
             }
@@ -612,10 +619,21 @@ namespace SQLitePass.UI
         {
             if (e.Data.GetDataPresent(typeof(PwEntry)))
             {
-                var targetGroup = GetGroupByHitTest(e.GetPosition(TvGroups));
-                if (targetGroup != null)
+                var targetBorder = GetGroupRowBorderFromHitTest(e.GetPosition(TvGroups));
+                var targetGroup = targetBorder?.DataContext as PwGroup ?? GetGroupByHitTest(e.GetPosition(TvGroups));
+
+                if (targetGroup != null && targetBorder != null)
                 {
+                    // Highlight the target folder that will become the parent of this entry
+                    UpdateDropAdorner(targetBorder, DropPosition.Inside);
                     e.Effects = DragDropEffects.Move;
+                    e.Handled = true;
+                    return;
+                }
+                else
+                {
+                    ClearDropAdorner();
+                    e.Effects = DragDropEffects.None;
                     e.Handled = true;
                     return;
                 }
@@ -624,10 +642,13 @@ namespace SQLitePass.UI
             {
                 if (e.Data.GetData(typeof(PwGroup)) is PwGroup draggedGroup)
                 {
-                    var targetGroup = GetGroupByHitTest(e.GetPosition(TvGroups));
+                    var targetBorder = GetGroupRowBorderFromHitTest(e.GetPosition(TvGroups));
+                    var targetGroup = targetBorder?.DataContext as PwGroup ?? GetGroupByHitTest(e.GetPosition(TvGroups));
+
                     if (targetGroup == null)
                     {
-                        // Dropping on empty tree space -> allowed (moves to root)
+                        // Hovering empty tree space -> allowed (moves to root)
+                        ClearDropAdorner();
                         e.Effects = DragDropEffects.Move;
                         e.Handled = true;
                         return;
@@ -636,9 +657,48 @@ namespace SQLitePass.UI
                     // Cannot drop group onto itself or its descendants
                     if (targetGroup.Id == draggedGroup.Id || IsDescendantOf(targetGroup, draggedGroup))
                     {
+                        ClearDropAdorner();
                         e.Effects = DragDropEffects.None;
                         e.Handled = true;
                         return;
+                    }
+
+                    bool isRoot = _rootGroups.Count > 0 && targetGroup.Id == _rootGroups[0].Id;
+                    bool isTrash = VaultOperationHandler.IsRecycleBinGroup(targetGroup);
+
+                    double relY = 0.5;
+                    if (targetBorder != null && targetBorder.ActualHeight > 0)
+                    {
+                        var pt = e.GetPosition(targetBorder);
+                        relY = pt.Y / targetBorder.ActualHeight;
+                    }
+
+                    DropPosition pos;
+                    if (relY < 0.28 && !isRoot)
+                    {
+                        pos = DropPosition.Before;
+                    }
+                    else if (relY > 0.72 && !isRoot)
+                    {
+                        pos = DropPosition.After;
+                    }
+                    else
+                    {
+                        pos = DropPosition.Inside;
+                    }
+
+                    // Cestino is unique and cannot have child subgroups!
+                    if (pos == DropPosition.Inside && isTrash)
+                    {
+                        ClearDropAdorner();
+                        e.Effects = DragDropEffects.None;
+                        e.Handled = true;
+                        return;
+                    }
+
+                    if (targetBorder != null)
+                    {
+                        UpdateDropAdorner(targetBorder, pos);
                     }
 
                     e.Effects = DragDropEffects.Move;
@@ -647,15 +707,25 @@ namespace SQLitePass.UI
                 }
             }
 
+            ClearDropAdorner();
             e.Effects = DragDropEffects.None;
             e.Handled = true;
         }
 
+        private void TvGroups_DragLeave(object sender, DragEventArgs e)
+        {
+            ClearDropAdorner();
+        }
+
         private async void TvGroups_Drop(object sender, DragEventArgs e)
         {
+            ClearDropAdorner();
+
             if (e.Data.GetData(typeof(PwEntry)) is PwEntry draggedEntry)
             {
-                var targetGroup = GetGroupByHitTest(e.GetPosition(TvGroups));
+                var targetBorder = GetGroupRowBorderFromHitTest(e.GetPosition(TvGroups));
+                var targetGroup = targetBorder?.DataContext as PwGroup ?? GetGroupByHitTest(e.GetPosition(TvGroups));
+
                 if (targetGroup != null && draggedEntry.GroupId != targetGroup.Id)
                 {
                     try
@@ -664,7 +734,15 @@ namespace SQLitePass.UI
                         await _storage.SaveEntryAsync(draggedEntry, _crypto);
                         _entriesView.Refresh();
                         UpdateStatusCounts();
-                        TxtStatusClipboard.Text = $"📁 Voce '{draggedEntry.Title}' spostata in '{targetGroup.Name}'";
+
+                        if (VaultOperationHandler.IsRecycleBinGroup(targetGroup))
+                        {
+                            TxtStatusClipboard.Text = $"🗑️ Voce '{draggedEntry.Title}' spostata nel Cestino";
+                        }
+                        else
+                        {
+                            TxtStatusClipboard.Text = $"📁 Voce '{draggedEntry.Title}' spostata in '{targetGroup.Name}'";
+                        }
                         AppLogger.LogInfo($"Moved entry '{draggedEntry.Title}' to group '{targetGroup.Name}' via drag & drop");
                     }
                     catch (Exception ex)
@@ -676,8 +754,8 @@ namespace SQLitePass.UI
             }
             else if (e.Data.GetData(typeof(PwGroup)) is PwGroup draggedGroup)
             {
-                var targetItem = GetTreeViewItemFromHitTest(e.GetPosition(TvGroups));
-                var targetGroup = targetItem?.DataContext as PwGroup;
+                var targetBorder = GetGroupRowBorderFromHitTest(e.GetPosition(TvGroups));
+                var targetGroup = targetBorder?.DataContext as PwGroup ?? GetGroupByHitTest(e.GetPosition(TvGroups));
 
                 // Drop onto empty area -> Move to root
                 if (targetGroup == null)
@@ -694,32 +772,34 @@ namespace SQLitePass.UI
                 if (targetGroup.Id == draggedGroup.Id || IsDescendantOf(targetGroup, draggedGroup))
                     return;
 
-                if (targetItem != null && targetItem.ActualHeight > 0)
+                bool isRoot = _rootGroups.Count > 0 && targetGroup.Id == _rootGroups[0].Id;
+                bool isTrash = VaultOperationHandler.IsRecycleBinGroup(targetGroup);
+
+                double relY = 0.5;
+                if (targetBorder != null && targetBorder.ActualHeight > 0)
                 {
-                    System.Windows.Point pt = e.GetPosition(targetItem);
-                    double relY = pt.Y / targetItem.ActualHeight;
+                    var pt = e.GetPosition(targetBorder);
+                    relY = pt.Y / targetBorder.ActualHeight;
+                }
 
-                    // If target is root vault and dropping above/below -> put inside root
-                    bool isRoot = _rootGroups.Count > 0 && targetGroup.Id == _rootGroups[0].Id;
-
-                    if (relY < 0.28 && !isRoot)
-                    {
-                        // Insert BEFORE target
-                        await MoveGroupRelativeAsync(draggedGroup, targetGroup, insertBefore: true);
-                    }
-                    else if (relY > 0.72 && !isRoot)
-                    {
-                        // Insert AFTER target
-                        await MoveGroupRelativeAsync(draggedGroup, targetGroup, insertBefore: false);
-                    }
-                    else
-                    {
-                        // Move INSIDE target
-                        await MoveGroupInsideAsync(draggedGroup, targetGroup);
-                    }
+                if (relY < 0.28 && !isRoot)
+                {
+                    // Insert BEFORE target
+                    await MoveGroupRelativeAsync(draggedGroup, targetGroup, insertBefore: true);
+                }
+                else if (relY > 0.72 && !isRoot)
+                {
+                    // Insert AFTER target
+                    await MoveGroupRelativeAsync(draggedGroup, targetGroup, insertBefore: false);
                 }
                 else
                 {
+                    // Move INSIDE target
+                    if (isTrash)
+                    {
+                        MessageBox.Show("Il Cestino non può contenere sottocartelle.", "Operazione non consentita", MessageBoxButton.OK, MessageBoxImage.Information);
+                        return;
+                    }
                     await MoveGroupInsideAsync(draggedGroup, targetGroup);
                 }
             }
@@ -727,6 +807,12 @@ namespace SQLitePass.UI
 
         private async Task MoveGroupInsideAsync(PwGroup groupToMove, PwGroup targetParent)
         {
+            if (VaultOperationHandler.IsRecycleBinGroup(targetParent))
+            {
+                MessageBox.Show("Il Cestino non può contenere sottocartelle.", "Operazione non consentita", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
             try
             {
                 var oldCollection = FindGroupParentCollection(groupToMove);
@@ -794,6 +880,7 @@ namespace SQLitePass.UI
         {
             if (_selectedGroup == null) return;
             if (_rootGroups.Count > 0 && _selectedGroup.Id == _rootGroups[0].Id) return;
+            if (VaultOperationHandler.IsRecycleBinGroup(_selectedGroup)) return;
 
             var col = FindGroupParentCollection(_selectedGroup);
             if (col == null) return;
@@ -816,6 +903,7 @@ namespace SQLitePass.UI
         {
             if (_selectedGroup == null) return;
             if (_rootGroups.Count > 0 && _selectedGroup.Id == _rootGroups[0].Id) return;
+            if (VaultOperationHandler.IsRecycleBinGroup(_selectedGroup)) return;
 
             var col = FindGroupParentCollection(_selectedGroup);
             if (col == null) return;
@@ -838,6 +926,7 @@ namespace SQLitePass.UI
         {
             if (_selectedGroup == null) return;
             if (_rootGroups.Count == 0 || _selectedGroup.Id == _rootGroups[0].Id) return;
+            if (VaultOperationHandler.IsRecycleBinGroup(_selectedGroup)) return;
 
             var rootGroup = _rootGroups[0];
             if (_selectedGroup.ParentId == rootGroup.Id)
@@ -912,6 +1001,96 @@ namespace SQLitePass.UI
                 current = System.Windows.Media.VisualTreeHelper.GetParent(current);
             }
             return null;
+        }
+
+        private Border? GetGroupRowBorderFromHitTest(System.Windows.Point point)
+        {
+            var hit = System.Windows.Media.VisualTreeHelper.HitTest(TvGroups, point);
+            if (hit == null) return null;
+
+            DependencyObject? current = hit.VisualHit;
+            while (current != null && current != TvGroups)
+            {
+                if (current is Border b && b.Name == "GroupRowBorder")
+                {
+                    return b;
+                }
+                if (current is TreeViewItem tvi)
+                {
+                    var found = FindVisualChildByName<Border>(tvi, "GroupRowBorder");
+                    if (found != null) return found;
+                }
+                current = System.Windows.Media.VisualTreeHelper.GetParent(current);
+            }
+            return null;
+        }
+
+        private static T? FindVisualChildByName<T>(DependencyObject parent, string name) where T : FrameworkElement
+        {
+            int count = System.Windows.Media.VisualTreeHelper.GetChildrenCount(parent);
+            for (int i = 0; i < count; i++)
+            {
+                var child = System.Windows.Media.VisualTreeHelper.GetChild(parent, i);
+                if (child is T fe && fe.Name == name)
+                    return fe;
+
+                var res = FindVisualChildByName<T>(child, name);
+                if (res != null) return res;
+            }
+            return null;
+        }
+
+        private void UpdateDropAdorner(UIElement? element, DropPosition position)
+        {
+            if (element == null || position == DropPosition.None)
+            {
+                ClearDropAdorner();
+                return;
+            }
+
+            if (_currentAdornedElement == element && _currentDropAdorner != null)
+            {
+                _currentDropAdorner.UpdatePosition(position);
+                return;
+            }
+
+            ClearDropAdorner();
+
+            var layer = System.Windows.Documents.AdornerLayer.GetAdornerLayer(element) 
+                        ?? System.Windows.Documents.AdornerLayer.GetAdornerLayer(TvGroups);
+            if (layer != null)
+            {
+                _currentAdornedElement = element;
+                _currentDropAdorner = new TreeViewDropAdorner(element, position);
+                layer.Add(_currentDropAdorner);
+            }
+        }
+
+        private void ClearDropAdorner()
+        {
+            if (_currentDropAdorner != null && _currentAdornedElement != null)
+            {
+                var layer = System.Windows.Documents.AdornerLayer.GetAdornerLayer(_currentAdornedElement) 
+                            ?? System.Windows.Documents.AdornerLayer.GetAdornerLayer(TvGroups);
+                layer?.Remove(_currentDropAdorner);
+            }
+            _currentDropAdorner = null;
+            _currentAdornedElement = null;
+        }
+
+        private void TvGroups_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+        {
+            bool isTrash = _selectedGroup != null && VaultOperationHandler.IsRecycleBinGroup(_selectedGroup);
+            bool isRoot = _selectedGroup != null && _rootGroups.Count > 0 && _selectedGroup.Id == _rootGroups[0].Id;
+
+            CmAddSubgroup.IsEnabled = !isTrash;
+            CmRenameGroup.IsEnabled = !isTrash && !isRoot;
+            CmDeleteGroup.IsEnabled = !isTrash && !isRoot;
+            CmMoveGroupUp.IsEnabled = !isTrash && !isRoot;
+            CmMoveGroupDown.IsEnabled = !isTrash && !isRoot;
+            CmMoveGroupToRoot.IsEnabled = !isTrash && !isRoot;
+            CmEmptyTrash.Visibility = isTrash ? Visibility.Visible : Visibility.Collapsed;
+            CmTreeSep3.Visibility = isTrash ? Visibility.Visible : Visibility.Collapsed;
         }
 
         #endregion
@@ -1051,6 +1230,12 @@ namespace SQLitePass.UI
 
         private async void BtnAddGroup_Click(object sender, RoutedEventArgs e)
         {
+            if (_selectedGroup != null && VaultOperationHandler.IsRecycleBinGroup(_selectedGroup))
+            {
+                MessageBox.Show("Il Cestino non può contenere sottocartelle.", "Operazione non consentita", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
             var dlg = new GroupEditDialog("Nuovo Gruppo") { Owner = this };
             if (dlg.ShowDialog() == true)
             {
@@ -1083,6 +1268,11 @@ namespace SQLitePass.UI
         private async void MenuRenameGroup_Click(object sender, RoutedEventArgs e)
         {
             if (_selectedGroup == null) return;
+            if (VaultOperationHandler.IsRecycleBinGroup(_selectedGroup))
+            {
+                MessageBox.Show("Il Cestino di sistema non può essere rinominato.", "Avviso", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
 
             var dlg = new GroupEditDialog(_selectedGroup.Name) { Owner = this };
             if (dlg.ShowDialog() == true)
@@ -1102,6 +1292,17 @@ namespace SQLitePass.UI
         private async void MenuDeleteGroup_Click(object sender, RoutedEventArgs e)
         {
             if (_selectedGroup == null) return;
+
+            if (_rootGroups.Count > 0 && _selectedGroup.Id == _rootGroups[0].Id)
+            {
+                MessageBox.Show("Non è possibile eliminare il gruppo radice del vault.", "Avviso", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            if (VaultOperationHandler.IsRecycleBinGroup(_selectedGroup))
+            {
+                MessageBox.Show("Il Cestino di sistema non può essere eliminato. Per eliminare le voci al suo interno, utilizza 'Svuota Cestino'.", "Avviso", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
 
             if (MessageBox.Show($"Eliminare il gruppo '{_selectedGroup.Name}' e tutte le voci al suo interno?", "Conferma Eliminazione Gruppo", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
             {
