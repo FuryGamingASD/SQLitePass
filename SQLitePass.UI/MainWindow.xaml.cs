@@ -20,6 +20,7 @@ using SQLitePass.Core.Models;
 using SQLitePass.Core.Services;
 using SQLitePass.UI.Dialogs;
 using SQLitePass.UI.Services;
+using Point = System.Windows.Point;
 
 namespace SQLitePass.UI
 {
@@ -40,8 +41,7 @@ namespace SQLitePass.UI
         private System.Windows.Point _dragStartPoint;
         private System.Windows.Point _groupDragStartPoint;
         private PwGroup? _dragCandidateGroup;
-        private TreeViewDropAdorner? _currentDropAdorner;
-        private UIElement? _currentAdornedElement;
+        private TreeViewDropAdorner? _dropAdorner;
 
         private DispatcherTimer? _idleLockTimer;
         private bool _previewPasswordRevealed = false;
@@ -617,22 +617,27 @@ namespace SQLitePass.UI
 
         private void TvGroups_PreviewDragOver(object sender, DragEventArgs e)
         {
+            var adorner = EnsureDropAdorner();
+
             if (e.Data.GetDataPresent(typeof(PwEntry)))
             {
-                var targetBorder = GetGroupRowBorderFromHitTest(e.GetPosition(TvGroups));
-                var targetGroup = targetBorder?.DataContext as PwGroup ?? GetGroupByHitTest(e.GetPosition(TvGroups));
+                var (targetGroup, targetHeader) = GetGroupAndHeaderFromHitTest(e.GetPosition(TvGroups));
 
-                if (targetGroup != null && targetBorder != null)
+                if (targetGroup != null && targetHeader != null && targetHeader.ActualHeight > 0)
                 {
+                    Point p = targetHeader.TranslatePoint(new Point(0, 0), TvGroups);
+                    double w = Math.Max(targetHeader.ActualWidth, TvGroups.ActualWidth - p.X - 16);
+                    double h = targetHeader.ActualHeight;
+
                     // Highlight the target folder that will become the parent of this entry
-                    UpdateDropAdorner(targetBorder, DropPosition.Inside);
+                    adorner?.UpdateTarget(new Rect(p.X, p.Y, w, h), DropPosition.Inside);
                     e.Effects = DragDropEffects.Move;
                     e.Handled = true;
                     return;
                 }
                 else
                 {
-                    ClearDropAdorner();
+                    adorner?.Clear();
                     e.Effects = DragDropEffects.None;
                     e.Handled = true;
                     return;
@@ -642,13 +647,13 @@ namespace SQLitePass.UI
             {
                 if (e.Data.GetData(typeof(PwGroup)) is PwGroup draggedGroup)
                 {
-                    var targetBorder = GetGroupRowBorderFromHitTest(e.GetPosition(TvGroups));
-                    var targetGroup = targetBorder?.DataContext as PwGroup ?? GetGroupByHitTest(e.GetPosition(TvGroups));
+                    Point mousePt = e.GetPosition(TvGroups);
+                    var (targetGroup, targetHeader) = GetGroupAndHeaderFromHitTest(mousePt);
 
-                    if (targetGroup == null)
+                    if (targetGroup == null || targetHeader == null || targetHeader.ActualHeight <= 0)
                     {
                         // Hovering empty tree space -> allowed (moves to root)
-                        ClearDropAdorner();
+                        adorner?.Clear();
                         e.Effects = DragDropEffects.Move;
                         e.Handled = true;
                         return;
@@ -657,7 +662,7 @@ namespace SQLitePass.UI
                     // Cannot drop group onto itself or its descendants
                     if (targetGroup.Id == draggedGroup.Id || IsDescendantOf(targetGroup, draggedGroup))
                     {
-                        ClearDropAdorner();
+                        adorner?.Clear();
                         e.Effects = DragDropEffects.None;
                         e.Handled = true;
                         return;
@@ -666,12 +671,10 @@ namespace SQLitePass.UI
                     bool isRoot = _rootGroups.Count > 0 && targetGroup.Id == _rootGroups[0].Id;
                     bool isTrash = VaultOperationHandler.IsRecycleBinGroup(targetGroup);
 
-                    double relY = 0.5;
-                    if (targetBorder != null && targetBorder.ActualHeight > 0)
-                    {
-                        var pt = e.GetPosition(targetBorder);
-                        relY = pt.Y / targetBorder.ActualHeight;
-                    }
+                    Point p = targetHeader.TranslatePoint(new Point(0, 0), TvGroups);
+                    double w = Math.Max(targetHeader.ActualWidth, TvGroups.ActualWidth - p.X - 16);
+                    double h = targetHeader.ActualHeight;
+                    double relY = (mousePt.Y - p.Y) / h;
 
                     DropPosition pos;
                     if (relY < 0.28 && !isRoot)
@@ -690,31 +693,32 @@ namespace SQLitePass.UI
                     // Cestino is unique and cannot have child subgroups!
                     if (pos == DropPosition.Inside && isTrash)
                     {
-                        ClearDropAdorner();
+                        adorner?.Clear();
                         e.Effects = DragDropEffects.None;
                         e.Handled = true;
                         return;
                     }
 
-                    if (targetBorder != null)
-                    {
-                        UpdateDropAdorner(targetBorder, pos);
-                    }
-
+                    adorner?.UpdateTarget(new Rect(p.X, p.Y, w, h), pos);
                     e.Effects = DragDropEffects.Move;
                     e.Handled = true;
                     return;
                 }
             }
 
-            ClearDropAdorner();
+            adorner?.Clear();
             e.Effects = DragDropEffects.None;
             e.Handled = true;
         }
 
         private void TvGroups_DragLeave(object sender, DragEventArgs e)
         {
-            ClearDropAdorner();
+            // Only clear when the mouse has actually exited the TvGroups control boundaries
+            var pos = e.GetPosition(TvGroups);
+            if (pos.X < 0 || pos.Y < 0 || pos.X >= TvGroups.ActualWidth || pos.Y >= TvGroups.ActualHeight)
+            {
+                ClearDropAdorner();
+            }
         }
 
         private async void TvGroups_Drop(object sender, DragEventArgs e)
@@ -723,8 +727,7 @@ namespace SQLitePass.UI
 
             if (e.Data.GetData(typeof(PwEntry)) is PwEntry draggedEntry)
             {
-                var targetBorder = GetGroupRowBorderFromHitTest(e.GetPosition(TvGroups));
-                var targetGroup = targetBorder?.DataContext as PwGroup ?? GetGroupByHitTest(e.GetPosition(TvGroups));
+                var (targetGroup, _) = GetGroupAndHeaderFromHitTest(e.GetPosition(TvGroups));
 
                 if (targetGroup != null && draggedEntry.GroupId != targetGroup.Id)
                 {
@@ -754,11 +757,11 @@ namespace SQLitePass.UI
             }
             else if (e.Data.GetData(typeof(PwGroup)) is PwGroup draggedGroup)
             {
-                var targetBorder = GetGroupRowBorderFromHitTest(e.GetPosition(TvGroups));
-                var targetGroup = targetBorder?.DataContext as PwGroup ?? GetGroupByHitTest(e.GetPosition(TvGroups));
+                Point mousePt = e.GetPosition(TvGroups);
+                var (targetGroup, targetHeader) = GetGroupAndHeaderFromHitTest(mousePt);
 
                 // Drop onto empty area -> Move to root
-                if (targetGroup == null)
+                if (targetGroup == null || targetHeader == null)
                 {
                     var rootParent = _rootGroups.FirstOrDefault();
                     if (rootParent != null && draggedGroup.ParentId != rootParent.Id && draggedGroup.Id != rootParent.Id)
@@ -775,12 +778,9 @@ namespace SQLitePass.UI
                 bool isRoot = _rootGroups.Count > 0 && targetGroup.Id == _rootGroups[0].Id;
                 bool isTrash = VaultOperationHandler.IsRecycleBinGroup(targetGroup);
 
-                double relY = 0.5;
-                if (targetBorder != null && targetBorder.ActualHeight > 0)
-                {
-                    var pt = e.GetPosition(targetBorder);
-                    relY = pt.Y / targetBorder.ActualHeight;
-                }
+                double h = targetHeader.ActualHeight > 0 ? targetHeader.ActualHeight : 26;
+                Point p = targetHeader.TranslatePoint(new Point(0, 0), TvGroups);
+                double relY = (mousePt.Y - p.Y) / h;
 
                 if (relY < 0.28 && !isRoot)
                 {
@@ -1003,26 +1003,50 @@ namespace SQLitePass.UI
             return null;
         }
 
-        private Border? GetGroupRowBorderFromHitTest(System.Windows.Point point)
+        private (PwGroup? group, FrameworkElement? rowHeader) GetGroupAndHeaderFromHitTest(System.Windows.Point point)
+        {
+            var res = HitTestGroupAndHeader(point);
+            if (res.group != null) return res;
+
+            // Tolerance check for 1-3px gaps/margins between TreeView items to prevent flickering
+            res = HitTestGroupAndHeader(new System.Windows.Point(point.X, Math.Max(0, point.Y - 3)));
+            if (res.group != null) return res;
+
+            res = HitTestGroupAndHeader(new System.Windows.Point(point.X, point.Y + 3));
+            if (res.group != null) return res;
+
+            return (null, null);
+        }
+
+        private (PwGroup? group, FrameworkElement? rowHeader) HitTestGroupAndHeader(System.Windows.Point point)
         {
             var hit = System.Windows.Media.VisualTreeHelper.HitTest(TvGroups, point);
-            if (hit == null) return null;
+            if (hit == null) return (null, null);
 
             DependencyObject? current = hit.VisualHit;
+            FrameworkElement? foundHeader = null;
+
             while (current != null && current != TvGroups)
             {
-                if (current is Border b && b.Name == "GroupRowBorder")
+                if (current is FrameworkElement fe && fe.Name == "GroupRowBorder")
                 {
-                    return b;
+                    foundHeader = fe;
                 }
-                if (current is TreeViewItem tvi)
+
+                if (current is TreeViewItem tvi && tvi.DataContext is PwGroup group)
                 {
-                    var found = FindVisualChildByName<Border>(tvi, "GroupRowBorder");
-                    if (found != null) return found;
+                    if (foundHeader == null)
+                    {
+                        foundHeader = FindVisualChildByName<FrameworkElement>(tvi, "GroupRowBorder")
+                                      ?? FindVisualChildByName<FrameworkElement>(tvi, "Bd")
+                                      ?? (FrameworkElement)tvi;
+                    }
+                    return (group, foundHeader);
                 }
                 current = System.Windows.Media.VisualTreeHelper.GetParent(current);
             }
-            return null;
+
+            return (null, null);
         }
 
         private static T? FindVisualChildByName<T>(DependencyObject parent, string name) where T : FrameworkElement
@@ -1040,42 +1064,22 @@ namespace SQLitePass.UI
             return null;
         }
 
-        private void UpdateDropAdorner(UIElement? element, DropPosition position)
+        private TreeViewDropAdorner? EnsureDropAdorner()
         {
-            if (element == null || position == DropPosition.None)
-            {
-                ClearDropAdorner();
-                return;
-            }
+            if (_dropAdorner != null) return _dropAdorner;
 
-            if (_currentAdornedElement == element && _currentDropAdorner != null)
-            {
-                _currentDropAdorner.UpdatePosition(position);
-                return;
-            }
-
-            ClearDropAdorner();
-
-            var layer = System.Windows.Documents.AdornerLayer.GetAdornerLayer(element) 
-                        ?? System.Windows.Documents.AdornerLayer.GetAdornerLayer(TvGroups);
+            var layer = System.Windows.Documents.AdornerLayer.GetAdornerLayer(TvGroups);
             if (layer != null)
             {
-                _currentAdornedElement = element;
-                _currentDropAdorner = new TreeViewDropAdorner(element, position);
-                layer.Add(_currentDropAdorner);
+                _dropAdorner = new TreeViewDropAdorner(TvGroups);
+                layer.Add(_dropAdorner);
             }
+            return _dropAdorner;
         }
 
         private void ClearDropAdorner()
         {
-            if (_currentDropAdorner != null && _currentAdornedElement != null)
-            {
-                var layer = System.Windows.Documents.AdornerLayer.GetAdornerLayer(_currentAdornedElement) 
-                            ?? System.Windows.Documents.AdornerLayer.GetAdornerLayer(TvGroups);
-                layer?.Remove(_currentDropAdorner);
-            }
-            _currentDropAdorner = null;
-            _currentAdornedElement = null;
+            _dropAdorner?.Clear();
         }
 
         private void TvGroups_ContextMenuOpening(object sender, ContextMenuEventArgs e)

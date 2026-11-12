@@ -14,12 +14,15 @@ namespace SQLitePass.UI.Services
     }
 
     /// <summary>
-    /// Visual adorner that renders an insertion line (for reordering before/after)
+    /// Visual adorner that renders a crisp insertion line (for reordering before/after)
     /// or a soft highlight box (when nesting inside a parent group) during Drag & Drop.
+    /// Attached to the TreeView container for smooth, flicker-free rendering.
     /// </summary>
     public class TreeViewDropAdorner : Adorner
     {
-        private DropPosition _position;
+        private DropPosition _position = DropPosition.None;
+        private Rect _targetRect = Rect.Empty;
+
         private static readonly Pen LinePen;
         private static readonly Brush HighlightFill;
         private static readonly Pen HighlightBorder;
@@ -29,7 +32,7 @@ namespace SQLitePass.UI.Services
         {
             var accentColor = Color.FromRgb(37, 99, 235); // #2563EB Vibrant Blue
 
-            LinePen = new Pen(new SolidColorBrush(accentColor), 2.5);
+            LinePen = new Pen(new SolidColorBrush(accentColor), 2.0);
             LinePen.Freeze();
 
             HighlightFill = new SolidColorBrush(Color.FromArgb(45, accentColor.R, accentColor.G, accentColor.B));
@@ -42,17 +45,27 @@ namespace SQLitePass.UI.Services
             CircleBrush.Freeze();
         }
 
-        public TreeViewDropAdorner(UIElement adornedElement, DropPosition position) : base(adornedElement)
+        public TreeViewDropAdorner(UIElement adornedElement) : base(adornedElement)
         {
-            _position = position;
             IsHitTestVisible = false;
         }
 
-        public void UpdatePosition(DropPosition position)
+        public void UpdateTarget(Rect targetRect, DropPosition position)
         {
-            if (_position != position)
+            if (_position != position || _targetRect != targetRect)
             {
                 _position = position;
+                _targetRect = targetRect;
+                InvalidateVisual();
+            }
+        }
+
+        public void Clear()
+        {
+            if (_position != DropPosition.None)
+            {
+                _position = DropPosition.None;
+                _targetRect = Rect.Empty;
                 InvalidateVisual();
             }
         }
@@ -60,27 +73,31 @@ namespace SQLitePass.UI.Services
         protected override void OnRender(DrawingContext dc)
         {
             base.OnRender(dc);
-            double w = AdornedElement.RenderSize.Width;
-            double h = AdornedElement.RenderSize.Height;
-            if (w <= 0) w = 180;
-            if (h <= 0) h = 24;
+
+            if (_position == DropPosition.None || _targetRect.IsEmpty || _targetRect.Width <= 0 || _targetRect.Height <= 0)
+                return;
+
+            double x = _targetRect.X;
+            double y = _targetRect.Y;
+            double w = _targetRect.Width;
+            double h = _targetRect.Height;
 
             if (_position == DropPosition.Before)
             {
-                // Top insertion line with dot on the left
-                dc.DrawEllipse(CircleBrush, null, new Point(4, 1), 3.5, 3.5);
-                dc.DrawLine(LinePen, new Point(6, 1), new Point(w, 1));
+                // Top insertion line with anchor dot on the left
+                dc.DrawEllipse(CircleBrush, null, new Point(x + 4, y), 3.5, 3.5);
+                dc.DrawLine(LinePen, new Point(x + 6, y), new Point(x + w, y));
             }
             else if (_position == DropPosition.After)
             {
-                // Bottom insertion line with dot on the left
-                dc.DrawEllipse(CircleBrush, null, new Point(4, h - 1), 3.5, 3.5);
-                dc.DrawLine(LinePen, new Point(6, h - 1), new Point(w, h - 1));
+                // Bottom insertion line with anchor dot on the left
+                dc.DrawEllipse(CircleBrush, null, new Point(x + 4, y + h), 3.5, 3.5);
+                dc.DrawLine(LinePen, new Point(x + 6, y + h), new Point(x + w, y + h));
             }
             else if (_position == DropPosition.Inside)
             {
                 // Soft highlight box embracing the target parent group
-                dc.DrawRoundedRectangle(HighlightFill, HighlightBorder, new Rect(1, 1, Math.Max(0, w - 2), Math.Max(0, h - 2)), 5, 5);
+                dc.DrawRoundedRectangle(HighlightFill, HighlightBorder, new Rect(x, y, w, h), 5, 5);
             }
         }
     }
