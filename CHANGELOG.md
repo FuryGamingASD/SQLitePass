@@ -1,5 +1,41 @@
 # Changelog
 
+## [1.1.0] - 2026-11-17
+
+- Add a pinned Windows CI pipeline with coverage, WPF evidence, package/license/runtime/hash verification and silent installer/update/uninstall checks. Publish verified assets through a draft release, record source provenance and verify the anonymous public update feed with Velopack.
+
+- Add folder breadcrumbs, exact tag and expiry filters across paged queries, explicit global-search scope, and separate operation/clipboard feedback.
+- Add inline editor validation, edited-state feedback and discard confirmation. Compare the final draft on a worker, update bound history on the caller context, and skip unchanged existing records.
+- Hide revealed entry, preview, list and custom-field values after a monotonic 15-second deadline, on deactivation and on lock. Clear hidden plaintext password controls and show actual attachment byte length.
+- Exercise actual asynchronous provider loading, UI filters, dirty-editor lock, deadline and validation workflows in the isolated STA verifier without showing windows or sending desktop input.
+
+- Bound the visible list to 200 rows and an estimated 8 MiB, with stable forward/backward cursors and global search/sort. Keep CSV export, Auto-Type matching and recycle-bin operations independent of the visible page.
+- Load confirmed Auto-Type entries with custom fields and revision checks. Stream legacy migration in two validated passes, preserve child ownership and the original username/URL policy, and retain the key-file requirement.
+- Replace tree/list emoji with vector icons, bound text previews, skip expensive quality scoring for oversized inputs, and correct selected-row colors in simulated high contrast.
+
+- Move the application to .NET 10 and locked dependencies.
+- Introduce authenticated vault format 2 with encrypted group/entry contents, record revisions and key epochs.
+- Add guarded legacy migration, validated recovery with preservation of old journals, and versioned backup status.
+- Fix session lock, key-file credential changes, draft cancellation, child data persistence, protected fields and Auto-Type target handling.
+- Replace desktop-input tests with isolated adapters and recovery regression fixtures.
+- Add deterministic build configuration, release checksums, optional certificate signing and explicit unsigned QA packaging.
+- Make folder and entry imports atomic, cancellable and observable, with file parsing off the UI thread and strict CSV column validation.
+- Merge independent preference edits across instances, reject conflicts, preserve readable recovery settings and distinguish startup-registration failures.
+- Persist per-vault folder expansion without rewriting the vault; report global hotkey conflicts and implement Ctrl+H/F5.
+- Allow toolbar wrapping and resizable, scrollable dialogs; translate the new import and shortcut-status flows into all five supported languages.
+- Load heavy entry details on demand, reject partial-model writes and preserve full content when moving an entry from the list.
+- Stream manifest hashing and process rekey, folder trash and recovery validation one entry at a time; reduce redundant AES-GCM and serialization buffers while retaining format-2 compatibility.
+- Prepare edit drafts, restore revisions and handle attachment files off the UI thread; add guarded cancellation, atomic attachment export, refresh progress and local date display.
+- Add format compatibility, overview integrity and attachment regression tests plus a bounded synthetic memory benchmark.
+- Centralize all user interface strings in `TranslationCatalog` with embedded JSON catalogs for English, Italian, French, German, and Spanish; validate key parity and composite format arguments via automated tests (105 tests).
+- Modernize accessibility across windows and dialogs: replace text emoji icons with the scalable vector `AppIcon` control (suppressing accessibility peers for decorative elements), and bind `AutomationProperties.Name` across input controls and action buttons.
+- Align security terminology: explicitly clarify best-effort screen capture exclusion and differentiate verified backup presence from operational filesystem state.
+- Add explicit recycle-bin restoration with a destination picker and revision checks; protect permanent deletion batches against stale confirmations.
+- Stream CSV exports in the background with progress, cancellation and atomic destination replacement; preserve existing files on failure.
+- Refresh the SDK to 10.0.404 and bundled runtime to 10.0.15; extend synthetic volume, WPF rendering and theme-contrast verification and include dependency license texts.
+- The 1.0 release notes below are historical; absolute security and corruption-prevention claims are superseded by SECURITY.md and the current README.
+
+
 All notable changes to **SQLitePass** will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),

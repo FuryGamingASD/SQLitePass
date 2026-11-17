@@ -1,25 +1,47 @@
 <Window x:Class="SQLitePass.UI.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="clr-namespace:SQLitePass.UI.Controls"
         xmlns:conv="clr-namespace:SQLitePass.UI.Converters"
-        Title="SQLitePass" Height="720" Width="1080"
-        Icon="/Resources/app_icon.png"
+        Title="{DynamicResource AppTitle}" Height="760" Width="1180" MinHeight="480" MinWidth="720"
+        Icon="/SQLitePass;component/Resources/app_icon.png"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource AppBg}" FontFamily="Segoe UI" FontSize="13">
     <Window.Resources>
         <conv:EntropyToColorConverter x:Key="EntropyToColorConverter"/>
         <conv:PasswordMaskConverter x:Key="PasswordMaskConverter"/>
+        <conv:LocalDateTimeConverter x:Key="LocalDateTimeConverter"/>
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <conv:GroupIconConverter x:Key="GroupIconConverter"/>
         <conv:EntryIconConverter x:Key="EntryIconConverter"/>
+        <conv:TextPreviewConverter x:Key="TextPreviewConverter"/>
+
+        <Style x:Key="EntryLinkIcon" TargetType="ui:AppIcon">
+            <Setter Property="Foreground" Value="{DynamicResource LinkColor}"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource SelectionFg}"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="EntryLinkText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource LinkColor}"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=DataGridRow}}" Value="True">
+                    <Setter Property="Foreground" Value="{DynamicResource SelectionFg}"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
         <conv:NotNullToBoolConverter x:Key="NotNullToBoolConverter"/>
         <conv:StringNotEmptyToBoolConverter x:Key="StringNotEmptyToBoolConverter"/>
         <conv:CanAutoTypeConverter x:Key="CanAutoTypeConverter"/>
 
         <!-- Primary Action Button -->
         <Style x:Key="PrimaryToolButton" TargetType="Button">
+            <Setter Property="FocusVisualStyle" Value="{StaticResource VisibleKeyboardFocus}"/>
+            <Setter Property="AutomationProperties.Name" Value="{Binding ToolTip, RelativeSource={RelativeSource Self}}"/>
             <Setter Property="Background" Value="{DynamicResource AccentColor}"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Foreground" Value="{DynamicResource AccentForeground}"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Width" Value="32"/>
             <Setter Property="Height" Value="32"/>
@@ -43,6 +65,8 @@
 
         <!-- Standard Tool Button (Clean Icon-Only Toolbar Button) -->
         <Style x:Key="ToolButton" TargetType="Button">
+            <Setter Property="FocusVisualStyle" Value="{StaticResource VisibleKeyboardFocus}"/>
+            <Setter Property="AutomationProperties.Name" Value="{Binding ToolTip, RelativeSource={RelativeSource Self}}"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Width" Value="32"/>
@@ -77,7 +101,20 @@
             <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtle}"/>
             <Setter Property="Height" Value="34"/>
             <Setter Property="SnapsToDevicePixels" Value="True"/>
-            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridRow">
+                        <Border x:Name="RowSurface" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" SnapsToDevicePixels="True">
+                            <DataGridCellsPresenter SnapsToDevicePixels="True"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource HoverBg}"/></Trigger>
+                            <Trigger Property="IsSelected" Value="True"><Setter TargetName="RowSurface" Property="Background" Value="{DynamicResource SelectionBg}"/></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+
             <Style.Triggers>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Setter Property="Background" Value="{DynamicResource HoverBg}"/>
@@ -92,7 +129,7 @@
         <!-- DataGrid Cell Style -->
         <Style TargetType="DataGridCell">
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+
             <Setter Property="Padding" Value="6,0"/>
             <Setter Property="VerticalAlignment" Value="Stretch"/>
             <Setter Property="Template">
@@ -173,6 +210,9 @@
                             <ItemsPresenter x:Name="ItemsHost" Grid.Row="1" Margin="14,0,0,0"/>
                         </Grid>
                         <ControlTemplate.Triggers>
+                            <Trigger Property="IsExpanded" Value="False">
+                                <Setter TargetName="ItemsHost" Property="Visibility" Value="Collapsed"/>
+                            </Trigger>
                             <Trigger Property="HasItems" Value="False">
                                 <Setter TargetName="Expander" Property="Visibility" Value="Hidden"/>
                             </Trigger>
@@ -180,7 +220,8 @@
                                 <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBg}"/>
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ActivePillBg}"/>
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SelectionBg}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource SelectionFg}"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -189,6 +230,7 @@
         </Style>
         <!-- Small Preview Action Button -->
         <Style x:Key="PreviewSmallButton" TargetType="Button">
+            <Setter Property="FocusVisualStyle" Value="{StaticResource VisibleKeyboardFocus}"/>
             <Setter Property="Background" Value="{DynamicResource HoverBg}"/>
             <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
             <Setter Property="BorderBrush" Value="{DynamicResource BorderColor}"/>
@@ -214,7 +256,7 @@
         </Style>
     </Window.Resources>
 
-    <Grid>
+    <Grid x:Name="VaultSurface">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -259,6 +301,7 @@
                 <MenuItem Header="{DynamicResource MenuDeleteEntry}" InputGestureText="Del" Click="BtnDeleteEntry_Click"
                           IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}"/>
                 <Separator Background="{DynamicResource BorderColor}"/>
+                <MenuItem Header="{DynamicResource RestoreEntry}" Click="BtnRestoreEntry_Click" IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}"/>
                 <MenuItem Header="{DynamicResource MenuRenameGroup}" Click="MenuRenameGroup_Click"/>
                 <MenuItem Header="{DynamicResource MenuDeleteGroup}" Click="MenuDeleteGroup_Click"/>
                 <Separator Background="{DynamicResource BorderColor}"/>
@@ -291,66 +334,69 @@
         <Border Grid.Row="1" Background="{DynamicResource ToolbarBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="0,0,0,1" Padding="10,7">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="300"/>
+                    <ColumnDefinition Width="12"/>
+                    <ColumnDefinition Width="240"/>
                 </Grid.ColumnDefinitions>
 
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <!-- New Entry Button -->
-                    <Button Style="{StaticResource PrimaryToolButton}" Click="BtnAddEntry_Click" ToolTip="{DynamicResource TbNewEntry}">
-                        <TextBlock Text="➕" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    <Button Style="{StaticResource PrimaryToolButton}" Width="Auto" MinWidth="110" Padding="12,0" Click="BtnAddEntry_Click" ToolTip="{DynamicResource TbNewEntry}" AutomationProperties.Name="{DynamicResource TbNewEntry}">
+                        <StackPanel Orientation="Horizontal" Margin="10,0">
+                            <ui:AppIcon Kind="Add" VerticalAlignment="Center" Margin="0,0,7,0"/>
+                            <TextBlock Text="{DynamicResource TbNewEntry}" VerticalAlignment="Center" FontWeight="SemiBold"/>
+                        </StackPanel>
                     </Button>
 
                     <Button Style="{StaticResource ToolButton}" Click="BtnEditEntry_Click" ToolTip="{DynamicResource TbEdit}"
-                            IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}">
-                        <TextBlock Text="✏️" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}" AutomationProperties.Name="{DynamicResource TbEdit}">
+                        <ui:AppIcon Kind="Edit" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                     <Button Style="{StaticResource ToolButton}" Click="BtnDeleteEntry_Click" ToolTip="{DynamicResource TbDelete}"
-                            IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}">
-                        <TextBlock Text="🗑️" FontSize="13" Foreground="#EF4444" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource NotNullToBoolConverter}}" AutomationProperties.Name="{DynamicResource TbDelete}">
+                        <ui:AppIcon Kind="Trash" Foreground="{DynamicResource DangerText}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
 
                     <Border Width="1" Height="18" Background="{DynamicResource BorderColor}" Margin="8,0" VerticalAlignment="Center"/>
 
                     <Button Style="{StaticResource ToolButton}" Click="BtnCopyUsername_Click" ToolTip="{DynamicResource TbCopyUser}"
-                            IsEnabled="{Binding SelectedItem.UserName, ElementName=DgEntries, Converter={StaticResource StringNotEmptyToBoolConverter}}">
-                        <TextBlock Text="👤" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            IsEnabled="{Binding SelectedItem.UserName, ElementName=DgEntries, Converter={StaticResource StringNotEmptyToBoolConverter}}" AutomationProperties.Name="{DynamicResource TbCopyUser}">
+                        <ui:AppIcon Kind="User" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                     <Button Style="{StaticResource ToolButton}" Click="BtnCopyPassword_Click" ToolTip="{DynamicResource TbCopyPassword}"
-                            IsEnabled="{Binding SelectedItem.Password, ElementName=DgEntries, Converter={StaticResource StringNotEmptyToBoolConverter}}">
-                        <TextBlock Text="🔑" FontSize="13" Foreground="#F59E0B" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            IsEnabled="{Binding SelectedItem.Password, ElementName=DgEntries, Converter={StaticResource StringNotEmptyToBoolConverter}}" AutomationProperties.Name="{DynamicResource TbCopyPassword}">
+                        <ui:AppIcon Kind="Key" Foreground="{DynamicResource WarningText}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                     <Button Style="{StaticResource ToolButton}" Click="BtnOpenUrl_Click" ToolTip="{DynamicResource TbOpenUrl}"
-                            IsEnabled="{Binding SelectedItem.Url, ElementName=DgEntries, Converter={StaticResource StringNotEmptyToBoolConverter}}">
-                        <TextBlock Text="🌐" FontSize="13" Foreground="{DynamicResource AccentColor}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            IsEnabled="{Binding SelectedItem.Url, ElementName=DgEntries, Converter={StaticResource StringNotEmptyToBoolConverter}}" AutomationProperties.Name="{DynamicResource TbOpenUrl}">
+                        <ui:AppIcon Kind="Globe" Foreground="{DynamicResource LinkColor}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
                     <Button Style="{StaticResource ToolButton}" Click="BtnAutoType_Click" ToolTip="{DynamicResource TbAutoType}"
-                            IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource CanAutoTypeConverter}}">
-                        <TextBlock Text="⌨️" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                            IsEnabled="{Binding SelectedItem, ElementName=DgEntries, Converter={StaticResource CanAutoTypeConverter}}" AutomationProperties.Name="{DynamicResource TbAutoType}">
+                        <ui:AppIcon Kind="Keyboard" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
 
                     <Border Width="1" Height="18" Background="{DynamicResource BorderColor}" Margin="8,0" VerticalAlignment="Center"/>
 
-                    <Button Style="{StaticResource ToolButton}" Click="BtnPasswordGenerator_Click" ToolTip="{DynamicResource TbGenerator}">
-                        <TextBlock Text="⚡" FontSize="13" Foreground="#F59E0B" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    <Button Style="{StaticResource ToolButton}" Click="BtnPasswordGenerator_Click" ToolTip="{DynamicResource TbGenerator}" AutomationProperties.Name="{DynamicResource TbGenerator}">
+                        <ui:AppIcon Kind="Generate" Foreground="{DynamicResource WarningText}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
-                    <Button Style="{StaticResource ToolButton}" Click="MenuToggleTheme_Click" ToolTip="{DynamicResource MenuToggleTheme}">
-                        <TextBlock Text="🌓" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    <Button Style="{StaticResource ToolButton}" Click="MenuToggleTheme_Click" ToolTip="{DynamicResource MenuToggleTheme}" AutomationProperties.Name="{DynamicResource MenuToggleTheme}">
+                        <ui:AppIcon Kind="Theme" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
-                    <Button Style="{StaticResource ToolButton}" Click="MenuSettings_Click" ToolTip="{DynamicResource TbSettings}">
-                        <TextBlock Text="⚙️" FontSize="13" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    <Button Style="{StaticResource ToolButton}" Click="MenuSettings_Click" ToolTip="{DynamicResource TbSettings}" AutomationProperties.Name="{DynamicResource TbSettings}">
+                        <ui:AppIcon Kind="Settings" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
-                    <Button Style="{StaticResource ToolButton}" Click="BtnLock_Click" ToolTip="{DynamicResource TbLock}">
-                        <TextBlock Text="🔒" FontSize="13" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    <Button Style="{StaticResource ToolButton}" Click="BtnLock_Click" ToolTip="{DynamicResource TbLock}" AutomationProperties.Name="{DynamicResource TbLock}">
+                        <ui:AppIcon Kind="Lock" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </Button>
-                </StackPanel>
+                </WrapPanel>
 
                 <!-- Search Box -->
                 <Grid Grid.Column="2" VerticalAlignment="Center">
-                    <TextBox x:Name="TxtSearch" Padding="28,6,8,6" VerticalContentAlignment="Center"
+                    <TextBox x:Name="TxtSearch" AutomationProperties.Name="{DynamicResource SearchPlaceholder}" Padding="28,6,8,6" VerticalContentAlignment="Center" MaxLength="4096"
                              TextChanged="TxtSearch_TextChanged"/>
-                    <TextBlock Text="🔍" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="10,0,0,0" IsHitTestVisible="False" FontSize="11"/>
+                    <ui:AppIcon Kind="Search" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" HorizontalAlignment="Left" Margin="10,0,0,0" IsHitTestVisible="False"/>
                     <TextBlock Text="{DynamicResource SearchPlaceholder}" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" Margin="30,0,0,0"
                                IsHitTestVisible="False" FontSize="12">
                         <TextBlock.Style>
@@ -391,12 +437,13 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="{DynamicResource FoldersAndGroups}" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondary}"/>
-                            <Button Grid.Column="1" Content="➕" Click="BtnAddGroup_Click" ToolTip="{DynamicResource NewGroup}"
-                                    Background="Transparent" BorderThickness="0" Cursor="Hand" Foreground="{DynamicResource AccentColor}"/>
+                            <Button Grid.Column="1"  Click="BtnAddGroup_Click" ToolTip="{DynamicResource NewGroup}"
+                                    Background="Transparent" BorderThickness="0" Cursor="Hand" Foreground="{DynamicResource LinkColor}" AutomationProperties.Name="{DynamicResource NewGroup}"><ui:AppIcon Kind="Add"/></Button>
                         </Grid>
                     </Border>
                     <!-- Groups TreeView -->
-                    <TreeView x:Name="TvGroups" Grid.Row="1" Background="Transparent" BorderThickness="0"
+                    <TreeView x:Name="TvGroups" AutomationProperties.Name="{DynamicResource FoldersAndGroups}" Grid.Row="1" Background="Transparent" BorderThickness="0"
+                              TreeViewItem.Expanded="GroupExpansionChanged" TreeViewItem.Collapsed="GroupExpansionChanged"
                               SelectedItemChanged="TvGroups_SelectedItemChanged" Margin="4,6"
                               AllowDrop="True"
                               PreviewKeyDown="TvGroups_PreviewKeyDown"
@@ -410,8 +457,8 @@
                             <HierarchicalDataTemplate ItemsSource="{Binding Children}">
                                 <Border x:Name="GroupRowBorder" CornerRadius="5" Padding="6,3" Margin="0,1" MinWidth="180" Background="Transparent" SnapsToDevicePixels="True" HorizontalAlignment="Stretch">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Name, Converter={StaticResource GroupIconConverter}}" Margin="0,0,7,0" FontSize="13" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{Binding Name}" FontWeight="Medium" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"/>
+                                        <ui:AppIcon Kind="{Binding Converter={StaticResource GroupIconConverter}}" Margin="0,0,7,0" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TreeViewItem}}" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding Name, Converter={StaticResource TextPreviewConverter}}" FontWeight="Medium" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=TreeViewItem}}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Border>
                             </HierarchicalDataTemplate>
@@ -447,8 +494,39 @@
                 </Grid.RowDefinitions>
 
                 <!-- ENTRIES DATAGRID (Alternating White & Soft Sky Tint) -->
-                <DataGrid x:Name="DgEntries" Grid.Row="0" AutoGenerateColumns="False" IsReadOnly="True"
+                <DockPanel Grid.Row="0">
+                    <Border DockPanel.Dock="Top" Background="{DynamicResource CardBg}" Padding="10,6" BorderBrush="{DynamicResource BorderSubtle}" BorderThickness="0,0,0,1">
+                        <StackPanel>
+                            <DockPanel Margin="0,0,0,5">
+                                <Button DockPanel.Dock="Right" Content="{DynamicResource AllActiveEntries}" Click="ShowAllEntries_Click" Margin="8,0,0,0"/>
+                                <TextBlock x:Name="TxtEntryScope" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextSecondary}" FontWeight="SemiBold"/>
+                            </DockPanel>
+                            <WrapPanel>
+                                <TextBlock Text="{DynamicResource ExpiryFilterLabel}" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{DynamicResource TextSecondary}"/>
+                                <ComboBox x:Name="CmbExpiryFilter" SelectedIndex="0" SelectedValuePath="Tag" SelectionChanged="EntryFilter_Changed" MinWidth="145" Margin="0,0,12,0" AutomationProperties.Name="{DynamicResource ExpiryFilterLabel}">
+                                    <ComboBoxItem Tag="All" Content="{DynamicResource ExpiryFilterAll}"/>
+                                    <ComboBoxItem Tag="Expired" Content="{DynamicResource ExpiryFilterExpired}"/>
+                                    <ComboBoxItem Tag="NextThirtyDays" Content="{DynamicResource ExpiryFilterSoon}"/>
+                                </ComboBox>
+                                <TextBlock Text="{DynamicResource TagFilterLabel}" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{DynamicResource TextSecondary}"/>
+                                <TextBox x:Name="TxtTagFilter" Width="125" MaxLength="256" TextChanged="EntryFilter_Changed" Margin="0,0,8,0" AutomationProperties.Name="{DynamicResource TagFilterLabel}" ToolTip="{DynamicResource TagFilterHint}"/>
+                                <Button Content="{DynamicResource ResetEntryFilters}" Click="ClearEntryFilters_Click"/>
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
+                    <Border DockPanel.Dock="Bottom" Background="{DynamicResource CardBg}" Padding="10,6" BorderBrush="{DynamicResource BorderSubtle}" BorderThickness="0,1,0,0">
+                        <DockPanel LastChildFill="True">
+                            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                                <Button x:Name="BtnPreviousEntryPage" Content="{DynamicResource PreviousEntryPage}" Click="BtnPreviousEntryPage_Click" MinWidth="84" Margin="8,0,4,0"/>
+                                <Button x:Name="BtnNextEntryPage" Content="{DynamicResource NextEntryPage}" Click="BtnNextEntryPage_Click" MinWidth="84"/>
+                            </StackPanel>
+                            <TextBlock x:Name="TxtEntryPageRange" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}"/>
+                        </DockPanel>
+                    </Border>
+                    <Grid>
+                <DataGrid x:Name="DgEntries" AutomationProperties.Name="{DynamicResource EntriesList}" AutoGenerateColumns="False" IsReadOnly="True"
                           CanUserSortColumns="True"
+                          Sorting="DgEntries_Sorting"
                           SelectionMode="Single" SelectionUnit="FullRow"
                           GridLinesVisibility="None" HeadersVisibility="Column"
                           Background="{DynamicResource CardBg}"
@@ -467,10 +545,11 @@
                         <DataGridTemplateColumn Header="{DynamicResource ColTitle}" Width="200" SortMemberPath="Title" CanUserSort="True">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0">
-                                        <TextBlock Text="{Binding Title, Converter={StaticResource EntryIconConverter}}" FontSize="14" Margin="2,0,8,0" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                                    </StackPanel>
+                                    <Grid VerticalAlignment="Center" Margin="6,0">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <ui:AppIcon Kind="{Binding Title, Converter={StaticResource EntryIconConverter}}" Style="{StaticResource EntryLinkIcon}" Margin="2,0,8,0" VerticalAlignment="Center"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Title, Converter={StaticResource TextPreviewConverter}}" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                    </Grid>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
@@ -480,8 +559,8 @@
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0">
-                                        <TextBlock Text="👤" Opacity="0.55" Margin="0,0,6,0" FontSize="10" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{Binding UserName}" VerticalAlignment="Center"/>
+                                        <ui:AppIcon Kind="User" Opacity="0.55" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding UserName, Converter={StaticResource TextPreviewConverter}}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -495,21 +574,21 @@
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0">
-                                        <TextBlock Text="🌐" Foreground="{DynamicResource AccentColor}" Margin="0,0,6,0" FontSize="10" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{Binding Url}" VerticalAlignment="Center" Foreground="{DynamicResource AccentColor}" TextTrimming="CharacterEllipsis"/>
+                                        <ui:AppIcon Kind="Globe" Style="{StaticResource EntryLinkIcon}" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding Url, Converter={StaticResource TextPreviewConverter}}" Style="{StaticResource EntryLinkText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                                     </StackPanel>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
 
                         <!-- Notes -->
-                        <DataGridTextColumn Header="{DynamicResource ColNotes}" Binding="{Binding Notes}" Width="*" CanUserSort="True" SortMemberPath="Notes"/>
+                        <DataGridTextColumn Header="{DynamicResource ColNotes}" Binding="{Binding Notes, Converter={StaticResource TextPreviewConverter}, ConverterParameter=512}" Width="*" CanUserSort="True" SortMemberPath="Notes"/>
 
                         <!-- Ultima Modifica -->
                         <DataGridTemplateColumn Header="{DynamicResource ColUpdatedAt}" Width="135" SortMemberPath="UpdatedAt" CanUserSort="True">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding UpdatedAt, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}" VerticalAlignment="Center" Margin="6,0" Opacity="0.75" FontSize="12"/>
+                                    <TextBlock Text="{Binding UpdatedAt, Converter={StaticResource LocalDateTimeConverter}}" VerticalAlignment="Center" Margin="6,0" FontSize="12"/>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
@@ -519,7 +598,7 @@
                             <!-- Always available: Add New Entry -->
                             <MenuItem Header="{DynamicResource TbNewEntry}" Click="BtnAddEntry_Click">
                                 <MenuItem.Icon>
-                                    <TextBlock Text="➕" Foreground="{DynamicResource AccentColor}"/>
+                                    <ui:AppIcon Kind="Add" Foreground="{DynamicResource LinkColor}"/>
                                 </MenuItem.Icon>
                             </MenuItem>
                             <Separator x:Name="CmSep1"/>
@@ -531,16 +610,23 @@
                             <Separator x:Name="CmSep2"/>
                             <MenuItem x:Name="CmEdit" Header="{DynamicResource MenuEditEntry}" Click="BtnEditEntry_Click"/>
                             <MenuItem x:Name="CmDuplicate" Header="{DynamicResource MenuDuplicateEntry}" Click="BtnDuplicateEntry_Click"/>
+                            <MenuItem x:Name="CmRestore" Header="{DynamicResource RestoreEntry}" Click="BtnRestoreEntry_Click" Visibility="Collapsed"/>
                             <MenuItem x:Name="CmDelete" Header="{DynamicResource MenuDeleteEntry}" Click="BtnDeleteEntry_Click"/>
                         </ContextMenu>
                     </DataGrid.ContextMenu>
                 </DataGrid>
+                        <StackPanel x:Name="EmptyEntriesPanel" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24" Visibility="Collapsed">
+                            <TextBlock Text="{DynamicResource NoEntriesInView}" Foreground="{DynamicResource TextSecondary}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,12"/>
+                            <Button x:Name="BtnEmptyViewAddEntry" Content="{DynamicResource TbNewEntry}" Click="BtnAddEntry_Click" HorizontalAlignment="Center" MinWidth="120"/>
+                        </StackPanel>
+                    </Grid>
+                </DockPanel>
 
                 <GridSplitter Grid.Row="1" Height="2" HorizontalAlignment="Stretch" VerticalAlignment="Center" Background="{DynamicResource BorderColor}"/>
 
                 <!-- PREVIEW / DETAIL INSPECTOR -->
                 <Border Grid.Row="2" Background="{DynamicResource CardBg}" BorderThickness="0" Padding="16">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
                         <Grid x:Name="GridEntryPreview" Visibility="Collapsed">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" MinWidth="340"/>
@@ -563,7 +649,7 @@
                                 <StackPanel Orientation="Horizontal" Margin="0,5">
                                     <TextBlock Text="{DynamicResource PrevPassword}" FontWeight="SemiBold" Width="80" Foreground="{DynamicResource TextSecondary}" VerticalAlignment="Center"/>
                                     <TextBlock x:Name="PrevPassword" Text="••••••••" FontFamily="Consolas" FontWeight="Bold" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"/>
-                                    <Button Content="👁" Click="BtnPreviewTogglePassword_Click" Margin="8,0,4,0" Style="{StaticResource PreviewSmallButton}"/>
+                                    <Button x:Name="BtnPreviewReveal" Click="BtnPreviewTogglePassword_Click" ToolTip="{DynamicResource ShowPassword}" AutomationProperties.Name="{DynamicResource ShowPassword}" Margin="8,0,4,0" Style="{StaticResource PreviewSmallButton}"><ui:AppIcon Kind="Eye"/></Button>
                                     <Button Content="{DynamicResource Copy}" Click="BtnCopyPassword_Click" Margin="4,0,0,0" Style="{StaticResource PreviewSmallButton}"/>
                                 </StackPanel>
 
@@ -574,15 +660,15 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="{DynamicResource PrevEntropy}" Foreground="{DynamicResource TextMuted}" FontSize="11" VerticalAlignment="Center"/>
-                                    <ProgressBar x:Name="PrevPbQuality" Grid.Column="1" Height="6" Maximum="128"
+                                    <ProgressBar x:Name="PrevPbQuality" Grid.Column="1" Height="6" Maximum="100"
                                                  Foreground="{Binding Value, RelativeSource={RelativeSource Self}, Converter={StaticResource EntropyToColorConverter}}"/>
-                                    <TextBlock x:Name="PrevEntropyText" Grid.Column="2" Text="0 bits" Foreground="{DynamicResource TextMuted}" FontSize="11" Margin="6,0,0,0"/>
+                                    <TextBlock x:Name="PrevEntropyText" Grid.Column="2" Text="0/100" Foreground="{DynamicResource TextMuted}" FontSize="11" Margin="6,0,0,0"/>
                                 </Grid>
 
                                 <!-- URL -->
                                 <StackPanel Orientation="Horizontal" Margin="0,4">
                                     <TextBlock Text="{DynamicResource PrevUrl}" FontWeight="SemiBold" Width="80" Foreground="{DynamicResource TextSecondary}"/>
-                                    <TextBlock x:Name="PrevUrl" Foreground="{DynamicResource AccentColor}" Cursor="Hand" TextDecorations="Underline" MouseDown="PrevUrl_MouseDown"/>
+                                    <TextBlock x:Name="PrevUrl" Foreground="{DynamicResource LinkColor}" Cursor="Hand" TextDecorations="Underline" MouseDown="PrevUrl_MouseDown"/>
                                 </StackPanel>
 
                                 <!-- Modified & Tags -->
@@ -606,21 +692,28 @@
         </Grid>
 
         <!-- STATUS BAR -->
-        <StatusBar Grid.Row="3" Background="{DynamicResource StatusBarBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="0,1,0,0" Padding="8,4">
-            <StatusBarItem>
-                <TextBlock x:Name="TxtStatusEntriesCount" Text="0" Foreground="{DynamicResource TextSecondary}"/>
-            </StatusBarItem>
-            <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="6,0" Background="{DynamicResource BorderColor}"/>
-            <StatusBarItem>
-                <TextBlock x:Name="TxtStatusClipboard" Text="" Foreground="#F59E0B" FontWeight="SemiBold"/>
-            </StatusBarItem>
-            <Separator Style="{StaticResource {x:Static ToolBar.SeparatorStyleKey}}" Margin="6,0" Background="{DynamicResource BorderColor}"/>
-            <StatusBarItem HorizontalAlignment="Right">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="🛡️ " Foreground="#10B981"/>
-                    <TextBlock x:Name="TxtStatusDb" Text="{DynamicResource VaultStatusDualBackup}" Foreground="{DynamicResource TextSecondary}"/>
-                </StackPanel>
-            </StatusBarItem>
-        </StatusBar>
+        <Border Grid.Row="3" Background="{DynamicResource StatusBarBg}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="0,1,0,0" Padding="10,5">
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock x:Name="TxtOperationStatus" Foreground="{DynamicResource TextSecondary}" TextTrimming="CharacterEllipsis" AutomationProperties.LiveSetting="Polite" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                    <TextBlock x:Name="TxtStatusClipboard" Grid.Column="1" Foreground="{DynamicResource WarningText}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" HorizontalAlignment="Right" Margin="12,0,0,0" AutomationProperties.LiveSetting="Polite" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                </Grid>
+                <Grid Grid.Row="1" Margin="0,3,0,0">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <TextBlock x:Name="TxtStatusEntriesCount" Text="0" Foreground="{DynamicResource TextSecondary}" Margin="0,0,12,0"/>
+                    <ui:AppIcon Grid.Column="1" Kind="Shield" Foreground="{DynamicResource TextSecondary}" Margin="0,0,5,0"/>
+                    <TextBlock x:Name="TxtStatusDb" Grid.Column="2" Text="{DynamicResource VaultStatusDualBackup}" Foreground="{DynamicResource TextSecondary}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                </Grid>
+            </Grid>
+        </Border>
+        <Border x:Name="LockedOverlay" Grid.RowSpan="4" Panel.ZIndex="100" Background="{DynamicResource AppBg}" Visibility="Collapsed">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="320">
+                <TextBlock Text="{DynamicResource VaultLocked}" FontSize="26" FontWeight="SemiBold" TextAlignment="Center" Foreground="{DynamicResource TextPrimary}"/>
+                <TextBlock Text="{DynamicResource VaultLockedHint}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,12,0,20" Foreground="{DynamicResource TextSecondary}"/>
+                <Button Content="{DynamicResource LoginUnlock}" Click="BtnUnlock_Click" AutomationProperties.Name="{DynamicResource LoginUnlock}"/>
+            </StackPanel>
+        </Border>
     </Grid>
 </Window>

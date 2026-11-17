@@ -61,19 +61,21 @@ namespace SQLitePass.UI.Dialogs
 
             ChkShowPasswordDefault.IsChecked = _settings.ShowPasswordColumnDefault;
             ChkDarkMode.IsChecked = _settings.DarkMode;
+            ChkDiagnosticLogging.IsChecked = _settings.EnableDiagnosticLogging;
         }
 
         private void BtnBrowseSecondaryDir_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new OpenFolderDialog
             {
-                Title = "Backup"
+                Title = SQLitePass.UI.Services.LocalizationManager.GetString("SettingsSectionBackup")
             };
             if (dialog.ShowDialog() == true)
             {
                 TxtSecondaryBackupDir.Text = dialog.FolderName;
             }
         }
+        private void BtnClearSecondaryDir_Click(object sender, RoutedEventArgs e) => TxtSecondaryBackupDir.Clear();
 
         private void BtnSave_Click(object sender, RoutedEventArgs e)
         {
@@ -88,7 +90,8 @@ namespace SQLitePass.UI.Dialogs
             }
             else
             {
-                _settings.ClipboardClearSeconds = 12;
+                MessageBox.Show(this, SQLitePass.UI.Services.LocalizationManager.GetString("ClipboardTimeoutInvalid"), SQLitePass.UI.Services.LocalizationManager.GetString("InvalidValueTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
             }
 
             if (CmbAutoLockMinutes.SelectedItem is ComboBoxItem item && int.TryParse(item.Tag?.ToString(), out int lockMins))
@@ -110,10 +113,15 @@ namespace SQLitePass.UI.Dialogs
 
             _settings.ShowPasswordColumnDefault = ChkShowPasswordDefault.IsChecked == true;
             _settings.DarkMode = ChkDarkMode.IsChecked == true;
+            _settings.EnableDiagnosticLogging = ChkDiagnosticLogging.IsChecked == true;
 
-            AppSettingsManager.Save(_settings);
+            string? warning;
+            try { warning = AppSettingsManager.Save(_settings); }
+            catch (Exception ex) { MessageBox.Show(this, SQLitePass.UI.Services.UiErrorMessages.GetText(ex), SQLitePass.UI.Services.LocalizationManager.GetString("SettingsSaveFailed"), MessageBoxButton.OK, MessageBoxImage.Error); return; }
             SQLitePass.UI.Services.LocalizationManager.ApplyLanguage(_settings.Language);
             SQLitePass.UI.Services.ThemeManager.ApplyTheme(_settings.DarkMode);
+            AppLogger.Configure(_settings.EnableDiagnosticLogging);
+            if (warning != null) MessageBox.Show(this, SQLitePass.UI.Services.LocalizationManager.GetString("StartupRegistrationWarning"), SQLitePass.UI.Services.LocalizationManager.GetString("SettingsSavedWarning"), MessageBoxButton.OK, MessageBoxImage.Warning);
 
             DialogResult = true;
             Close();

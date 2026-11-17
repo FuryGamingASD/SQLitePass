@@ -3,6 +3,7 @@
 [Oo]bj/
 publish/
 releases/
+artifacts/
 *.user
 *.userosscache
 *.suo
@@ -21,3 +22,9 @@ TestResults/
 *.kpd
 *.db
 appsettings.json
+*.kpd-*
+*.db-*
+*.kpd.lock
+*.db.lock
+*.backup.*
+*.recovery-*

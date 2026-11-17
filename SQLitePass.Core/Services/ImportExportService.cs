@@ -3,12 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.Json;
-using System.Xml.Linq;
 using SQLitePass.Core.Models;
 
 namespace SQLitePass.Core.Services
 {
-    public static class ImportExportService
+    public static partial class ImportExportService
     {
         public static string ExportToKeePassCsv(IEnumerable<PwEntry> entries, IDictionary<Guid, string> groupNames)
         {
@@ -31,14 +30,19 @@ namespace SQLitePass.Core.Services
             var records = ParseCsvRecords(csvContent);
             if (records.Count <= 1) return result;
 
+            string[] expected = ["Group", "Title", "Username", "Password", "URL", "Notes"];
+            if (!records[0].SequenceEqual(expected, StringComparer.OrdinalIgnoreCase))
+                throw new InvalidDataException("Formato KeePass CSV non riconosciuto. Attese colonne Group, Title, Username, Password, URL, Notes.");
+
             for (int r = 1; r < records.Count; r++)
             {
                 var cols = records[r];
-                if (cols.Count >= 5)
+                if (cols.Count != records[0].Count) throw new InvalidDataException($"CSV: numero di colonne non valido al record {r + 1}.");
                 {
                     var entry = new PwEntry
                     {
                         GroupId = defaultGroupId,
+                        SourceGroupPath = cols[0],
                         Title = cols.Count > 1 ? cols[1] : "",
                         UserName = cols.Count > 2 ? cols[2] : "",
                         Password = cols.Count > 3 ? cols[3] : "",
@@ -60,8 +64,11 @@ namespace SQLitePass.Core.Services
         {
             var result = new List<PwEntry>();
             if (string.IsNullOrWhiteSpace(jsonContent)) return result;
+            if (jsonContent.Length > 32 * 1024 * 1024) throw new InvalidDataException("Il JSON supera 32 MB.");
 
             using var doc = JsonDocument.Parse(jsonContent);
+            if (doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty("encrypted", out var encrypted) && encrypted.ValueKind == JsonValueKind.True)
+                throw new InvalidDataException("Usare un'esportazione Bitwarden JSON non cifrata.");
             JsonElement itemsElement;
 
             if (doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty("items", out var itemsProp))
@@ -74,11 +81,16 @@ namespace SQLitePass.Core.Services
             }
             else
             {
-                return result;
+                throw new InvalidDataException("Esportazione Bitwarden non riconosciuta o cifrata.");
             }
 
+            if (itemsElement.ValueKind != JsonValueKind.Array) throw new InvalidDataException("items must be an array.");
+            if (itemsElement.GetArrayLength() > 100000) throw new InvalidDataException("Too many imported entries.");
             foreach (var item in itemsElement.EnumerateArray())
             {
+                if (item.ValueKind != JsonValueKind.Object) throw new InvalidDataException("Imported items must be objects.");
+                if (item.TryGetProperty("type", out var declaredType) && (declaredType.ValueKind != JsonValueKind.Number || !declaredType.TryGetInt32(out _)))
+                    throw new InvalidDataException("Imported item type must be an integer.");
                 string title = item.TryGetProperty("name", out var nameProp) ? nameProp.GetString() ?? "" : "";
                 string notes = item.TryGetProperty("notes", out var notesProp) ? notesProp.GetString() ?? "" : "";
 
@@ -119,6 +131,7 @@ namespace SQLitePass.Core.Services
 
                 var entry = new PwEntry
                 {
+                    SourceItemType = item.TryGetProperty("type", out var sourceType) && sourceType.TryGetInt32(out int type) ? type : item.TryGetProperty("login", out _) ? 1 : 0,
                     Id = Guid.NewGuid(),
                     GroupId = defaultGroupId,
                     Title = string.IsNullOrWhiteSpace(title) ? (string.IsNullOrWhiteSpace(url) ? "Bitwarden Item" : url) : title,
@@ -129,6 +142,15 @@ namespace SQLitePass.Core.Services
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
+
+                // Preserve fields that do not have a native equivalent (cards, identities, passkeys, additional URIs).
+                entry.CustomFields.Add(new PwCustomField { EntryId = entry.Id, Key = "BitwardenOriginalJson", Value = item.GetRawText(), IsProtected = true });
+                if (item.TryGetProperty("folderId", out var folderId) && folderId.ValueKind == JsonValueKind.String &&
+                    doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty("folders", out var folders) && folders.ValueKind == JsonValueKind.Array)
+                {
+                    var matches = folders.EnumerateArray().Where(folder => folder.TryGetProperty("id", out var id) && id.GetString() == folderId.GetString()).ToArray();
+                    if (matches.Length == 1 && matches[0].TryGetProperty("name", out var folderName)) entry.SourceGroupPath = folderName.GetString();
+                }
 
                 // Custom fields
                 if (item.TryGetProperty("fields", out var fieldsProp) && fieldsProp.ValueKind == JsonValueKind.Array)
@@ -174,25 +196,29 @@ namespace SQLitePass.Core.Services
             int userIdx = -1;
             int passIdx = -1;
             int notesIdx = -1;
+            static void SetColumn(ref int destination, int index)
+            {
+                if (destination != -1) throw new InvalidDataException("CSV ambiguo: più colonne corrispondono allo stesso campo.");
+                destination = index;
+            }
 
             for (int i = 0; i < headers.Count; i++)
             {
                 string h = headers[i].Trim().ToLowerInvariant();
-                if (h == "name" || h == "title" || h == "titolo" || h == "nome") titleIdx = i;
-                else if (h == "url" || h == "website" || h == "sito" || h == "uri") urlIdx = i;
-                else if (h == "username" || h == "user name" || h == "login" || h == "utente" || h == "email" || h == "user") userIdx = i;
-                else if (h == "password" || h == "pwd" || h == "pass") passIdx = i;
-                else if (h == "note" || h == "notes" || h == "comment") notesIdx = i;
+                if (h == "name" || h == "title" || h == "titolo" || h == "nome") SetColumn(ref titleIdx, i);
+                else if (h == "url" || h == "website" || h == "sito" || h == "uri") SetColumn(ref urlIdx, i);
+                else if (h == "username" || h == "user name" || h == "login" || h == "utente" || h == "email" || h == "user") SetColumn(ref userIdx, i);
+                else if (h == "password" || h == "pwd" || h == "pass") SetColumn(ref passIdx, i);
+                else if (h == "note" || h == "notes" || h == "comment") SetColumn(ref notesIdx, i);
             }
 
-            // Fallback for Firefox ("url","username","password",...)
-            if (urlIdx == -1 && headers.Count >= 3) urlIdx = 0;
-            if (userIdx == -1 && headers.Count >= 3) userIdx = 1;
-            if (passIdx == -1 && headers.Count >= 3) passIdx = 2;
+            if (urlIdx == -1 || userIdx == -1 || passIdx == -1)
+                throw new InvalidDataException("Intestazioni CSV non riconosciute. Sono richieste colonne URL, username e password.");
 
             for (int r = 1; r < records.Count; r++)
             {
                 var cols = records[r];
+                if (cols.Count != headers.Count) throw new InvalidDataException($"CSV: numero di colonne non valido al record {r + 1}.");
                 string url = (urlIdx >= 0 && urlIdx < cols.Count) ? cols[urlIdx] : "";
                 string user = (userIdx >= 0 && userIdx < cols.Count) ? cols[userIdx] : "";
                 string pass = (passIdx >= 0 && passIdx < cols.Count) ? cols[passIdx] : "";
@@ -239,40 +265,6 @@ namespace SQLitePass.Core.Services
             return result;
         }
 
-        public static string ExportToXml(IEnumerable<PwGroup> groups, IEnumerable<PwEntry> entries)
-        {
-            var doc = new XDocument(
-                new XElement("KeePassFile",
-                    new XElement("Root",
-                        new XElement("Group",
-                            new XElement("Name", "Root"),
-                            new XElement("Entries",
-                                BuildXmlEntries(entries)
-                            )
-                        )
-                    )
-                )
-            );
-            return doc.ToString();
-        }
-
-        private static List<XElement> BuildXmlEntries(IEnumerable<PwEntry> entries)
-        {
-            var list = new List<XElement>();
-            foreach (var entry in entries)
-            {
-                list.Add(new XElement("Entry",
-                    new XElement("UUID", entry.Id.ToString()),
-                    new XElement("String", new XElement("Key", "Title"), new XElement("Value", entry.Title)),
-                    new XElement("String", new XElement("Key", "UserName"), new XElement("Value", entry.UserName)),
-                    new XElement("String", new XElement("Key", "Password"), new XElement("Value", entry.Password)),
-                    new XElement("String", new XElement("Key", "URL"), new XElement("Value", entry.Url)),
-                    new XElement("String", new XElement("Key", "Notes"), new XElement("Value", entry.Notes))
-                ));
-            }
-            return list;
-        }
-
         private static string EscapeCsv(string? val)
         {
             if (val == null) return string.Empty;
@@ -282,125 +274,6 @@ namespace SQLitePass.Core.Services
         /// <summary>
         /// RFC 4180 compliant finite-state machine CSV parser that supports multiline fields within double quotes.
         /// </summary>
-        public static List<List<string>> ParseCsvRecords(string csvContent)
-        {
-            var records = new List<List<string>>();
-            if (string.IsNullOrEmpty(csvContent)) return records;
-
-            var currentRecord = new List<string>();
-            var currentField = new StringBuilder();
-            bool inQuotes = false;
-
-            for (int i = 0; i < csvContent.Length; i++)
-            {
-                char c = csvContent[i];
-
-                if (inQuotes)
-                {
-                    if (c == '\"')
-                    {
-                        if (i + 1 < csvContent.Length && csvContent[i + 1] == '\"')
-                        {
-                            currentField.Append('\"');
-                            i++; // skip escaped quote
-                        }
-                        else
-                        {
-                            inQuotes = false;
-                        }
-                    }
-                    else
-                    {
-                        currentField.Append(c);
-                    }
-                }
-                else
-                {
-                    if (c == '\"')
-                    {
-                        inQuotes = true;
-                    }
-                    else if (c == ',')
-                    {
-                        currentRecord.Add(currentField.ToString());
-                        currentField.Clear();
-                    }
-                    else if (c == '\r')
-                    {
-                        if (i + 1 < csvContent.Length && csvContent[i + 1] == '\n')
-                        {
-                            i++;
-                        }
-                        currentRecord.Add(currentField.ToString());
-                        currentField.Clear();
-                        if (currentRecord.Count > 1 || (currentRecord.Count == 1 && !string.IsNullOrWhiteSpace(currentRecord[0])))
-                        {
-                            records.Add(currentRecord);
-                        }
-                        currentRecord = new List<string>();
-                    }
-                    else if (c == '\n')
-                    {
-                        currentRecord.Add(currentField.ToString());
-                        currentField.Clear();
-                        if (currentRecord.Count > 1 || (currentRecord.Count == 1 && !string.IsNullOrWhiteSpace(currentRecord[0])))
-                        {
-                            records.Add(currentRecord);
-                        }
-                        currentRecord = new List<string>();
-                    }
-                    else
-                    {
-                        currentField.Append(c);
-                    }
-                }
-            }
-
-            if (currentRecord.Count > 0 || currentField.Length > 0)
-            {
-                currentRecord.Add(currentField.ToString());
-                if (currentRecord.Count > 1 || (currentRecord.Count == 1 && !string.IsNullOrWhiteSpace(currentRecord[0])))
-                {
-                    records.Add(currentRecord);
-                }
-            }
-
-            return records;
-        }
-
-        private static List<string> ParseCsvLine(string line)
-        {
-            var list = new List<string>();
-            bool inQuotes = false;
-            var sb = new StringBuilder();
-
-            for (int i = 0; i < line.Length; i++)
-            {
-                char c = line[i];
-                if (c == '\"')
-                {
-                    if (inQuotes && i + 1 < line.Length && line[i + 1] == '\"')
-                    {
-                        sb.Append('\"');
-                        i++;
-                    }
-                    else
-                    {
-                        inQuotes = !inQuotes;
-                    }
-                }
-                else if (c == ',' && !inQuotes)
-                {
-                    list.Add(sb.ToString());
-                    sb.Clear();
-                }
-                else
-                {
-                    sb.Append(c);
-                }
-            }
-            list.Add(sb.ToString());
-            return list;
-        }
+        public static List<List<string>> ParseCsvRecords(string csvContent) => CsvParser.Parse(csvContent);
     }
 }

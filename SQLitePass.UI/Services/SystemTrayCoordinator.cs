@@ -10,6 +10,8 @@ namespace SQLitePass.UI.Services
     {
         private TaskbarIcon? _trayIcon;
         private bool _isDisposed = false;
+        private void LanguageChanged(object? sender, EventArgs e)
+        { if (_trayIcon != null) _trayIcon.ToolTipText = LocalizationManager.GetString("TrayTooltip"); }
 
         public SystemTrayCoordinator(
             Action onShowRequested,
@@ -33,37 +35,38 @@ namespace SQLitePass.UI.Services
             _trayIcon = new TaskbarIcon
             {
                 Icon = trayIconImage,
-                ToolTipText = "SQLitePass - Vault Protetto"
+                ToolTipText = LocalizationManager.GetString("TrayTooltip")
             };
 
             var contextMenu = new ContextMenu();
 
             var itemShow = new MenuItem
             {
-                Header = "Mostra SQLitePass",
                 FontWeight = FontWeights.Bold
             };
+            itemShow.SetResourceReference(HeaderedItemsControl.HeaderProperty, "TrayShow");
             itemShow.Click += (s, e) => onShowRequested?.Invoke();
             contextMenu.Items.Add(itemShow);
 
-            var itemGen = new MenuItem { Header = "Generatore Password..." };
+            var itemGen = new MenuItem(); itemGen.SetResourceReference(HeaderedItemsControl.HeaderProperty, "GeneratorTitle");
             itemGen.Click += (s, e) => onPasswordGeneratorRequested?.Invoke();
             contextMenu.Items.Add(itemGen);
 
             contextMenu.Items.Add(new Separator());
 
-            var itemLock = new MenuItem { Header = "Blocca Vault" };
+            var itemLock = new MenuItem(); itemLock.SetResourceReference(HeaderedItemsControl.HeaderProperty, "TbLock");
             itemLock.Click += (s, e) => onLockRequested?.Invoke();
             contextMenu.Items.Add(itemLock);
 
             contextMenu.Items.Add(new Separator());
 
-            var itemExit = new MenuItem { Header = "Esci" };
+            var itemExit = new MenuItem(); itemExit.SetResourceReference(HeaderedItemsControl.HeaderProperty, "Exit");
             itemExit.Click += (s, e) => onExitRequested?.Invoke();
             contextMenu.Items.Add(itemExit);
 
             _trayIcon.ContextMenu = contextMenu;
             _trayIcon.TrayMouseDoubleClick += (s, e) => onShowRequested?.Invoke();
+            LocalizationManager.LanguageChanged += LanguageChanged;
         }
 
         public void ShowBalloonTip(string title, string message, BalloonIcon icon = BalloonIcon.Info)
@@ -75,6 +78,7 @@ namespace SQLitePass.UI.Services
         {
             if (_isDisposed) return;
             _isDisposed = true;
+            LocalizationManager.LanguageChanged -= LanguageChanged;
 
             if (_trayIcon != null)
             {

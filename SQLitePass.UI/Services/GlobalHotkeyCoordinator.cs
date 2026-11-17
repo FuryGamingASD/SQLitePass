@@ -11,10 +11,11 @@ namespace SQLitePass.UI.Services
         private const int HOTKEY_ID = 9001;
         private const uint MOD_CONTROL = 0x0002;
         private const uint MOD_ALT = 0x0001;
+        private const uint MOD_NOREPEAT = 0x4000;
         private const uint VK_A = 0x41;
         private const int WM_HOTKEY = 0x0312;
 
-        [DllImport("user32.dll")]
+        [DllImport("user32.dll", SetLastError = true)]
         private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
 
         [DllImport("user32.dll")]
@@ -28,14 +29,17 @@ namespace SQLitePass.UI.Services
 
         private readonly Window _window;
         private readonly Action<IntPtr, string> _onHotkeyTriggered;
+        private readonly Action? _onUnavailable;
+        public bool IsRegistered { get; private set; }
         private HwndSource? _hwndSource;
         private IntPtr _windowHandle = IntPtr.Zero;
         private bool _isDisposed = false;
 
-        public GlobalHotkeyCoordinator(Window window, Action<IntPtr, string> onHotkeyTriggered)
+        public GlobalHotkeyCoordinator(Window window, Action<IntPtr, string> onHotkeyTriggered, Action? onUnavailable = null)
         {
             _window = window ?? throw new ArgumentNullException(nameof(window));
             _onHotkeyTriggered = onHotkeyTriggered ?? throw new ArgumentNullException(nameof(onHotkeyTriggered));
+            _onUnavailable = onUnavailable;
 
             if (_window.IsLoaded)
             {
@@ -43,26 +47,32 @@ namespace SQLitePass.UI.Services
             }
             else
             {
-                _window.Loaded += (s, e) => Register();
+                _window.Loaded += OnWindowLoaded;
             }
         }
+        private void OnWindowLoaded(object sender, RoutedEventArgs e) => Register();
 
         private void Register()
         {
-            if (_windowHandle != IntPtr.Zero) return;
+            if (_isDisposed || _windowHandle != IntPtr.Zero) return;
             var helper = new WindowInteropHelper(_window);
             _windowHandle = helper.Handle;
             if (_windowHandle != IntPtr.Zero)
             {
                 _hwndSource = HwndSource.FromHwnd(_windowHandle);
                 _hwndSource?.AddHook(HwndHook);
-                RegisterHotKey(_windowHandle, HOTKEY_ID, MOD_CONTROL | MOD_ALT, VK_A);
+                IsRegistered = _hwndSource != null && RegisterHotKey(_windowHandle, HOTKEY_ID, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_A);
+                if (!IsRegistered)
+                {
+                    SQLitePass.Core.Services.AppLogger.LogWarning("Scorciatoia globale Auto-Type non registrata.");
+                    _onUnavailable?.Invoke();
+                }
             }
         }
 
         private IntPtr HwndHook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
         {
-            if (msg == WM_HOTKEY && wParam.ToInt32() == HOTKEY_ID)
+            if (IsRegistered && msg == WM_HOTKEY && wParam.ToInt32() == HOTKEY_ID)
             {
                 IntPtr foregroundWin = GetForegroundWindow();
                 var titleBuilder = new StringBuilder(256);
@@ -79,14 +89,16 @@ namespace SQLitePass.UI.Services
         {
             if (_isDisposed) return;
             _isDisposed = true;
+            _window.Loaded -= OnWindowLoaded;
 
             if (_hwndSource != null && _windowHandle != IntPtr.Zero)
             {
-                UnregisterHotKey(_windowHandle, HOTKEY_ID);
+                if (IsRegistered) UnregisterHotKey(_windowHandle, HOTKEY_ID);
                 _hwndSource.RemoveHook(HwndHook);
                 _hwndSource = null;
                 _windowHandle = IntPtr.Zero;
             }
+            IsRegistered = false;
         }
     }
 }

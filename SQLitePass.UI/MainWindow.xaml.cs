@@ -30,7 +30,7 @@ namespace SQLitePass.UI
         private VaultMetadata _metadata;
 
         private readonly ObservableCollection<PwGroup> _rootGroups = new();
-        private readonly ObservableCollection<PwEntry> _allEntries = new();
+        private readonly ObservableCollection<PwEntry> _visibleEntries = new();
         private ICollectionView _entriesView;
 
         private PwGroup? _selectedGroup;
@@ -53,24 +53,42 @@ namespace SQLitePass.UI
         private bool _isLocked = false;
         private bool _isLocking = false;
         private bool _isPerformingAutoType = false;
+        private System.Threading.CancellationTokenSource _autoTypeCancellation = new();
+        private PwEntry? _pendingAutoTypeEntry;
+        private int _sessionGeneration;
+        private bool _unlockPromptOpen;
+        private bool _refreshing;
+        private bool _refreshAgain;
+        private Guid? _entryToSelectAfterRefresh;
+        private CancellationTokenSource? _refreshCancellation;
 
-        public MainWindow(SqliteStorageProvider storage, CryptoEngine crypto, VaultMetadata metadata)
+        private readonly bool _ownsSession;
+        public MainWindow(SqliteStorageProvider storage, CryptoEngine crypto, VaultMetadata metadata) : this(storage, crypto, metadata, true) { }
+        internal MainWindow(SqliteStorageProvider storage, CryptoEngine crypto, VaultMetadata metadata, bool enableDesktopIntegration)
         {
+            _ownsSession = enableDesktopIntegration;
             InitializeComponent();
+            InitializeSensitiveReveals();
             _storage = storage ?? throw new ArgumentNullException(nameof(storage));
             _crypto = crypto ?? throw new ArgumentNullException(nameof(crypto));
             _metadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
+            InitializeViewPreferences();
 
-            _clipboardCoordinator = new ClipboardCoordinator(msg => TxtStatusClipboard.Text = msg);
+            _clipboardCoordinator = ClipboardCoordinator.Shared;
+            _clipboardCoordinator.SetStatusCallback(msg => TxtStatusClipboard.Text = msg);
 
             TvGroups.ItemsSource = _rootGroups;
 
-            _entriesView = CollectionViewSource.GetDefaultView(_allEntries);
+            _entriesView = CollectionViewSource.GetDefaultView(_visibleEntries);
             _entriesView.Filter = FilterEntry;
             DgEntries.ItemsSource = _entriesView;
+            InitializeEntryBrowsing();
 
-            TxtStatusDb.Text = $"Vault: {Path.GetFileName(_storage.FilePath)} • Dual Backup: Attivo";
+            UpdateBackupStatus();
+            _storage.BackupStatusChanged += StorageBackupStatusChanged;
 
+            if (enableDesktopIntegration)
+            {
             _trayCoordinator = new SystemTrayCoordinator(
                 ShowAndRestoreWindow,
                 () => Dispatcher.Invoke(() => BtnPasswordGenerator_Click(this, new RoutedEventArgs())),
@@ -81,14 +99,15 @@ namespace SQLitePass.UI
             _hotkeyCoordinator = new GlobalHotkeyCoordinator(this, (foregroundWin, winTitle) =>
             {
                 Dispatcher.Invoke(() => HandleGlobalAutoType(foregroundWin, winTitle));
-            });
+            }, () => TxtOperationStatus.Text = LocalizationManager.GetString("HotkeyUnavailableStatus"));
 
             _inactivityCoordinator = new InactivityLockCoordinator(
                 () => Dispatcher.Invoke(() => LockVault(userInitiated: false)),
-                () => !_isLocked && !_isLocking && !_isPerformingAutoType
+                () => !_isLocked && !_isLocking
             );
+            }
 
-            Loaded += MainWindow_Loaded;
+            if (enableDesktopIntegration) Loaded += MainWindow_Loaded;
             StateChanged += MainWindow_StateChanged;
             Closing += MainWindow_Closing;
         }
@@ -108,18 +127,35 @@ namespace SQLitePass.UI
 
         private void MainWindow_Closing(object? sender, CancelEventArgs e)
         {
+            if (!_ownsSession)
+            {
+                _isLocked = true; _sessionGeneration++; _refreshAgain = false;
+                _refreshCancellation?.Cancel();
+                HideRevealedSecrets(); CloseSensitiveDialogs();
+                ResetEntryBrowsing();
+                foreach (var entry in _visibleEntries) entry.ClearSecrets();
+                _visibleEntries.Clear(); _storage.BackupStatusChanged -= StorageBackupStatusChanged;
+                _clipboardCoordinator.SetStatusCallback(_ => { }); return;
+            }
             if (!_isExplicitShutdown)
             {
                 var settings = AppSettingsManager.Load();
                 if (settings.CloseToTray)
                 {
                     e.Cancel = true;
+                    if (settings.AutoLockOnMinimize) LockVault(userInitiated: false);
                     Hide();
-                    _trayCoordinator?.ShowBalloonTip("SQLitePass", "L'applicazione è ancora attiva in background nella System Tray.", Hardcodet.Wpf.TaskbarNotification.BalloonIcon.Info);
+                    _trayCoordinator?.ShowBalloonTip("SQLitePass", LocalizationManager.GetString("TrayStillRunning"), Hardcodet.Wpf.TaskbarNotification.BalloonIcon.Info);
                     return;
                 }
             }
 
+            _isLocked = true; _sessionGeneration++; _refreshAgain = false; ResetEntryBrowsing();
+            HideRevealedSecrets(); CloseSensitiveDialogs();
+            _autoTypeCancellation.Cancel(); _importCancellation?.Cancel(); _refreshCancellation?.Cancel(); _entryDetailsCancellation?.Cancel(); _exportCancellation?.Cancel(); FlushViewPreferences();
+            _storage.BackupStatusChanged -= StorageBackupStatusChanged;
+            foreach (var entry in _visibleEntries) entry.ClearSecrets();
+            _storage.Dispose();
             _inactivityCoordinator?.Dispose();
             _clipboardCoordinator.Dispose();
             _trayCoordinator?.Dispose();
@@ -128,6 +164,7 @@ namespace SQLitePass.UI
 
         protected override void OnClosed(EventArgs e)
         {
+            _previewReveal.Dispose(); _columnReveal.Dispose();
             _hotkeyCoordinator?.Dispose();
             _hotkeyCoordinator = null;
             base.OnClosed(e);
@@ -144,33 +181,43 @@ namespace SQLitePass.UI
 
         private async void HandleGlobalAutoType(IntPtr foregroundWin, string winTitle)
         {
-            if (_isLocked || _isPerformingAutoType) return;
+            if (_isLocked || _isLocking || _isPerformingAutoType || foregroundWin == new WindowInteropHelper(this).Handle) return;
+            int generation = _sessionGeneration;
+            var storage = _storage; var crypto = _crypto; var pending = _pendingAutoTypeEntry;
+            _pendingAutoTypeEntry = null;
             _isPerformingAutoType = true;
-
+            _autoTypeCancellation.Dispose(); _autoTypeCancellation = new();
+            var cancellation = _autoTypeCancellation;
+            List<PwEntry>? candidates = null;
             try
             {
-                // Find matching entry by Window Title or URL domain
-                PwEntry? match = _allEntries.FirstOrDefault(e =>
-                    (!string.IsNullOrEmpty(e.Title) && winTitle.Contains(e.Title, StringComparison.OrdinalIgnoreCase)) ||
-                    (!string.IsNullOrEmpty(e.Url) && winTitle.Contains(e.Url.Replace("https://", "").Replace("http://", "").Split('/')[0], StringComparison.OrdinalIgnoreCase))
-                );
-
-                if (match != null)
+                candidates = await storage.FindAutoTypeCandidatesAsync(crypto, winTitle, pending?.Id, pending?.Revision, cancellation.Token);
+                if (_isLocked || generation != _sessionGeneration) return;
+                if (candidates.Count != 1)
                 {
-                    await AutoTypeService.ExecuteAutoTypeAsync(match, foregroundWin, 150);
+                    MessageBox.Show(this, LocalizationManager.GetString("AutoTypeNoUniqueMatch"), LocalizationManager.GetString("MenuAutoType"), MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
                 }
-                else if (_selectedEntry != null)
-                {
-                    await AutoTypeService.ExecuteAutoTypeAsync(_selectedEntry, foregroundWin, 150);
-                }
+                var selected = candidates[0];
+                if (new AutoTypeConfirmDialog(selected.Title, winTitle) { Owner = this }.ShowDialog() != true || _isLocked || generation != _sessionGeneration) return;
+                // A confirmation must not authorize credentials from a revision changed meanwhile.
+                var confirmed = await storage.LoadAutoTypeEntryAsync(selected.Id, selected.Revision, crypto, cancellation.Token);
+                foreach (var entry in candidates) entry.ClearSecrets();
+                candidates = [confirmed];
+                if (_isLocked || generation != _sessionGeneration || candidates.Count != 1) return;
+                await AutoTypeService.ExecuteAutoTypeAsync(candidates[0], foregroundWin, 250, cancellation.Token, expectedTitle: winTitle);
             }
-            catch (Exception ex)
+            catch (OperationCanceledException)
             {
-                System.Diagnostics.Debug.WriteLine($"Global Auto-Type error: {ex.Message}");
+                if (!_isLocked && generation == _sessionGeneration) TxtOperationStatus.Text = LocalizationManager.GetString("AutoTypeStopped");
+            }
+            catch (Exception exception)
+            {
+                if (!_isLocked && generation == _sessionGeneration) MessageBox.Show(this, UiErrorMessages.GetText(exception), LocalizationManager.GetString("AutoTypeStopped"), MessageBoxButton.OK, MessageBoxImage.Warning);
             }
             finally
             {
-                await Task.Delay(250);
+                if (candidates != null) foreach (var entry in candidates) entry.ClearSecrets();
                 _isPerformingAutoType = false;
             }
         }
@@ -208,93 +255,21 @@ namespace SQLitePass.UI
 
             await RefreshDataAsync();
 
-            _ = Task.Run(async () =>
-            {
-                await Task.Delay(3000);
-                await UpdateService.CheckForUpdatesAsync(silent: true);
-            });
+            await Task.Delay(3000);
+            if (!_isLocked) await UpdateService.CheckForUpdatesAsync(silent: true);
         }
 
-        private async Task RefreshDataAsync()
-        {
-            try
-            {
-                _rootGroups.Clear();
-                _allEntries.Clear();
+        private async Task RefreshDataAsync() => await RefreshEntryPageAsync(resetPage: true);
 
-                // 1. Carica gruppi gerarchici
-                var flatGroups = await _storage.LoadAllGroupsAsync(_crypto);
-                var groupDict = flatGroups.ToDictionary(g => g.Id);
+        private bool FilterEntry(object item) => !_isLocked && item is PwEntry;
 
-                foreach (var group in flatGroups)
-                {
-                    if (group.ParentId.HasValue && groupDict.TryGetValue(group.ParentId.Value, out var parent))
-                    {
-                        parent.Children.Add(group);
-                    }
-                    else
-                    {
-                        _rootGroups.Add(group);
-                    }
-                }
-
-                if (_rootGroups.Count > 0)
-                {
-                    _rootGroups[0].IsExpanded = true;
-                    _rootGroups[0].IsSelected = true;
-                }
-
-                // 2. Carica tutte le voci
-                var entries = await _storage.LoadEntriesAsync(null, _crypto);
-                foreach (var entry in entries)
-                {
-                    _allEntries.Add(entry);
-                }
-
-                UpdateStatusCounts();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Errore nel caricamento del database SQLite:\n{ex.Message}", "Errore Database", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-        private bool FilterEntry(object item)
-        {
-            if (item is not PwEntry entry) return false;
-
-            string query = TxtSearch.Text?.Trim() ?? "";
-
-            // Ricerca globale nel vault
-            if (!string.IsNullOrEmpty(query))
-            {
-                return (entry.Title?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                       (entry.UserName?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                       (entry.Url?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                       (entry.Notes?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                       (entry.Tags?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false);
-            }
-
-            // Altrimenti filtra per gruppo selezionato
-            if (_selectedGroup != null && entry.GroupId != _selectedGroup.Id)
-            {
-                return false;
-            }
-
-            return true;
-        }
-
-        private void TxtSearch_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            _entriesView.Refresh();
-            UpdateStatusCounts();
-        }
+        private void TxtSearch_TextChanged(object sender, TextChangedEventArgs e) => ScheduleEntryQuery(debounce: true);
 
         private void TvGroups_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
+            Guid? old = _selectedGroup?.Id;
             _selectedGroup = e.NewValue as PwGroup;
-            _entriesView.Refresh();
-            UpdateStatusCounts();
+            if (!_refreshing && old != _selectedGroup?.Id) ScheduleEntryQuery(debounce: false);
         }
 
         private void TvGroups_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -333,44 +308,45 @@ namespace SQLitePass.UI
             CmEdit.Visibility = hasSelection ? Visibility.Visible : Visibility.Collapsed;
             CmDuplicate.Visibility = hasSelection ? Visibility.Visible : Visibility.Collapsed;
             CmDelete.Visibility = hasSelection ? Visibility.Visible : Visibility.Collapsed;
+            CmRestore.Visibility = hasSelection && IsInTrash(_selectedEntry!) ? Visibility.Visible : Visibility.Collapsed;
             CmSep2.Visibility = hasSelection ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void UpdateStatusCounts()
         {
-            int total = _allEntries.Count;
-            int filtered = _entriesView.Cast<object>().Count();
-            TxtStatusEntriesCount.Text = $"{filtered} di {total} voci visualizzate";
+            UpdateEntryPager();
         }
 
         private void UpdatePreviewPanel()
         {
+            _previewReveal.Hide();
             if (_selectedEntry == null)
             {
+                PrevTitle.Text = PrevUserName.Text = PrevPassword.Text = PrevUrl.Text = PrevNotes.Text = PrevModified.Text = string.Empty;
                 GridEntryPreview.Visibility = Visibility.Collapsed;
                 return;
             }
 
             GridEntryPreview.Visibility = Visibility.Visible;
-            PrevTitle.Text = _selectedEntry.Title;
-            PrevUserName.Text = _selectedEntry.UserName;
+            PrevTitle.Text = UiText.Preview(_selectedEntry.Title);
+            PrevUserName.Text = UiText.Preview(_selectedEntry.UserName, 512);
             _previewPasswordRevealed = false;
             PrevPassword.Text = new string('•', Math.Min(_selectedEntry.Password.Length, 14));
 
-            double entropy = PasswordGenerator.CalculateEntropy(_selectedEntry.Password);
-            PrevPbQuality.Value = Math.Min(entropy, 128);
-            PrevEntropyText.Text = $"{entropy:F1} bits";
+            bool scored = _selectedEntry.Password.Length <= UiText.MaximumScoredPasswordLength;
+            double entropy = scored ? PasswordGenerator.CalculateEntropy(_selectedEntry.Password) : 0;
+            PrevPbQuality.Value = Math.Min(entropy, 100); PrevPbQuality.Visibility = scored ? Visibility.Visible : Visibility.Collapsed;
+            PrevEntropyText.Text = scored ? LocalizationManager.GetString("QualityScore", entropy) : LocalizationManager.GetString("QualityNotEstimated");
 
-            PrevUrl.Text = _selectedEntry.Url;
-            PrevModified.Text = _selectedEntry.UpdatedAt.ToString("yyyy-MM-dd HH:mm");
-            PrevNotes.Text = string.IsNullOrEmpty(_selectedEntry.Notes) ? "(Nessuna nota)" : _selectedEntry.Notes;
+            PrevUrl.Text = UiText.Preview(_selectedEntry.Url, 512);
+            PrevModified.Text = _selectedEntry.UpdatedAt.ToLocalTime().ToString("g", System.Globalization.CultureInfo.CurrentCulture);
+            PrevNotes.Text = string.IsNullOrEmpty(_selectedEntry.Notes) ? LocalizationManager.GetString("NoNotes") : UiText.Preview(_selectedEntry.Notes, 16384);
         }
 
         private void BtnPreviewTogglePassword_Click(object sender, RoutedEventArgs e)
         {
             if (_selectedEntry == null) return;
-            _previewPasswordRevealed = !_previewPasswordRevealed;
-            PrevPassword.Text = _previewPasswordRevealed ? _selectedEntry.Password : new string('•', Math.Min(_selectedEntry.Password.Length, 14));
+            _previewReveal.Toggle();
         }
 
         private void PrevUrl_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -390,14 +366,14 @@ namespace SQLitePass.UI
 
             if (depObj is DataGridCell cell)
             {
-                string? header = cell.Column.Header?.ToString();
+                string? header = cell.Column.SortMemberPath;
                 if (string.Equals(header, "Password", StringComparison.OrdinalIgnoreCase))
                 {
                     BtnCopyPassword_Click(sender, e);
                     e.Handled = true;
                     return;
                 }
-                else if (string.Equals(header, "User Name", StringComparison.OrdinalIgnoreCase))
+                else if (string.Equals(header, "UserName", StringComparison.OrdinalIgnoreCase))
                 {
                     BtnCopyUsername_Click(sender, e);
                     e.Handled = true;
@@ -453,7 +429,7 @@ namespace SQLitePass.UI
                 {
                     try
                     {
-                        DragDrop.DoDragDrop(DgEntries, _selectedEntry, DragDropEffects.Move);
+                        DragDrop.DoDragDrop(DgEntries, new DataObject("SQLitePass.EntryId", _selectedEntry.Id.ToString()), DragDropEffects.Move);
                     }
                     catch { }
                     finally
@@ -481,14 +457,14 @@ namespace SQLitePass.UI
                     Math.Abs(diff.Y) > SystemParameters.MinimumVerticalDragDistance)
                 {
                     // Do not allow dragging the main vault root group or Cestino
-                    if (_rootGroups.Count > 0 && _dragCandidateGroup.Id == _rootGroups[0].Id)
+                    if (_dragCandidateGroup.IsRoot)
                         return;
                     if (VaultOperationHandler.IsRecycleBinGroup(_dragCandidateGroup))
                         return;
 
                     try
                     {
-                        DragDrop.DoDragDrop(TvGroups, _dragCandidateGroup, DragDropEffects.Move);
+                        DragDrop.DoDragDrop(TvGroups, new DataObject("SQLitePass.GroupId", _dragCandidateGroup.Id.ToString()), DragDropEffects.Move);
                     }
                     catch { }
                     finally
@@ -504,7 +480,7 @@ namespace SQLitePass.UI
         {
             var adorner = EnsureDropAdorner();
 
-            if (e.Data.GetDataPresent(typeof(PwEntry)))
+            if (ReadDraggedEntry(e) != null)
             {
                 var (targetGroup, targetHeader) = GetGroupAndHeaderFromHitTest(e.GetPosition(TvGroups));
 
@@ -528,9 +504,9 @@ namespace SQLitePass.UI
                     return;
                 }
             }
-            else if (e.Data.GetDataPresent(typeof(PwGroup)))
+            else if (ReadDraggedGroup(e) != null)
             {
-                if (e.Data.GetData(typeof(PwGroup)) is PwGroup draggedGroup)
+                if (ReadDraggedGroup(e) is PwGroup draggedGroup)
                 {
                     Point mousePt = e.GetPosition(TvGroups);
                     var (targetGroup, targetHeader) = GetGroupAndHeaderFromHitTest(mousePt);
@@ -553,7 +529,7 @@ namespace SQLitePass.UI
                         return;
                     }
 
-                    bool isRoot = _rootGroups.Count > 0 && targetGroup.Id == _rootGroups[0].Id;
+                    bool isRoot = targetGroup.IsRoot;
                     bool isTrash = VaultOperationHandler.IsRecycleBinGroup(targetGroup);
 
                     Point p = targetHeader.TranslatePoint(new Point(0, 0), TvGroups);
@@ -608,9 +584,11 @@ namespace SQLitePass.UI
 
         private async void TvGroups_Drop(object sender, DragEventArgs e)
         {
+            int generation = _sessionGeneration;
+            if (_isLocked || _isLocking) return;
             ClearDropAdorner();
 
-            if (e.Data.GetData(typeof(PwEntry)) is PwEntry draggedEntry)
+            if (ReadDraggedEntry(e) is PwEntry draggedEntry)
             {
                 var (targetGroup, _) = GetGroupAndHeaderFromHitTest(e.GetPosition(TvGroups));
 
@@ -618,29 +596,31 @@ namespace SQLitePass.UI
                 {
                     try
                     {
-                        draggedEntry.GroupId = targetGroup.Id;
-                        await _storage.SaveEntryAsync(draggedEntry, _crypto, _metadata.EncryptUsernameUrl);
-                        _entriesView.Refresh();
-                        UpdateStatusCounts();
+                        long revision = await _storage.MoveEntryAsync(draggedEntry.Id, draggedEntry.Revision, targetGroup.Id, _crypto);
+                        if (_isLocked || generation != _sessionGeneration) return;
+                        draggedEntry.GroupId = targetGroup.Id; draggedEntry.Revision = revision;
+                        await RefreshDataAsync();
+                        if (_isLocked || generation != _sessionGeneration) return;
 
                         if (VaultOperationHandler.IsRecycleBinGroup(targetGroup))
                         {
-                            TxtStatusClipboard.Text = $"🗑️ Voce '{draggedEntry.Title}' spostata nel Cestino";
+                            TxtOperationStatus.Text = LocalizationManager.GetString("EntryTrashed");
                         }
                         else
                         {
-                            TxtStatusClipboard.Text = $"📁 Voce '{draggedEntry.Title}' spostata in '{targetGroup.Name}'";
+                            TxtOperationStatus.Text = LocalizationManager.GetString("OperationComplete");
                         }
-                        AppLogger.LogInfo($"Moved entry '{draggedEntry.Title}' to group '{targetGroup.Name}' via drag & drop");
+                        AppLogger.LogInfo("Vault organization updated.");
                     }
                     catch (Exception ex)
                     {
-                        AppLogger.LogError("Drag & drop move entry failed", ex);
-                        MessageBox.Show($"Impossibile spostare la voce:\n{ex.Message}", "Errore", MessageBoxButton.OK, MessageBoxImage.Error);
+                        _ = RefreshDataAsync();
+                    AppLogger.LogError("Drag & drop move entry failed", ex);
+                        ShowGroupError(ex, generation);
                     }
                 }
             }
-            else if (e.Data.GetData(typeof(PwGroup)) is PwGroup draggedGroup)
+            else if (ReadDraggedGroup(e) is PwGroup draggedGroup)
             {
                 Point mousePt = e.GetPosition(TvGroups);
                 var (targetGroup, targetHeader) = GetGroupAndHeaderFromHitTest(mousePt);
@@ -648,10 +628,11 @@ namespace SQLitePass.UI
                 // Drop onto empty area -> Move to root
                 if (targetGroup == null || targetHeader == null)
                 {
-                    var rootParent = _rootGroups.FirstOrDefault();
+                    var rootParent = _rootGroups.FirstOrDefault(g => g.IsRoot);
                     if (rootParent != null && draggedGroup.ParentId != rootParent.Id && draggedGroup.Id != rootParent.Id)
                     {
                         await MoveGroupInsideAsync(draggedGroup, rootParent);
+                        if (_isLocked || generation != _sessionGeneration) return;
                     }
                     return;
                 }
@@ -660,7 +641,7 @@ namespace SQLitePass.UI
                 if (targetGroup.Id == draggedGroup.Id || IsDescendantOf(targetGroup, draggedGroup))
                     return;
 
-                bool isRoot = _rootGroups.Count > 0 && targetGroup.Id == _rootGroups[0].Id;
+                bool isRoot = targetGroup.IsRoot;
                 bool isTrash = VaultOperationHandler.IsRecycleBinGroup(targetGroup);
 
                 double h = targetHeader.ActualHeight > 0 ? targetHeader.ActualHeight : 26;
@@ -671,156 +652,26 @@ namespace SQLitePass.UI
                 {
                     // Insert BEFORE target
                     await MoveGroupRelativeAsync(draggedGroup, targetGroup, insertBefore: true);
+                    if (_isLocked || generation != _sessionGeneration) return;
                 }
                 else if (relY > 0.72 && !isRoot)
                 {
                     // Insert AFTER target
                     await MoveGroupRelativeAsync(draggedGroup, targetGroup, insertBefore: false);
+                    if (_isLocked || generation != _sessionGeneration) return;
                 }
                 else
                 {
                     // Move INSIDE target
                     if (isTrash)
                     {
-                        MessageBox.Show("Il Cestino non può contenere sottocartelle.", "Operazione non consentita", MessageBoxButton.OK, MessageBoxImage.Information);
+                        MessageBox.Show(LocalizationManager.GetString("FolderNoChildren"), LocalizationManager.GetString("WarningTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
                         return;
                     }
                     await MoveGroupInsideAsync(draggedGroup, targetGroup);
+                    if (_isLocked || generation != _sessionGeneration) return;
                 }
             }
-        }
-
-        private async Task MoveGroupInsideAsync(PwGroup groupToMove, PwGroup targetParent)
-        {
-            if (VaultOperationHandler.IsRecycleBinGroup(targetParent))
-            {
-                MessageBox.Show("Il Cestino non può contenere sottocartelle.", "Operazione non consentita", MessageBoxButton.OK, MessageBoxImage.Information);
-                return;
-            }
-
-            try
-            {
-                var oldCollection = FindGroupParentCollection(groupToMove);
-                oldCollection?.Remove(groupToMove);
-
-                groupToMove.ParentId = targetParent.Id;
-                groupToMove.SortOrder = targetParent.Children.Count > 0 
-                    ? targetParent.Children.Max(c => c.SortOrder) + 1 
-                    : 0;
-
-                targetParent.Children.Add(groupToMove);
-                targetParent.IsExpanded = true;
-                groupToMove.IsSelected = true;
-
-                await _storage.SaveGroupAsync(groupToMove, _crypto);
-                TxtStatusClipboard.Text = $"📁 Gruppo '{groupToMove.Name}' spostato dentro '{targetParent.Name}'";
-                AppLogger.LogInfo($"Group '{groupToMove.Name}' moved inside '{targetParent.Name}'");
-            }
-            catch (Exception ex)
-            {
-                AppLogger.LogError("Move group inside failed", ex);
-                MessageBox.Show($"Impossibile spostare il gruppo:\n{ex.Message}", "Errore", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-        private async Task MoveGroupRelativeAsync(PwGroup groupToMove, PwGroup referenceGroup, bool insertBefore)
-        {
-            try
-            {
-                var oldCollection = FindGroupParentCollection(groupToMove);
-                var targetCollection = FindGroupParentCollection(referenceGroup);
-
-                if (targetCollection == null) return;
-
-                oldCollection?.Remove(groupToMove);
-                groupToMove.ParentId = referenceGroup.ParentId;
-
-                int refIndex = targetCollection.IndexOf(referenceGroup);
-                if (refIndex < 0) refIndex = targetCollection.Count;
-
-                int insertIndex = insertBefore ? refIndex : refIndex + 1;
-                if (insertIndex > targetCollection.Count) insertIndex = targetCollection.Count;
-
-                targetCollection.Insert(insertIndex, groupToMove);
-                groupToMove.IsSelected = true;
-
-                // Re-index SortOrder sequentially
-                for (int i = 0; i < targetCollection.Count; i++)
-                {
-                    targetCollection[i].SortOrder = i;
-                }
-
-                await _storage.SaveGroupsBatchAsync(targetCollection, _crypto);
-                TxtStatusClipboard.Text = $"📁 Gruppo '{groupToMove.Name}' riordinato";
-                AppLogger.LogInfo($"Group '{groupToMove.Name}' reordered {(insertBefore ? "before" : "after")} '{referenceGroup.Name}'");
-            }
-            catch (Exception ex)
-            {
-                AppLogger.LogError("Move group relative failed", ex);
-                MessageBox.Show($"Impossibile riordinare il gruppo:\n{ex.Message}", "Errore", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
-        private async void MenuMoveGroupUp_Click(object sender, RoutedEventArgs e)
-        {
-            if (_selectedGroup == null) return;
-            if (_rootGroups.Count > 0 && _selectedGroup.Id == _rootGroups[0].Id) return;
-            if (VaultOperationHandler.IsRecycleBinGroup(_selectedGroup)) return;
-
-            var col = FindGroupParentCollection(_selectedGroup);
-            if (col == null) return;
-
-            int idx = col.IndexOf(_selectedGroup);
-            if (idx > 0)
-            {
-                col.Move(idx, idx - 1);
-                for (int i = 0; i < col.Count; i++)
-                {
-                    col[i].SortOrder = i;
-                }
-                await _storage.SaveGroupsBatchAsync(col, _crypto);
-                _selectedGroup.IsSelected = true;
-                TxtStatusClipboard.Text = $"📁 Gruppo '{_selectedGroup.Name}' spostato su";
-            }
-        }
-
-        private async void MenuMoveGroupDown_Click(object sender, RoutedEventArgs e)
-        {
-            if (_selectedGroup == null) return;
-            if (_rootGroups.Count > 0 && _selectedGroup.Id == _rootGroups[0].Id) return;
-            if (VaultOperationHandler.IsRecycleBinGroup(_selectedGroup)) return;
-
-            var col = FindGroupParentCollection(_selectedGroup);
-            if (col == null) return;
-
-            int idx = col.IndexOf(_selectedGroup);
-            if (idx >= 0 && idx < col.Count - 1)
-            {
-                col.Move(idx, idx + 1);
-                for (int i = 0; i < col.Count; i++)
-                {
-                    col[i].SortOrder = i;
-                }
-                await _storage.SaveGroupsBatchAsync(col, _crypto);
-                _selectedGroup.IsSelected = true;
-                TxtStatusClipboard.Text = $"📁 Gruppo '{_selectedGroup.Name}' spostato giù";
-            }
-        }
-
-        private async void MenuMoveGroupToRoot_Click(object sender, RoutedEventArgs e)
-        {
-            if (_selectedGroup == null) return;
-            if (_rootGroups.Count == 0 || _selectedGroup.Id == _rootGroups[0].Id) return;
-            if (VaultOperationHandler.IsRecycleBinGroup(_selectedGroup)) return;
-
-            var rootGroup = _rootGroups[0];
-            if (_selectedGroup.ParentId == rootGroup.Id)
-            {
-                TxtStatusClipboard.Text = $"Il gruppo '{_selectedGroup.Name}' è già al livello principale.";
-                return;
-            }
-
-            await MoveGroupInsideAsync(_selectedGroup, rootGroup);
         }
 
         private static bool IsDescendantOf(PwGroup candidate, PwGroup root)
@@ -970,7 +821,7 @@ namespace SQLitePass.UI
         private void TvGroups_ContextMenuOpening(object sender, ContextMenuEventArgs e)
         {
             bool isTrash = _selectedGroup != null && VaultOperationHandler.IsRecycleBinGroup(_selectedGroup);
-            bool isRoot = _selectedGroup != null && _rootGroups.Count > 0 && _selectedGroup.Id == _rootGroups[0].Id;
+            bool isRoot = _selectedGroup != null && _selectedGroup.IsRoot;
 
             CmAddSubgroup.IsEnabled = !isTrash;
             CmRenameGroup.IsEnabled = !isTrash && !isRoot;
@@ -986,241 +837,171 @@ namespace SQLitePass.UI
 
         #region Actions
 
-        private async void BtnAddEntry_Click(object sender, RoutedEventArgs e)
-        {
-            var targetGroupId = _selectedGroup?.Id ?? _rootGroups.FirstOrDefault()?.Id ?? Guid.NewGuid();
-            var newEntry = new PwEntry
-            {
-                GroupId = targetGroupId,
-                Title = "Nuova Voce",
-                AutoTypeSequence = "{USERNAME}{TAB}{PASSWORD}{ENTER}"
-            };
-
-            var dlg = new EntryEditDialog(newEntry) { Owner = this };
-            if (dlg.ShowDialog() == true)
-            {
-                try
-                {
-                    await _storage.SaveEntryAsync(newEntry, _crypto, _metadata.EncryptUsernameUrl);
-                    _allEntries.Add(newEntry);
-                    _entriesView.Refresh();
-                    DgEntries.SelectedItem = newEntry;
-                    UpdateStatusCounts();
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Salvataggio voce fallito:\n{ex.Message}", "Errore", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-            }
-        }
-
-        private async void BtnEditEntry_Click(object sender, RoutedEventArgs e)
-        {
-            if (_selectedEntry == null) return;
-
-            var dlg = new EntryEditDialog(_selectedEntry) { Owner = this };
-            if (dlg.ShowDialog() == true)
-            {
-                try
-                {
-                    await _storage.SaveEntryAsync(_selectedEntry, _crypto, _metadata.EncryptUsernameUrl);
-                    _entriesView.Refresh();
-                    UpdatePreviewPanel();
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Aggiornamento voce fallito:\n{ex.Message}", "Errore", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-            }
-        }
-
-        private async void BtnDuplicateEntry_Click(object sender, RoutedEventArgs e)
-        {
-            if (_selectedEntry == null) return;
-
-            var dup = new PwEntry
-            {
-                GroupId = _selectedEntry.GroupId,
-                Title = _selectedEntry.Title + " - Copia",
-                UserName = _selectedEntry.UserName,
-                Password = _selectedEntry.Password,
-                Url = _selectedEntry.Url,
-                Notes = _selectedEntry.Notes,
-                Tags = _selectedEntry.Tags,
-                AutoTypeEnabled = _selectedEntry.AutoTypeEnabled,
-                AutoTypeSequence = _selectedEntry.AutoTypeSequence
-            };
-
-            try
-            {
-                await _storage.SaveEntryAsync(dup, _crypto, _metadata.EncryptUsernameUrl);
-                _allEntries.Add(dup);
-                _entriesView.Refresh();
-                DgEntries.SelectedItem = dup;
-                UpdateStatusCounts();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Duplicazione voce fallita:\n{ex.Message}", "Errore", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        }
-
         private async void BtnDeleteEntry_Click(object sender, RoutedEventArgs e)
         {
+            int generation = _sessionGeneration;
+            if (_isLocked || _isLocking) return;
             if (_selectedEntry == null) return;
 
             try
             {
+                var deletedEntry = _selectedEntry;
+                int index = _visibleEntries.IndexOf(deletedEntry);
+                Guid? adjacent = index + 1 < _visibleEntries.Count ? _visibleEntries[index + 1].Id : index > 0 ? _visibleEntries[index - 1].Id : null;
                 var (movedToTrash, permanentlyDeleted) = await VaultOperationHandler.DeleteOrTrashEntryAsync(
-                    _selectedEntry, _storage, _crypto, _rootGroups, this);
+                    deletedEntry, _storage, _crypto, _rootGroups, this);
+                if (_isLocked || generation != _sessionGeneration) return;
 
-                if (movedToTrash)
+                if (movedToTrash || permanentlyDeleted)
                 {
-                    _entriesView.Refresh();
-                    UpdatePreviewPanel();
-                    UpdateStatusCounts();
-                    TxtStatusClipboard.Text = $"🗑️ Voce '{_selectedEntry.Title}' spostata nel Cestino";
-                }
-                else if (permanentlyDeleted)
-                {
-                    _allEntries.Remove(_selectedEntry);
-                    _entriesView.Refresh();
-                    UpdatePreviewPanel();
-                    UpdateStatusCounts();
-                    TxtStatusClipboard.Text = "🗑️ Voce eliminata definitivamente dal vault";
+                    _entryToSelectAfterRefresh = adjacent;
+                    DgEntries.SelectedItem = null; deletedEntry.ClearSecrets();
+                    await RefreshDataAsync();
+                    if (!_isLocked && generation == _sessionGeneration) TxtOperationStatus.Text = LocalizationManager.GetString(movedToTrash ? "EntryTrashed" : "EntryDeleted");
                 }
             }
             catch (Exception ex)
             {
                 AppLogger.LogError("Delete/Trash entry failed", ex);
-                MessageBox.Show($"Operazione non riuscita:\n{ex.Message}", "Errore", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(SQLitePass.UI.Services.UiErrorMessages.GetText(ex), LocalizationManager.GetString("OperationFailed"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
         private async void MenuEmptyTrash_Click(object sender, RoutedEventArgs e)
         {
+            int generation = _sessionGeneration;
+            if (_isLocked || _isLocking) return;
             try
             {
-                int count = await VaultOperationHandler.EmptyRecycleBinAsync(_storage, _crypto, _rootGroups, _allEntries, this);
+                int count = await VaultOperationHandler.EmptyRecycleBinAsync(_storage, _crypto, _rootGroups, this);
                 if (count > 0)
                 {
-                    await _storage.VacuumAsync();
-                    _entriesView.Refresh();
-                    UpdatePreviewPanel();
-                    UpdateStatusCounts();
-                    TxtStatusClipboard.Text = $"🗑️ Cestino svuotato ({count} voci eliminate definitivamente)";
+                    if (_isLocked || generation != _sessionGeneration) return;
+                    await RefreshDataAsync();
+                    if (_isLocked || generation != _sessionGeneration) return;
+                    TxtOperationStatus.Text = LocalizationManager.GetString("TrashCleared", count);
                 }
             }
             catch (Exception ex)
             {
                 AppLogger.LogError("Empty trash failed", ex);
-                MessageBox.Show($"Impossibile svuotare il Cestino:\n{ex.Message}", "Errore", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(SQLitePass.UI.Services.UiErrorMessages.GetText(ex), LocalizationManager.GetString("OperationFailed"), MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
         private async void BtnAddGroup_Click(object sender, RoutedEventArgs e)
         {
+            int generation = _sessionGeneration;
+            if (_isLocked || _isLocking) return;
             if (_selectedGroup != null && VaultOperationHandler.IsRecycleBinGroup(_selectedGroup))
             {
-                MessageBox.Show("Il Cestino non può contenere sottocartelle.", "Operazione non consentita", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(LocalizationManager.GetString("FolderNoChildren"), LocalizationManager.GetString("WarningTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
-            var dlg = new GroupEditDialog("Nuovo Gruppo") { Owner = this };
+            Guid? parentId = _selectedGroup?.Id ?? _metadata.RootGroupId;
+            var dlg = new GroupEditDialog() { Owner = this };
             if (dlg.ShowDialog() == true)
             {
+                if (_isLocked || generation != _sessionGeneration) return;
                 var newGroup = new PwGroup
                 {
                     Name = dlg.GroupName,
-                    ParentId = _selectedGroup?.Id
+                    ParentId = parentId
                 };
 
                 try
                 {
                     await _storage.SaveGroupAsync(newGroup, _crypto);
-                    if (_selectedGroup != null)
-                    {
-                        _selectedGroup.Children.Add(newGroup);
-                        _selectedGroup.IsExpanded = true;
-                    }
-                    else
-                    {
-                        _rootGroups.Add(newGroup);
-                    }
+                    if (_isLocked || generation != _sessionGeneration) return;
+                    await RefreshDataAsync();
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Creazione gruppo fallita:\n{ex.Message}", "Errore", MessageBoxButton.OK, MessageBoxImage.Error);
+                    ShowGroupError(ex, generation);
                 }
             }
         }
 
         private async void MenuRenameGroup_Click(object sender, RoutedEventArgs e)
         {
+            int generation = _sessionGeneration;
+            if (_isLocked || _isLocking) return;
             if (_selectedGroup == null) return;
             if (VaultOperationHandler.IsRecycleBinGroup(_selectedGroup))
             {
-                MessageBox.Show("Il Cestino di sistema non può essere rinominato.", "Avviso", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(LocalizationManager.GetString("ProtectedGroup"), LocalizationManager.GetString("WarningTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
-            var dlg = new GroupEditDialog(_selectedGroup.Name) { Owner = this };
+            var selected = _selectedGroup; var dlg = new GroupEditDialog(selected.Name) { Owner = this };
             if (dlg.ShowDialog() == true)
             {
-                _selectedGroup.Name = dlg.GroupName;
+                if (_isLocked || generation != _sessionGeneration) return;
+                var draft = selected.DeepClone(); draft.Name = dlg.GroupName;
                 try
                 {
-                    await _storage.SaveGroupAsync(_selectedGroup, _crypto);
+                    await _storage.SaveGroupAsync(draft, _crypto);
+                    if (_isLocked || generation != _sessionGeneration) return;
+                    await RefreshDataAsync();
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Rinomina gruppo fallita:\n{ex.Message}", "Errore", MessageBoxButton.OK, MessageBoxImage.Error);
+                    ShowGroupError(ex, generation);
                 }
             }
         }
 
         private async void MenuDeleteGroup_Click(object sender, RoutedEventArgs e)
         {
+            int generation = _sessionGeneration;
+            if (_isLocked || _isLocking) return;
             if (_selectedGroup == null) return;
 
-            if (_rootGroups.Count > 0 && _selectedGroup.Id == _rootGroups[0].Id)
+            if (_selectedGroup.IsRoot)
             {
-                MessageBox.Show("Non è possibile eliminare il gruppo radice del vault.", "Avviso", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(LocalizationManager.GetString("ProtectedGroup"), LocalizationManager.GetString("WarningTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
             if (VaultOperationHandler.IsRecycleBinGroup(_selectedGroup))
             {
-                MessageBox.Show("Il Cestino di sistema non può essere eliminato. Per eliminare le voci al suo interno, utilizza 'Svuota Cestino'.", "Avviso", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(LocalizationManager.GetString("ProtectedGroup"), LocalizationManager.GetString("WarningTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
-            if (MessageBox.Show($"Eliminare il gruppo '{_selectedGroup.Name}' e tutte le voci al suo interno?", "Conferma Eliminazione Gruppo", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+            var selected = _selectedGroup;
+            if (MessageBox.Show(LocalizationManager.GetString("FolderDeleteConfirm"), LocalizationManager.GetString("MenuDeleteGroup"), MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
             {
                 try
                 {
-                    await _storage.DeleteGroupAsync(_selectedGroup.Id);
+                    if (_isLocked || generation != _sessionGeneration) return;
+                    await _storage.TrashGroupAsync(selected.Id, _crypto);
+                    if (_isLocked || generation != _sessionGeneration) return;
                     await RefreshDataAsync();
+                    if (_isLocked || generation != _sessionGeneration) return;
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Eliminazione gruppo fallita:\n{ex.Message}", "Errore", MessageBoxButton.OK, MessageBoxImage.Error);
+                    ShowGroupError(ex, generation);
                 }
             }
         }
 
         private void BtnCopyUsername_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked || _isLocking) return;
             if (_selectedEntry != null && !string.IsNullOrEmpty(_selectedEntry.UserName))
             {
-                _clipboardCoordinator.CopyWithAutoClear(_selectedEntry.UserName, "User name");
+                _clipboardCoordinator.CopyWithAutoClear(_selectedEntry.UserName, LocalizationManager.GetString("ColUserName"));
             }
         }
 
         private void BtnCopyPassword_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked || _isLocking) return;
             if (_selectedEntry != null && !string.IsNullOrEmpty(_selectedEntry.Password))
             {
-                _clipboardCoordinator.CopyWithAutoClear(_selectedEntry.Password, "Password");
+                _clipboardCoordinator.CopyWithAutoClear(_selectedEntry.Password, LocalizationManager.GetString("ColPassword"));
             }
         }
 
@@ -1231,6 +1012,7 @@ namespace SQLitePass.UI
 
         private void BtnOpenUrl_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked || _isLocking) return;
             OpenUrl(_selectedEntry?.Url);
         }
 
@@ -1248,42 +1030,21 @@ namespace SQLitePass.UI
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Impossibile aprire l'URL:\n{ex.Message}", "Errore URL", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(SQLitePass.UI.Services.UiErrorMessages.GetText(ex), LocalizationManager.GetString("OperationFailed"), MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 
-        private async void BtnAutoType_Click(object sender, RoutedEventArgs e)
+        private void BtnAutoType_Click(object sender, RoutedEventArgs e)
         {
-            var entryToType = _selectedEntry;
-            if (entryToType == null)
+            if (_isLocked || _selectedEntry == null || !_selectedEntry.AutoTypeEnabled || IsInTrash(_selectedEntry)) return;
+            if (_hotkeyCoordinator?.IsRegistered != true)
             {
-                MessageBox.Show("Seleziona una voce per eseguire l'Auto-Type.", "Informazione", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(this, LocalizationManager.GetString("HotkeyUnavailableMessage"), LocalizationManager.GetString("AutoTypeUnavailable"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
-
-            if (string.IsNullOrWhiteSpace(entryToType.UserName) && string.IsNullOrWhiteSpace(entryToType.Password))
-            {
-                MessageBox.Show("Questa voce non contiene credenziali (username o password) da digitare.", "Auto-Type", MessageBoxButton.OK, MessageBoxImage.Information);
-                return;
-            }
-
-            _isPerformingAutoType = true;
-            try
-            {
-                WindowState = WindowState.Minimized;
-                await Task.Delay(400);
-
-                await AutoTypeService.ExecuteAutoTypeAsync(entryToType, IntPtr.Zero, 250);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Errore durante l'esecuzione dell'Auto-Type:\n{ex.Message}", "Errore Auto-Type", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-            finally
-            {
-                await Task.Delay(250);
-                _isPerformingAutoType = false;
-            }
+            _pendingAutoTypeEntry = _selectedEntry;
+            MessageBox.Show(this, LocalizationManager.GetString("AutoTypePrepare"), LocalizationManager.GetString("MenuAutoType"), MessageBoxButton.OK, MessageBoxImage.Information);
+            WindowState = WindowState.Minimized;
         }
 
         private void BtnPasswordGenerator_Click(object sender, RoutedEventArgs e)
@@ -1294,6 +1055,7 @@ namespace SQLitePass.UI
 
         private async void MenuChangeMasterPassword_Click(object sender, RoutedEventArgs e)
         {
+            int generation = _sessionGeneration;
             if (_isLocked) return;
 
             var dlg = new ChangeMasterPasswordDialog(_crypto, _metadata) { Owner = this };
@@ -1311,41 +1073,46 @@ namespace SQLitePass.UI
                         _metadata.KdfIterations,
                         _metadata.KdfMemoryKb,
                         _metadata.KdfParallelism,
-                        dlg.EncryptUsernameUrl
+                        dlg.EncryptUsernameUrl,
+                        dlg.UsesKeyFile
                     );
 
+                    if (_isLocked || generation != _sessionGeneration) return;
+
                     // Update memory state
+                    if (_isLocked) { newCrypto.Dispose(); return; }
                     _crypto = newCrypto;
-                    _metadata.SaltBase64 = dlg.NewSaltBase64;
-                    _metadata.EncryptUsernameUrl = dlg.EncryptUsernameUrl;
-                    _metadata.VerificationCanary = newCrypto.GenerateCanaryToken();
+                    _metadata = await _storage.LoadVaultMetadataAsync() ?? throw new InvalidDataException("Header mancante dopo il cambio chiave.");
                     oldCrypto.Dispose();
 
                     // Refresh in-memory data
                     await RefreshDataAsync();
+                    if (_isLocked || generation != _sessionGeneration) return;
 
-                    MessageBox.Show(
-                        "La Master Password è stata modificata con successo!\nTutti i record del vault sono stati ricifrati con la nuova chiave.",
-                        "Master Password Aggiornata",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Information
-                    );
+                    MessageBox.Show(this, LocalizationManager.GetString("CredentialChanged"), LocalizationManager.GetString("MasterChangeTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 catch (Exception ex)
                 {
+                    if (!ReferenceEquals(_crypto, dlg.NewCrypto)) dlg.NewCrypto.Dispose();
                     AppLogger.LogError("Failed to change master password", ex);
-                    MessageBox.Show($"Impossibile modificare la Master Password:\n{ex.Message}", "Errore", MessageBoxButton.OK, MessageBoxImage.Error);
+                    ShowGroupError(ex, generation);
                 }
             }
         }
 
-        private void MenuSettings_Click(object sender, RoutedEventArgs e)
+        private async void MenuSettings_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked || _isLocking) return;
+            int generation = _sessionGeneration; var storage = _storage;
             var dlg = new SettingsDialog { Owner = this };
-            if (dlg.ShowDialog() == true)
+            if (dlg.ShowDialog() == true && !_isLocked && generation == _sessionGeneration)
             {
                 var settings = AppSettingsManager.Load();
                 Topmost = settings.AlwaysOnTop;
+                foreach (Window window in Application.Current.Windows) WindowSecurityService.ApplyProtection(window, settings.ProtectScreenCapture);
+                await storage.ConfigureBackupAsync(settings.EnableDualFileBackup, settings.SecondaryBackupDir);
+                if (_isLocked || generation != _sessionGeneration) return;
+                UpdateBackupStatus();
             }
         }
 
@@ -1354,55 +1121,61 @@ namespace SQLitePass.UI
             LockVault(userInitiated: true);
         }
 
+        private Task _lockCompletion = Task.CompletedTask;
         private void LockVault(bool userInitiated)
         {
-            if (_isLocked || _isLocking || _isPerformingAutoType) return;
-            _isLocking = true;
+            if (_isLocked || _isLocking) return;
+            _lockCompletion = LockVaultAsync(userInitiated);
+        }
 
+        private async Task LockVaultAsync(bool userInitiated)
+        {
+            if (_isLocked || _isLocking) return;
+            _isLocking = true; _isLocked = true; _sessionGeneration++; ResetEntryBrowsing();
+            HideRevealedSecrets();
+            _autoTypeCancellation.Cancel(); _importCancellation?.Cancel(); _refreshCancellation?.Cancel(); _entryDetailsCancellation?.Cancel(); _exportCancellation?.Cancel();
+            _pendingAutoTypeEntry = null; _entryToSelectAfterRefresh = null; _refreshAgain = false;
             try
             {
-                _crypto.Dispose();
-                _clipboardCoordinator.ClearImmediately();
-                _allEntries.Clear();
-                _rootGroups.Clear();
-                GridEntryPreview.Visibility = Visibility.Collapsed;
-                _isLocked = true;
-
-                // Force garbage collection to purge any plaintext strings from RAM
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
-
-                AppLogger.LogInfo($"Vault locked (userInitiated: {userInitiated})");
-
-                if (userInitiated)
-                {
-                    PromptUnlock();
-                }
+                CloseSensitiveDialogs();
+                foreach (var entry in _visibleEntries) entry.ClearSecrets();
+                _visibleEntries.Clear(); _rootGroups.Clear(); _selectedEntry = null; _selectedGroup = null;
+                _dragCandidateGroup = null; ClearDropAdorner();
+                UpdatePreviewPanel(); TxtSearch.Clear(); _clipboardCoordinator.ClearImmediately();
+                TxtStatusClipboard.Text = TxtOperationStatus.Text = string.Empty;
+                _showPasswordColumn = false;
+                ColPassword.Binding = new Binding("Password") { Converter = (IValueConverter)Resources["PasswordMaskConverter"] };
+                SetVaultSurfaceEnabled(false);
+                LockedOverlay.IsEnabled = false;
+                _storage.BackupStatusChanged -= StorageBackupStatusChanged;
+                await _storage.CloseAsync();
             }
-            finally
-            {
-                _isLocking = false;
-            }
+            finally { _isLocking = false; LockedOverlay.IsEnabled = true; }
+            if (userInitiated) PromptUnlock();
         }
 
         private void PromptUnlock()
         {
-            if (!_isLocked) return;
-
+            if (!_isLocked || _isLocking || _unlockPromptOpen) return;
+            _unlockPromptOpen = true;
             var login = new LoginWindow();
             if (IsVisible && WindowState != WindowState.Minimized)
             {
                 login.Owner = this;
             }
 
-            bool? result = login.ShowDialog();
+            bool? result;
+            try { result = login.ShowDialog(); }
+            finally { _unlockPromptOpen = false; }
             if (result == true && login.AuthenticatedCrypto != null && login.StorageProvider != null && login.Metadata != null)
             {
                 _storage = login.StorageProvider;
                 _crypto = login.AuthenticatedCrypto;
                 _metadata = login.Metadata;
                 _isLocked = false;
-                TxtStatusDb.Text = $"Vault: {Path.GetFileName(_storage.FilePath)} • Dual Backup: Attivo";
+                SetVaultSurfaceEnabled(true);
+                UpdateBackupStatus();
+            _storage.BackupStatusChanged += StorageBackupStatusChanged;
 
                 Show();
                 WindowState = WindowState.Normal;
@@ -1426,185 +1199,30 @@ namespace SQLitePass.UI
 
         private void MenuTogglePasswords_Click(object sender, RoutedEventArgs e)
         {
-            _showPasswordColumn = !_showPasswordColumn;
-            if (_showPasswordColumn)
-            {
-                ColPassword.Binding = new Binding("Password");
-            }
-            else
-            {
-                ColPassword.Binding = new Binding("Password") { Converter = (IValueConverter)Resources["PasswordMaskConverter"] };
-            }
+            if (_isLocked || _isLocking) return;
+            _columnReveal.Toggle();
         }
 
         private async void MenuRefresh_Click(object sender, RoutedEventArgs e)
         {
+            if (_isLocked || _isLocking) return;
             await RefreshDataAsync();
-        }
-
-        private async void MenuImportCsv_Click(object sender, RoutedEventArgs e)
-        {
-            var ofd = new OpenFileDialog
-            {
-                Title = "Importa CSV di KeePass",
-                Filter = "File CSV (*.csv)|*.csv|Tutti i file (*.*)|*.*"
-            };
-            if (ofd.ShowDialog() == true)
-            {
-                try
-                {
-                    string content = File.ReadAllText(ofd.FileName);
-                    var targetGroupId = _selectedGroup?.Id ?? _rootGroups.FirstOrDefault()?.Id ?? Guid.NewGuid();
-                    var imported = ImportExportService.ImportFromKeePassCsv(content, targetGroupId);
-
-                    if (imported.Count > 0)
-                    {
-                        await _storage.SaveEntriesBatchAsync(imported, _crypto, _metadata.EncryptUsernameUrl);
-                        foreach (var entry in imported)
-                        {
-                            _allEntries.Add(entry);
-                        }
-                        _entriesView.Refresh();
-                        UpdateStatusCounts();
-                    }
-
-                    MessageBox.Show($"Importate con successo {imported.Count} voci da KeePass CSV!", "Importazione Riuscita", MessageBoxButton.OK, MessageBoxImage.Information);
-                    AppLogger.LogInfo($"Imported {imported.Count} entries from KeePass CSV");
-                }
-                catch (Exception ex)
-                {
-                    AppLogger.LogError("KeePass CSV import failed", ex);
-                    MessageBox.Show($"Importazione fallita:\n{ex.Message}", "Errore", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-            }
-        }
-
-        private async void MenuImportBitwardenJson_Click(object sender, RoutedEventArgs e)
-        {
-            var ofd = new OpenFileDialog
-            {
-                Title = "Importa Vault Bitwarden (JSON)",
-                Filter = "File JSON Bitwarden (*.json)|*.json|Tutti i file (*.*)|*.*"
-            };
-            if (ofd.ShowDialog() == true)
-            {
-                try
-                {
-                    string content = File.ReadAllText(ofd.FileName);
-                    var targetGroupId = _selectedGroup?.Id ?? _rootGroups.FirstOrDefault()?.Id ?? Guid.NewGuid();
-                    var imported = ImportExportService.ImportFromBitwardenJson(content, targetGroupId);
-
-                    if (imported.Count > 0)
-                    {
-                        await _storage.SaveEntriesBatchAsync(imported, _crypto, _metadata.EncryptUsernameUrl);
-                        foreach (var entry in imported)
-                        {
-                            _allEntries.Add(entry);
-                        }
-                        _entriesView.Refresh();
-                        UpdateStatusCounts();
-                    }
-
-                    MessageBox.Show($"Importate con successo {imported.Count} voci da Bitwarden JSON!", "Importazione Riuscita", MessageBoxButton.OK, MessageBoxImage.Information);
-                    AppLogger.LogInfo($"Imported {imported.Count} entries from Bitwarden JSON");
-                }
-                catch (Exception ex)
-                {
-                    AppLogger.LogError("Bitwarden JSON import failed", ex);
-                    MessageBox.Show($"Importazione fallita:\n{ex.Message}", "Errore", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-            }
-        }
-
-        private async void MenuImportBrowserCsv_Click(object sender, RoutedEventArgs e)
-        {
-            var ofd = new OpenFileDialog
-            {
-                Title = "Importa Password dal Browser (Chrome / Edge / Firefox CSV)",
-                Filter = "File CSV Password (*.csv)|*.csv|Tutti i file (*.*)|*.*"
-            };
-            if (ofd.ShowDialog() == true)
-            {
-                try
-                {
-                    string content = File.ReadAllText(ofd.FileName);
-                    var targetGroupId = _selectedGroup?.Id ?? _rootGroups.FirstOrDefault()?.Id ?? Guid.NewGuid();
-                    var imported = ImportExportService.ImportFromBrowserCsv(content, targetGroupId);
-
-                    if (imported.Count > 0)
-                    {
-                        await _storage.SaveEntriesBatchAsync(imported, _crypto, _metadata.EncryptUsernameUrl);
-                        foreach (var entry in imported)
-                        {
-                            _allEntries.Add(entry);
-                        }
-                        _entriesView.Refresh();
-                        UpdateStatusCounts();
-                    }
-
-                    MessageBox.Show($"Importate con successo {imported.Count} voci dal Browser CSV!", "Importazione Riuscita", MessageBoxButton.OK, MessageBoxImage.Information);
-                    AppLogger.LogInfo($"Imported {imported.Count} entries from Browser CSV");
-                }
-                catch (Exception ex)
-                {
-                    AppLogger.LogError("Browser CSV import failed", ex);
-                    MessageBox.Show($"Importazione fallita:\n{ex.Message}", "Errore", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-            }
-        }
-
-        private void MenuExportCsv_Click(object sender, RoutedEventArgs e)
-        {
-            var sfd = new SaveFileDialog
-            {
-                Title = "Esporta CSV KeePass",
-                Filter = "File CSV (*.csv)|*.csv",
-                FileName = "SQLitePass_Export.csv"
-            };
-            if (sfd.ShowDialog() == true)
-            {
-                try
-                {
-                    var groupMap = _rootGroups.ToDictionary(g => g.Id, g => g.Name);
-                    string csv = ImportExportService.ExportToKeePassCsv(_allEntries, groupMap);
-                    File.WriteAllText(sfd.FileName, csv);
-                    MessageBox.Show("Esportazione completata con successo!", "Esportato", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Esportazione fallita:\n{ex.Message}", "Errore", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-            }
         }
 
         private void MenuToggleTheme_Click(object sender, RoutedEventArgs e)
         {
-            var settings = AppSettingsManager.Load();
-            settings.DarkMode = !settings.DarkMode;
-            ThemeManager.ApplyTheme(settings.DarkMode);
-            AppSettingsManager.Save(settings);
+            try { var settings = AppSettingsManager.Update(s => s.DarkMode = !s.DarkMode); ThemeManager.ApplyTheme(settings.DarkMode); }
+            catch (IOException ex) { MessageBox.Show(this, SQLitePass.UI.Services.UiErrorMessages.GetText(ex), LocalizationManager.GetString("ThemeSaveFailed"), MessageBoxButton.OK, MessageBoxImage.Error); }
         }
 
         private async void MenuCheckUpdates_Click(object sender, RoutedEventArgs e)
         {
-            await UpdateService.CheckForUpdatesAsync(silent: false);
+            await UpdateService.CheckForUpdatesAsync(silent: false, beforeRestart: async () => { LockVault(userInitiated: false); await _lockCompletion; });
         }
 
         private void MenuAbout_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show(
-                "SQLitePass v1.0\n\n" +
-                "Zero-Knowledge Password Manager con Storage SQLite Resiliente\n" +
-                "• SQLite con WAL Mode (anti-corruzione su riavvio/crash di Windows)\n" +
-                "• Cifratura a livello di record AES-256-GCM + Argon2id\n" +
-                "• Dual Backup atomico sincronizzato (.kpd.backup)\n" +
-                "• Minimize to Tray & Auto-Lock per inattività e blocco Windows\n" +
-                "• Auto-Type globale (Ctrl+Alt+A), Generatore password ed Import/Export\n" +
-                "• 100% leggero, portatile e senza server da installare.",
-                "Informazioni su SQLitePass",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information
-            );
+            MessageBox.Show(this, LocalizationManager.GetString("AboutText", System.Reflection.Assembly.GetExecutingAssembly().GetName().Version!), LocalizationManager.GetString("AppTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void MenuExit_Click(object sender, RoutedEventArgs e)

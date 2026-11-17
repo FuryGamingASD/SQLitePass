@@ -1,78 +1,43 @@
-using System;
-using System.Threading.Tasks;
 using System.Windows;
+using SQLitePass.Core.Services;
 using Velopack;
 using Velopack.Sources;
 
-namespace SQLitePass.UI.Services
+namespace SQLitePass.UI.Services;
+
+public static class UpdateService
 {
-    public static class UpdateService
+    public const string GitHubRepoUrl = "https://github.com/FuryGamingASD/SQLitePass";
+    private static bool _running;
+
+    public static async Task CheckForUpdatesAsync(bool silent = false, Func<Task>? beforeRestart = null)
     {
-        // GitHub repository URL for auto-updates
-        public static string GitHubRepoUrl { get; set; } = "https://github.com/FuryGamingASD/SQLitePass";
-
-        public static async Task CheckForUpdatesAsync(bool silent = false)
+        if (_running) return; _running = true;
+        try
         {
-            try
+            var manager = new UpdateManager(new GithubSource(GitHubRepoUrl, null, false));
+            if (!manager.IsInstalled)
             {
-                var source = new GithubSource(GitHubRepoUrl, null, false);
-                var mgr = new UpdateManager(source);
-
-                if (!mgr.IsInstalled)
-                {
-                    if (!silent)
-                    {
-                        MessageBox.Show(
-                            "L'applicazione non è attualmente in esecuzione tramite l'installer Velopack (è in modalità debug/sviluppo).\n\n" +
-                            "Gli aggiornamenti automatici saranno attivi una volta installato il pacchetto Setup.exe.",
-                            "Verifica Aggiornamenti",
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Information
-                        );
-                    }
-                    return;
-                }
-
-                var updateInfo = await mgr.CheckForUpdatesAsync().ConfigureAwait(true);
-                if (updateInfo == null)
-                {
-                    if (!silent)
-                    {
-                        MessageBox.Show(
-                            $"Sei già all'ultima versione disponibile ({mgr.CurrentVersion}).",
-                            "Nessun aggiornamento",
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Information
-                        );
-                    }
-                    return;
-                }
-
-                var result = MessageBox.Show(
-                    $"È disponibile una nuova versione: v{updateInfo.TargetFullRelease.Version}!\n\nVuoi scaricarla e riavviare l'applicazione ora?",
-                    "Aggiornamento Disponibile",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question
-                );
-
-                if (result == MessageBoxResult.Yes)
-                {
-                    await mgr.DownloadUpdatesAsync(updateInfo).ConfigureAwait(true);
-                    mgr.ApplyUpdatesAndRestart(updateInfo);
-                }
+                if (!silent) MessageBox.Show(LocalizationManager.GetString("UpdateUnavailable"), LocalizationManager.GetString("MenuCheckUpdates"));
+                return;
             }
-            catch (Exception ex)
+            var update = await manager.CheckForUpdatesAsync();
+            if (update == null)
             {
-                if (!silent)
-                {
-                    MessageBox.Show(
-                        $"Impossibile verificare gli aggiornamenti da GitHub:\n{ex.Message}\n\nAssicurati che il repository sia accessibile e che ci siano release pubblicate.",
-                        "Errore Aggiornamento",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Warning
-                    );
-                }
+                if (!silent) MessageBox.Show(LocalizationManager.GetString("UpdateCurrent", manager.CurrentVersion!), LocalizationManager.GetString("MenuCheckUpdates"));
+                return;
             }
+            if (silent) return;
+            if (MessageBox.Show(LocalizationManager.GetString("UpdateConfirm", update.TargetFullRelease.Version), LocalizationManager.GetString("MenuCheckUpdates"), MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+            await manager.DownloadUpdatesAsync(update);
+            if (beforeRestart != null) await beforeRestart();
+            manager.ApplyUpdatesAndRestart(update);
         }
+        catch (Exception exception)
+        {
+            AppLogger.LogError("Update did not complete", exception);
+            if (!silent) MessageBox.Show(LocalizationManager.GetString("UpdateFailed"), LocalizationManager.GetString("MenuCheckUpdates"), MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally { _running = false; }
     }
 }

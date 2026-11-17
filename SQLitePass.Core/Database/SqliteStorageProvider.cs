@@ -1,1077 +1,581 @@
-using System;
-using System.Collections.Generic;
-using System.Data;
-using System.IO;
-using System.Threading.Tasks;
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 using Microsoft.Data.Sqlite;
 using SQLitePass.Core.Crypto;
 using SQLitePass.Core.Models;
-using SQLitePass.Core.Services;
 
-namespace SQLitePass.Core.Database
+namespace SQLitePass.Core.Database;
+
+public sealed partial class SqliteStorageProvider : IDisposable
 {
-    public class SqliteStorageProvider
+    private const int CurrentFormat = 2;
+    private readonly SemaphoreSlim _gate = new(1, 1);
+    private CryptoEngine? _crypto;
+    private VaultMetadata? _metadata;
+    private Guid _epoch;
+    private volatile bool _locked = true;
+    private bool _bootstrapAllowed;
+    private FileStream? _lease;
+    internal Action<VaultIoStage>? SimulateIoFailure { get; set; }
+    private bool _enableBackup;
+    private string? _secondaryBackupDirectory;
+    public string FilePath { get; }
+    public string BackupFilePath => FilePath + ".backup";
+    public bool IsReadOnly { get; private set; }
+    public string? LastBackupError { get; private set; }
+    public DateTime? LastBackupAt { get; private set; }
+    public bool BackupEnabled => _enableBackup;
+    public event EventHandler? BackupStatusChanged;
+    public void ConfigureBackup(bool enabled, string? secondaryDirectory) => ConfigureBackupAsync(enabled, secondaryDirectory).GetAwaiter().GetResult();
+    public async Task ConfigureBackupAsync(bool enabled, string? secondaryDirectory)
     {
-        public string FilePath { get; }
-        public string BackupFilePath => FilePath + ".backup";
-        private readonly string _connectionString;
+        await _gate.WaitAsync().ConfigureAwait(false);
+        try { _enableBackup = enabled; _secondaryBackupDirectory = secondaryDirectory; }
+        finally { _gate.Release(); }
+    }
 
-        public SqliteStorageProvider(string filePath)
+    public SqliteStorageProvider(string filePath, bool enableBackup = true, string? secondaryBackupDirectory = null)
+    {
+        if (string.IsNullOrWhiteSpace(filePath)) throw new ArgumentException("Percorso del vault mancante.", nameof(filePath));
+        FilePath = Path.GetFullPath(filePath); _enableBackup = enableBackup; _secondaryBackupDirectory = secondaryBackupDirectory;
+    }
+
+    private SqliteConnection Open(bool readOnly = false, string? path = null)
+    {
+        var c = new SqliteConnection(new SqliteConnectionStringBuilder
+        { DataSource = path ?? FilePath, Mode = readOnly ? SqliteOpenMode.ReadOnly : SqliteOpenMode.ReadWrite, Pooling = false, DefaultTimeout = 5 }.ToString());
+        try
         {
-            if (string.IsNullOrWhiteSpace(filePath))
-                throw new ArgumentException("Database file path cannot be empty.", nameof(filePath));
-
-            FilePath = Path.GetFullPath(filePath);
-            _connectionString = new SqliteConnectionStringBuilder
-            {
-                DataSource = FilePath,
-                Mode = SqliteOpenMode.ReadWriteCreate,
-                Cache = SqliteCacheMode.Shared
-            }.ToString();
+            c.Open(); Execute(c, null, "PRAGMA trusted_schema=OFF;");
+            if (!readOnly) Execute(c, null, "PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;");
+            return c;
         }
+        catch { c.Dispose(); throw; }
+    }
 
-        private SqliteConnection CreateOpenConnection()
+    private static void Execute(SqliteConnection c, SqliteTransaction? tx, string sql, params (string, object?)[] args)
+    {
+        using var cmd = c.CreateCommand(); cmd.Transaction = tx; cmd.CommandText = sql;
+        foreach (var (name, value) in args) cmd.Parameters.AddWithValue(name, value ?? DBNull.Value);
+        cmd.ExecuteNonQuery();
+    }
+    private static bool HasTable(SqliteConnection c, string table)
+    {
+        using var cmd = c.CreateCommand(); cmd.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=$table";
+        cmd.Parameters.AddWithValue("$table", table); return (long)cmd.ExecuteScalar()! == 1;
+    }
+    private static void CreateSchema(SqliteConnection c, SqliteTransaction? tx) => Execute(c, tx, """
+        CREATE TABLE IF NOT EXISTS sp_metadata(singleton INTEGER PRIMARY KEY CHECK(singleton=1), metadata TEXT NOT NULL, authentication TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS sp_groups(id TEXT PRIMARY KEY, parent_id TEXT NULL REFERENCES sp_groups(id) DEFERRABLE INITIALLY DEFERRED,
+            revision INTEGER NOT NULL CHECK(revision>0), payload BLOB NOT NULL);
+        CREATE TABLE IF NOT EXISTS sp_entries(id TEXT PRIMARY KEY, group_id TEXT NOT NULL REFERENCES sp_groups(id),
+            revision INTEGER NOT NULL CHECK(revision>0), payload BLOB NOT NULL);
+        CREATE INDEX IF NOT EXISTS sp_groups_parent ON sp_groups(parent_id);
+        CREATE INDEX IF NOT EXISTS sp_entries_group ON sp_entries(group_id);
+        PRAGMA user_version=2;
+        """);
+
+    public Task InitializeDatabaseAndSchemaAsync() => Task.Run(() =>
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
+        using (new FileStream(FilePath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None)) { }
+        using var c = Open(); Execute(c, null, "PRAGMA journal_mode=WAL;"); CreateSchema(c, null);
+        _bootstrapAllowed = true;
+    });
+    public Task<bool> VaultExistsAsync() => Task.FromResult(File.Exists(FilePath));
+    public Task<bool> CheckDatabaseIntegrityAsync() => Task.Run(() =>
+    {
+        try { using var c = Open(true); return CheckIntegrity(c); }
+        catch (Exception ex) when (ex is SqliteException or IOException or InvalidDataException) { return false; }
+    });
+    private static bool CheckIntegrity(SqliteConnection c)
+    {
+        using var cmd = c.CreateCommand(); cmd.CommandText = "PRAGMA quick_check";
+        using (var r = cmd.ExecuteReader()) if (!r.Read() || r.GetString(0) != "ok" || r.Read()) return false;
+        cmd.CommandText = "PRAGMA foreign_key_check"; using var foreign = cmd.ExecuteReader(); return !foreign.Read();
+    }
+    private static VaultMetadata? ReadMetadata(SqliteConnection c, SqliteTransaction? tx = null)
+    {
+        using (var version = c.CreateCommand())
         {
-            var conn = new SqliteConnection(_connectionString);
-            conn.Open();
-
-            // Set crash-resilience pragmas: Write-Ahead Logging (WAL) and auto-vacuum
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = @"
-                PRAGMA journal_mode = WAL;
-                PRAGMA synchronous = NORMAL;
-                PRAGMA foreign_keys = ON;
-                PRAGMA auto_vacuum = INCREMENTAL;
-            ";
-            cmd.ExecuteNonQuery();
-
-            return conn;
+            version.Transaction = tx; version.CommandText = "PRAGMA user_version";
+            if (Convert.ToInt32(version.ExecuteScalar()) > CurrentFormat) throw new InvalidDataException("Versione del vault più recente dell'applicazione.");
         }
+        if (!HasTable(c, "sp_metadata")) return LegacyVaultReader.Metadata(c, tx);
+        using var cmd = c.CreateCommand(); cmd.Transaction = tx; cmd.CommandText = "SELECT metadata FROM sp_metadata WHERE singleton=1";
+        if (cmd.ExecuteScalar() is not string json) return null;
+        var m = JsonSerializer.Deserialize<VaultMetadata>(json) ?? throw new InvalidDataException("Header vuoto.");
+        if (m.FormatVersion != CurrentFormat) throw new InvalidDataException("Versione del vault non supportata. Aggiornare SQLitePass.");
+        CryptoEngine.ValidateKdf(Convert.FromBase64String(m.SaltBase64), m.KdfIterations, m.KdfMemoryKb, m.KdfParallelism);
+        return m;
+    }
+    public Task<VaultMetadata?> LoadVaultMetadataAsync() => Task.Run(() => { using var c = Open(true); return ReadMetadata(c); });
 
-        public async Task InitializeDatabaseAndSchemaAsync()
+    // Bootstrap only; an initialized header cannot be replaced through this API.
+    public Task SaveVaultMetadataAsync(VaultMetadata m) => Task.Run(() =>
+    {
+        if (!_bootstrapAllowed) throw new InvalidOperationException("L'header può essere inizializzato solo dalla sessione che ha creato il nuovo file.");
+        using var c = Open(); using var tx = c.BeginTransaction();
+        if (ReadMetadata(c, tx) != null) throw new InvalidOperationException("Il vault è già inizializzato.");
+        m.FormatVersion = CurrentFormat; m.EncryptUsernameUrl = true; WriteMetadata(c, tx, m, ""); tx.Commit();
+    });
+
+    public async Task AuthenticateAsync(CryptoEngine crypto)
+    {
+        await _gate.WaitAsync().ConfigureAwait(false);
+        try
         {
-            string dir = Path.GetDirectoryName(FilePath)!;
-            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+            if (_crypto != null) throw new InvalidOperationException("Sessione già aperta.");
+            _lease = new FileStream(FilePath + ".lock", FileMode.OpenOrCreate, FileAccess.Read, FileShare.Read);
+            using var c = Open(true); var m = ReadMetadata(c) ?? throw new InvalidDataException("Vault non inizializzato.");
+            CryptoEngine.ValidateKdf(Convert.FromBase64String(m.SaltBase64), m.KdfIterations, m.KdfMemoryKb, m.KdfParallelism);
+            if (!crypto.VerifyCanaryToken(m.VerificationCanary)) throw new CryptographicException("Credenziale del vault non corretta.");
+            _crypto = crypto; _metadata = m; _epoch = m.KeyEpoch; _locked = false;
+            if (m.FormatVersion == 1)
             {
-                Directory.CreateDirectory(dir);
-            }
-
-            using var conn = CreateOpenConnection();
-
-            string ddl = @"
-            CREATE TABLE IF NOT EXISTS kp_vault_metadata (
-                vault_id TEXT PRIMARY KEY,
-                vault_name TEXT NOT NULL,
-                salt_base64 TEXT NOT NULL,
-                kdf_iterations INTEGER NOT NULL DEFAULT 3,
-                kdf_memory_kb INTEGER NOT NULL DEFAULT 65536,
-                kdf_parallelism INTEGER NOT NULL DEFAULT 2,
-                verification_canary TEXT NOT NULL,
-                encrypt_username_url INTEGER NOT NULL DEFAULT 0,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS kp_groups (
-                id TEXT PRIMARY KEY,
-                parent_id TEXT NULL,
-                name TEXT NOT NULL,
-                icon_index INTEGER NOT NULL DEFAULT 48,
-                is_expanded INTEGER NOT NULL DEFAULT 1,
-                sort_order INTEGER NOT NULL DEFAULT 0,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS kp_entries (
-                id TEXT PRIMARY KEY,
-                group_id TEXT NOT NULL,
-                title TEXT NOT NULL,
-                username TEXT NOT NULL,
-                password_enc TEXT NOT NULL,
-                url TEXT NOT NULL,
-                notes_enc TEXT NOT NULL,
-                tags TEXT NULL,
-                icon_index INTEGER NOT NULL DEFAULT 0,
-                expiry_date TEXT NULL,
-                autotype_enabled INTEGER NOT NULL DEFAULT 1,
-                autotype_seq TEXT NULL,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                last_access_at TEXT NOT NULL,
-                FOREIGN KEY (group_id) REFERENCES kp_groups(id) ON DELETE CASCADE
-            );
-
-            CREATE TABLE IF NOT EXISTS kp_custom_fields (
-                id TEXT PRIMARY KEY,
-                entry_id TEXT NOT NULL,
-                field_key TEXT NOT NULL,
-                field_val_enc TEXT NOT NULL,
-                is_protected INTEGER NOT NULL DEFAULT 0,
-                FOREIGN KEY (entry_id) REFERENCES kp_entries(id) ON DELETE CASCADE
-            );
-
-            CREATE TABLE IF NOT EXISTS kp_attachments (
-                id TEXT PRIMARY KEY,
-                entry_id TEXT NOT NULL,
-                filename TEXT NOT NULL,
-                filesize INTEGER NOT NULL,
-                data_enc BLOB NOT NULL,
-                created_at TEXT NOT NULL,
-                FOREIGN KEY (entry_id) REFERENCES kp_entries(id) ON DELETE CASCADE
-            );
-
-            CREATE TABLE IF NOT EXISTS kp_history (
-                id TEXT PRIMARY KEY,
-                entry_id TEXT NOT NULL,
-                title TEXT NOT NULL,
-                username TEXT NOT NULL,
-                password_enc TEXT NOT NULL,
-                url TEXT NOT NULL,
-                notes_enc TEXT NOT NULL,
-                saved_at TEXT NOT NULL,
-                FOREIGN KEY (entry_id) REFERENCES kp_entries(id) ON DELETE CASCADE
-            );
-
-            -- High-Performance Indexes for Foreign Keys & Hierarchies
-            CREATE INDEX IF NOT EXISTS idx_entries_group_id ON kp_entries(group_id);
-            CREATE INDEX IF NOT EXISTS idx_groups_parent_id ON kp_groups(parent_id);
-            CREATE INDEX IF NOT EXISTS idx_custom_fields_entry_id ON kp_custom_fields(entry_id);
-            CREATE INDEX IF NOT EXISTS idx_attachments_entry_id ON kp_attachments(entry_id);
-            CREATE INDEX IF NOT EXISTS idx_history_entry_id ON kp_history(entry_id);
-            ";
-
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = ddl;
-            await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-
-            // Schema migrations for backward compatibility
-            try
-            {
-                using var alterCmd = conn.CreateCommand();
-                alterCmd.CommandText = "ALTER TABLE kp_groups ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;";
-                await alterCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-            }
-            catch { }
-
-            try
-            {
-                using var alterCmd = conn.CreateCommand();
-                alterCmd.CommandText = "ALTER TABLE kp_vault_metadata ADD COLUMN encrypt_username_url INTEGER NOT NULL DEFAULT 0;";
-                await alterCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-            }
-            catch { }
-        }
-
-        public async Task<bool> VaultExistsAsync()
-        {
-            if (!File.Exists(FilePath)) return false;
-
-            try
-            {
-                using var conn = CreateOpenConnection();
-                using var cmd = conn.CreateCommand();
-                cmd.CommandText = "SELECT COUNT(*) FROM kp_vault_metadata;";
-                var count = Convert.ToInt64(await cmd.ExecuteScalarAsync().ConfigureAwait(false));
-                return count > 0;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Runs PRAGMA quick_check to verify physical database page integrity and detect silent corruptions.
-        /// </summary>
-        public async Task<bool> CheckDatabaseIntegrityAsync()
-        {
-            if (!File.Exists(FilePath)) return true;
-
-            try
-            {
-                using var conn = CreateOpenConnection();
-                using var cmd = conn.CreateCommand();
-                cmd.CommandText = "PRAGMA quick_check;";
-                var result = await cmd.ExecuteScalarAsync().ConfigureAwait(false);
-                string res = result?.ToString() ?? "";
-                bool isOk = string.Equals(res, "ok", StringComparison.OrdinalIgnoreCase);
-                if (!isOk)
+                using var write = Open(); Execute(write, null, "PRAGMA secure_delete=ON;");
+                using var tx = write.BeginTransaction();
+                if (HasTable(write, "sp_metadata")) throw new InvalidOperationException("Un'altra sessione ha aggiornato il formato. Riaprire il vault.");
+                var current = LegacyVaultReader.Metadata(write, tx) ?? throw new InvalidDataException("Header legacy mancante.");
+                if (current.VaultId != m.VaultId || current.SaltBase64 != m.SaltBase64 || current.VerificationCanary != m.VerificationCanary ||
+                    current.KdfIterations != m.KdfIterations || current.KdfMemoryKb != m.KdfMemoryKb || current.KdfParallelism != m.KdfParallelism)
+                    throw new InvalidOperationException("Il vault è cambiato durante lo sblocco. Riaprirlo.");
+                m = current; _metadata = current;
+                var groups = LegacyVaultReader.Groups(write, tx); ValidateTree(groups, []);
+                var migration = LegacyVaultReader.ValidateReferences(write, tx);
+                bool legacyPrivateFields = m.EncryptUsernameUrl;
+                var groupIds = groups.Select(group => group.Id).ToHashSet();
+                // Validate the complete legacy source before changing the schema, without retaining its secrets.
+                foreach (var entry in LegacyVaultReader.Entries(write, crypto, legacyPrivateFields, tx, migration))
+                    if (!groupIds.Contains(entry.GroupId)) throw new InvalidDataException("Voce legacy senza gruppo.");
+                CreateSnapshot(PreservedBackupPath("pre-v2"));
+                CreateSchema(write, tx);
+                m.FormatVersion = CurrentFormat; m.EncryptUsernameUrl = true; m.KeyEpoch = Guid.NewGuid();
+                m.UsesKeyFile = crypto.DerivedWithKeyFile ?? false;
+                m.RootGroupId = groups.FirstOrDefault(g => g.ParentId == null)?.Id;
+                var legacyTrash = groups.Where(g => g.IconIndex == 43).ToList();
+                if (legacyTrash.Count == 0) legacyTrash = groups.Where(g => new[] { "Cestino", "Trash", "Corbeille", "Papierkorb", "Papelera" }.Contains(g.Name, StringComparer.OrdinalIgnoreCase)).ToList();
+                if (legacyTrash.Count > 1) throw new InvalidDataException("Più cartelle del vecchio vault corrispondono al cestino. Risolvere l'ambiguità su una copia prima della migrazione.");
+                m.RecycleBinGroupId = legacyTrash.SingleOrDefault()?.Id;
+                ValidateSystemGroups(groups, m);
+                foreach (var group in groups) WriteGroup(write, tx, group, crypto, m);
+                foreach (var entry in LegacyVaultReader.Entries(write, crypto, legacyPrivateFields, tx, migration))
                 {
-                    AppLogger.LogWarning($"PRAGMA quick_check detected integrity issue on {FilePath}: {res}");
+                    if (!groupIds.Contains(entry.GroupId)) throw new InvalidDataException("Voce legacy senza gruppo.");
+                    WriteEntry(write, tx, entry, crypto, m);
                 }
-                return isOk;
-            }
-            catch (Exception ex)
-            {
-                AppLogger.LogError($"PRAGMA quick_check encountered an error on {FilePath}", ex);
-                return false;
-            }
-        }
-
-        public async Task<VaultMetadata?> LoadVaultMetadataAsync()
-        {
-            using var conn = CreateOpenConnection();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT vault_id, vault_name, salt_base64, kdf_iterations, kdf_memory_kb, kdf_parallelism, verification_canary, created_at, updated_at, encrypt_username_url FROM kp_vault_metadata LIMIT 1;";
-
-            using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
-            if (await reader.ReadAsync().ConfigureAwait(false))
-            {
-                bool encUserUrl = false;
-                try
-                {
-                    encUserUrl = reader.GetInt32(9) == 1;
-                }
-                catch { }
-
-                return new VaultMetadata
-                {
-                    VaultId = Guid.Parse(reader.GetString(0)),
-                    VaultName = reader.GetString(1),
-                    SaltBase64 = reader.GetString(2),
-                    KdfIterations = reader.GetInt32(3),
-                    KdfMemoryKb = reader.GetInt32(4),
-                    KdfParallelism = reader.GetInt32(5),
-                    VerificationCanary = reader.GetString(6),
-                    CreatedAt = DateTime.Parse(reader.GetString(7)),
-                    UpdatedAt = DateTime.Parse(reader.GetString(8)),
-                    EncryptUsernameUrl = encUserUrl
-                };
-            }
-
-            return null;
-        }
-
-        public async Task SaveVaultMetadataAsync(VaultMetadata metadata)
-        {
-            using var conn = CreateOpenConnection();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = @"
-                INSERT INTO kp_vault_metadata (vault_id, vault_name, salt_base64, kdf_iterations, kdf_memory_kb, kdf_parallelism, verification_canary, encrypt_username_url, created_at, updated_at)
-                VALUES (@id, @name, @salt, @iters, @mem, @par, @canary, @enc_meta, @created, @updated)
-                ON CONFLICT(vault_id) DO UPDATE SET
-                    vault_name = excluded.vault_name,
-                    salt_base64 = excluded.salt_base64,
-                    kdf_iterations = excluded.kdf_iterations,
-                    kdf_memory_kb = excluded.kdf_memory_kb,
-                    kdf_parallelism = excluded.kdf_parallelism,
-                    verification_canary = excluded.verification_canary,
-                    encrypt_username_url = excluded.encrypt_username_url,
-                    updated_at = excluded.updated_at;
-            ";
-
-            cmd.Parameters.AddWithValue("@id", metadata.VaultId.ToString());
-            cmd.Parameters.AddWithValue("@name", metadata.VaultName);
-            cmd.Parameters.AddWithValue("@salt", metadata.SaltBase64);
-            cmd.Parameters.AddWithValue("@iters", metadata.KdfIterations);
-            cmd.Parameters.AddWithValue("@mem", metadata.KdfMemoryKb);
-            cmd.Parameters.AddWithValue("@par", metadata.KdfParallelism);
-            cmd.Parameters.AddWithValue("@canary", metadata.VerificationCanary);
-            cmd.Parameters.AddWithValue("@enc_meta", metadata.EncryptUsernameUrl ? 1 : 0);
-            cmd.Parameters.AddWithValue("@created", metadata.CreatedAt.ToString("o"));
-            cmd.Parameters.AddWithValue("@updated", metadata.UpdatedAt.ToString("o"));
-
-            await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-            TriggerAtomicBackup();
-        }
-
-        public async Task<List<PwGroup>> LoadAllGroupsAsync(CryptoEngine crypto)
-        {
-            var groups = new List<PwGroup>();
-
-            using var conn = CreateOpenConnection();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT id, parent_id, name, icon_index, is_expanded, sort_order, created_at, updated_at FROM kp_groups ORDER BY sort_order ASC, created_at ASC;";
-
-            using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
-            while (await reader.ReadAsync().ConfigureAwait(false))
-            {
-                string idStr = reader.GetString(0);
-                string? parentIdStr = reader.IsDBNull(1) ? null : reader.GetString(1);
-                string name = reader.GetString(2);
-                int iconIndex = reader.GetInt32(3);
-                bool isExpanded = reader.GetInt32(4) == 1;
-                int sortOrder = reader.GetInt32(5);
-                DateTime createdAt = DateTime.Parse(reader.GetString(6));
-                DateTime updatedAt = DateTime.Parse(reader.GetString(7));
-
-                groups.Add(new PwGroup
-                {
-                    Id = Guid.Parse(idStr),
-                    ParentId = parentIdStr != null ? Guid.Parse(parentIdStr) : null,
-                    Name = name,
-                    IconIndex = iconIndex,
-                    IsExpanded = isExpanded,
-                    SortOrder = sortOrder,
-                    CreatedAt = createdAt,
-                    UpdatedAt = updatedAt
-                });
-            }
-
-            return groups;
-        }
-
-        public async Task SaveGroupAsync(PwGroup group, CryptoEngine crypto)
-        {
-            using var conn = CreateOpenConnection();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = @"
-                INSERT INTO kp_groups (id, parent_id, name, icon_index, is_expanded, sort_order, created_at, updated_at)
-                VALUES (@id, @parent, @name, @icon, @expanded, @sort, @created, @updated)
-                ON CONFLICT(id) DO UPDATE SET
-                    parent_id = excluded.parent_id,
-                    name = excluded.name,
-                    icon_index = excluded.icon_index,
-                    is_expanded = excluded.is_expanded,
-                    sort_order = excluded.sort_order,
-                    updated_at = excluded.updated_at;
-            ";
-
-            cmd.Parameters.AddWithValue("@id", group.Id.ToString());
-            cmd.Parameters.AddWithValue("@parent", group.ParentId.HasValue ? group.ParentId.Value.ToString() : (object)DBNull.Value);
-            cmd.Parameters.AddWithValue("@name", group.Name);
-            cmd.Parameters.AddWithValue("@icon", group.IconIndex);
-            cmd.Parameters.AddWithValue("@expanded", group.IsExpanded ? 1 : 0);
-            cmd.Parameters.AddWithValue("@sort", group.SortOrder);
-            cmd.Parameters.AddWithValue("@created", group.CreatedAt.ToString("o"));
-            cmd.Parameters.AddWithValue("@updated", DateTime.UtcNow.ToString("o"));
-
-            await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-            TriggerAtomicBackup();
-        }
-
-        /// <summary>
-        /// Saves multiple groups (hierarchy / order changes) in a single SQLite transaction and single backup.
-        /// </summary>
-        public async Task SaveGroupsBatchAsync(IEnumerable<PwGroup> groups, CryptoEngine crypto)
-        {
-            using var conn = CreateOpenConnection();
-            using var transaction = conn.BeginTransaction();
-
-            try
-            {
-                foreach (var group in groups)
-                {
-                    using var cmd = conn.CreateCommand();
-                    cmd.Transaction = transaction;
-                    cmd.CommandText = @"
-                        INSERT INTO kp_groups (id, parent_id, name, icon_index, is_expanded, sort_order, created_at, updated_at)
-                        VALUES (@id, @parent, @name, @icon, @expanded, @sort, @created, @updated)
-                        ON CONFLICT(id) DO UPDATE SET
-                            parent_id = excluded.parent_id,
-                            name = excluded.name,
-                            icon_index = excluded.icon_index,
-                            is_expanded = excluded.is_expanded,
-                            sort_order = excluded.sort_order,
-                            updated_at = excluded.updated_at;
-                    ";
-
-                    cmd.Parameters.AddWithValue("@id", group.Id.ToString());
-                    cmd.Parameters.AddWithValue("@parent", group.ParentId.HasValue ? group.ParentId.Value.ToString() : (object)DBNull.Value);
-                    cmd.Parameters.AddWithValue("@name", group.Name);
-                    cmd.Parameters.AddWithValue("@icon", group.IconIndex);
-                    cmd.Parameters.AddWithValue("@expanded", group.IsExpanded ? 1 : 0);
-                    cmd.Parameters.AddWithValue("@sort", group.SortOrder);
-                    cmd.Parameters.AddWithValue("@created", group.CreatedAt.ToString("o"));
-                    cmd.Parameters.AddWithValue("@updated", DateTime.UtcNow.ToString("o"));
-
-                    await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-                }
-
-                transaction.Commit();
-            }
-            catch (Exception ex)
-            {
-                transaction.Rollback();
-                AppLogger.LogError("Batch save groups transaction failed", ex);
-                throw;
-            }
-
-            TriggerAtomicBackup();
-        }
-
-        public async Task DeleteGroupAsync(Guid groupId)
-        {
-            using var conn = CreateOpenConnection();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = "DELETE FROM kp_groups WHERE id = @id;";
-            cmd.Parameters.AddWithValue("@id", groupId.ToString());
-
-            await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-            TriggerAtomicBackup();
-        }
-
-        public async Task<List<PwEntry>> LoadEntriesAsync(Guid? groupId, CryptoEngine crypto)
-        {
-            var entries = new List<PwEntry>();
-
-            using var conn = CreateOpenConnection();
-            using var cmd = conn.CreateCommand();
-            if (groupId.HasValue)
-            {
-                cmd.CommandText = "SELECT id, group_id, title, username, password_enc, url, notes_enc, tags, icon_index, expiry_date, autotype_enabled, autotype_seq, created_at, updated_at, last_access_at FROM kp_entries WHERE group_id = @gid;";
-                cmd.Parameters.AddWithValue("@gid", groupId.Value.ToString());
+                Execute(write, tx, "DROP TABLE kp_history; DROP TABLE kp_attachments; DROP TABLE kp_custom_fields; DROP TABLE kp_entries; DROP TABLE kp_groups; DROP TABLE kp_vault_metadata;");
+                Seal(write, tx, m, crypto); SimulateIoFailure?.Invoke(VaultIoStage.BeforeCommit); tx.Commit(); _epoch = m.KeyEpoch;
+                Execute(write, null, "PRAGMA wal_checkpoint(TRUNCATE);");
             }
             else
             {
-                cmd.CommandText = "SELECT id, group_id, title, username, password_enc, url, notes_enc, tags, icon_index, expiry_date, autotype_enabled, autotype_seq, created_at, updated_at, last_access_at FROM kp_entries;";
+                using var verify = Open(); using var tx = verify.BeginTransaction();
+                using var cmd = verify.CreateCommand(); cmd.Transaction = tx; cmd.CommandText = "SELECT authentication FROM sp_metadata WHERE singleton=1";
+                string auth = (string)cmd.ExecuteScalar()!;
+                if (auth.Length == 0)
+                {
+                    if (!_bootstrapAllowed) throw new InvalidDataException("Firma del vault mancante. Il file non è un nuovo vault creato da questa sessione.");
+                    cmd.CommandText = "SELECT (SELECT COUNT(*) FROM sp_groups)+(SELECT COUNT(*) FROM sp_entries)";
+                    if ((long)cmd.ExecuteScalar()! != 0) throw new InvalidDataException("Firma dell'header assente.");
+                    Seal(verify, tx, m, crypto);
+                }
+                else Verify(verify, tx, m, crypto);
+                tx.Commit();
             }
-
-            using (var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false))
-            {
-                while (await reader.ReadAsync().ConfigureAwait(false))
-                {
-                    string rawUser = reader.GetString(3);
-                    string passEnc = reader.GetString(4);
-                    string rawUrl = reader.GetString(5);
-                    string notesEnc = reader.GetString(6);
-
-                    string decUser = rawUser.StartsWith("ENC:") ? crypto.DecryptString(rawUser.Substring(4)) : rawUser;
-                    string decUrl = rawUrl.StartsWith("ENC:") ? crypto.DecryptString(rawUrl.Substring(4)) : rawUrl;
-                    string decryptedPass = "";
-                    string decryptedNotes = "";
-
-                    try { decryptedPass = crypto.DecryptString(passEnc); } catch { decryptedPass = "[Decryption Error]"; }
-                    try { decryptedNotes = crypto.DecryptString(notesEnc); } catch { decryptedNotes = "[Decryption Error]"; }
-
-                    var entry = new PwEntry
-                    {
-                        Id = Guid.Parse(reader.GetString(0)),
-                        GroupId = Guid.Parse(reader.GetString(1)),
-                        Title = reader.GetString(2),
-                        UserName = decUser,
-                        Password = decryptedPass,
-                        Url = decUrl,
-                        Notes = decryptedNotes,
-                        Tags = reader.IsDBNull(7) ? "" : reader.GetString(7),
-                        IconIndex = reader.GetInt32(8),
-                        ExpiryDate = reader.IsDBNull(9) ? null : DateTime.Parse(reader.GetString(9)),
-                        AutoTypeEnabled = reader.GetInt32(10) == 1,
-                        AutoTypeSequence = reader.IsDBNull(11) ? "{USERNAME}{TAB}{PASSWORD}{ENTER}" : reader.GetString(11),
-                        CreatedAt = DateTime.Parse(reader.GetString(12)),
-                        UpdatedAt = DateTime.Parse(reader.GetString(13)),
-                        LastAccessAt = DateTime.Parse(reader.GetString(14))
-                    };
-                    entries.Add(entry);
-                }
-            }
-
-            // High-Performance Batch Loading (replaces N+1 queries: 3 queries total instead of 3 * N)
-            if (entries.Count > 0)
-            {
-                var entryMap = new Dictionary<Guid, PwEntry>(entries.Count);
-                foreach (var e in entries) entryMap[e.Id] = e;
-
-                // 1. Batch load Custom Fields
-                using (var cmdFields = conn.CreateCommand())
-                {
-                    cmdFields.CommandText = "SELECT id, entry_id, field_key, field_val_enc, is_protected FROM kp_custom_fields;";
-                    using var rFields = await cmdFields.ExecuteReaderAsync().ConfigureAwait(false);
-                    while (await rFields.ReadAsync().ConfigureAwait(false))
-                    {
-                        var eid = Guid.Parse(rFields.GetString(1));
-                        if (entryMap.TryGetValue(eid, out var targetEntry))
-                        {
-                            string encVal = rFields.GetString(3);
-                            string decVal = "";
-                            try { decVal = crypto.DecryptString(encVal); } catch { decVal = "[Decryption Error]"; }
-                            targetEntry.CustomFields.Add(new PwCustomField
-                            {
-                                Id = Guid.Parse(rFields.GetString(0)),
-                                EntryId = eid,
-                                Key = rFields.GetString(2),
-                                Value = decVal,
-                                IsProtected = rFields.GetInt32(4) == 1
-                            });
-                        }
-                    }
-                }
-
-                // 2. Batch load Attachments
-                using (var cmdAttach = conn.CreateCommand())
-                {
-                    cmdAttach.CommandText = "SELECT id, entry_id, filename, filesize, data_enc, created_at FROM kp_attachments;";
-                    using var rAttach = await cmdAttach.ExecuteReaderAsync().ConfigureAwait(false);
-                    while (await rAttach.ReadAsync().ConfigureAwait(false))
-                    {
-                        var eid = Guid.Parse(rAttach.GetString(1));
-                        if (entryMap.TryGetValue(eid, out var targetEntry))
-                        {
-                            byte[] encBytes = (byte[])rAttach[4];
-                            byte[] decBytes = Array.Empty<byte>();
-                            try { decBytes = crypto.DecryptBytes(encBytes); } catch { }
-                            targetEntry.Attachments.Add(new PwAttachment
-                            {
-                                Id = Guid.Parse(rAttach.GetString(0)),
-                                EntryId = eid,
-                                FileName = rAttach.GetString(2),
-                                FileSize = rAttach.GetInt64(3),
-                                Data = decBytes,
-                                CreatedAt = DateTime.Parse(rAttach.GetString(5))
-                            });
-                        }
-                    }
-                }
-
-                // 3. Batch load History
-                using (var cmdHist = conn.CreateCommand())
-                {
-                    cmdHist.CommandText = "SELECT id, entry_id, title, username, password_enc, url, notes_enc, saved_at FROM kp_history ORDER BY saved_at DESC;";
-                    using var rHist = await cmdHist.ExecuteReaderAsync().ConfigureAwait(false);
-                    while (await rHist.ReadAsync().ConfigureAwait(false))
-                    {
-                        var eid = Guid.Parse(rHist.GetString(1));
-                        if (entryMap.TryGetValue(eid, out var targetEntry))
-                        {
-                            string rawHistUser = rHist.GetString(3);
-                            string histUser = rawHistUser.StartsWith("ENC:") ? crypto.DecryptString(rawHistUser.Substring(4)) : rawHistUser;
-                            string pass = "";
-                            string notes = "";
-                            try { pass = crypto.DecryptString(rHist.GetString(4)); } catch { pass = "[Error]"; }
-                            try { notes = crypto.DecryptString(rHist.GetString(6)); } catch { notes = "[Error]"; }
-
-                            targetEntry.History.Add(new PwEntryHistory
-                            {
-                                Id = Guid.Parse(rHist.GetString(0)),
-                                EntryId = eid,
-                                Title = rHist.GetString(2),
-                                UserName = histUser,
-                                Password = pass,
-                                Url = rHist.GetString(5),
-                                Notes = notes,
-                                SavedAt = DateTime.Parse(rHist.GetString(7))
-                            });
-                        }
-                    }
-                }
-            }
-
-            return entries;
+            _bootstrapAllowed = false;
         }
+        catch { _bootstrapAllowed = false; _lease?.Dispose(); _lease = null; _crypto = null; _metadata = null; _locked = true; throw; }
+        finally { _gate.Release(); }
+    }
 
-        public async Task SaveEntryAsync(PwEntry entry, CryptoEngine crypto, bool encryptUsernameUrl = false)
+    private static void WriteMetadata(SqliteConnection c, SqliteTransaction tx, VaultMetadata m, string auth) => Execute(c, tx,
+        "INSERT INTO sp_metadata VALUES(1,$metadata,$auth) ON CONFLICT(singleton) DO UPDATE SET metadata=$metadata,authentication=$auth",
+        ("$metadata", JsonSerializer.Serialize(m)), ("$auth", auth));
+    private static string Context(VaultMetadata m, string table, Guid id, Guid? parent, long revision) =>
+        $"SQLitePass/v2/{m.VaultId:D}/{table}/{id:D}/{parent?.ToString("D") ?? "root"}/{revision.ToString(CultureInfo.InvariantCulture)}";
+
+    private static string Manifest(SqliteConnection c, SqliteTransaction tx, VaultMetadata m,
+        CancellationToken cancellationToken = default, IProgress<VaultReadProgress>? progress = null)
+    {
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        hash.AppendData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(m)));
+        void AppendLine(string value)
         {
-            using var conn = CreateOpenConnection();
-            using var transaction = conn.BeginTransaction();
+            hash.AppendData("\n"u8); hash.AppendData(Encoding.UTF8.GetBytes(value));
+        }
+        int completed = 0, total = 0;
+        if (progress != null)
+        {
+            using var count = c.CreateCommand(); count.Transaction = tx;
+            count.CommandText = "SELECT (SELECT COUNT(*) FROM sp_groups)+(SELECT COUNT(*) FROM sp_entries)";
+            total = Convert.ToInt32(count.ExecuteScalar()); progress.Report(new(VaultReadPhase.Verifying, 0, total));
+        }
+        using (var schema = c.CreateCommand())
+        {
+            schema.Transaction = tx;
+            schema.CommandText = "SELECT type,name,tbl_name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name";
+            using var reader = schema.ExecuteReader();
+            while (reader.Read())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                AppendLine(JsonSerializer.Serialize(new object[]
+                { reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.IsDBNull(3) ? "" : reader.GetString(3) }));
+            }
+        }
+        foreach (string table in new[] { "sp_groups", "sp_entries" })
+        {
+            // Selecting rowid lets GetStream use SqliteBlob rather than copying the whole BLOB into a MemoryStream.
+            using var cmd = c.CreateCommand(); cmd.Transaction = tx; cmd.CommandText = $"SELECT *,rowid FROM {table} ORDER BY id COLLATE BINARY";
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                AppendLine(JsonSerializer.Serialize(new object[]
+                    { table, reader.GetString(0), reader.IsDBNull(1) ? "" : reader.GetString(1), reader.GetInt64(2), PayloadHash(reader) }));
+                completed++;
+                if (completed % 50 == 0 || completed == total) progress?.Report(new(VaultReadPhase.Verifying, completed, total));
+            }
+        }
+        return Convert.ToHexString(hash.GetHashAndReset());
+    }
+    private static string PayloadHash(SqliteDataReader reader)
+    {
+        using var stream = reader.GetStream(3);
+        if (stream.Length > 64 * 1024 * 1024) throw new InvalidDataException("Un record supera il limite supportato di 64 MB.");
+        return Convert.ToHexString(SHA256.HashData(stream));
+    }
+    private static void Seal(SqliteConnection c, SqliteTransaction tx, VaultMetadata m, CryptoEngine crypto)
+    {
+        m.UpdatedAt = DateTime.UtcNow;
+        WriteMetadata(c, tx, m, crypto.EncryptString("SQLitePass manifest v2", "SQLitePass/manifest/" + Manifest(c, tx, m)));
+    }
+    private static void Verify(SqliteConnection c, SqliteTransaction tx, VaultMetadata m, CryptoEngine crypto,
+        CancellationToken cancellationToken = default, IProgress<VaultReadProgress>? progress = null)
+    {
+        using var cmd = c.CreateCommand(); cmd.Transaction = tx; cmd.CommandText = "SELECT authentication FROM sp_metadata WHERE singleton=1";
+        string auth = (string?)cmd.ExecuteScalar() ?? throw new InvalidDataException("Firma del vault mancante.");
+        if (crypto.DecryptString(auth, "SQLitePass/manifest/" + Manifest(c, tx, m, cancellationToken, progress)) != "SQLitePass manifest v2") throw new CryptographicException("Integrità del vault non valida.");
+    }
+    private VaultMetadata RequireSession(SqliteConnection c, SqliteTransaction tx, CancellationToken cancellationToken = default,
+        IProgress<VaultReadProgress>? progress = null)
+    {
+        if (_locked || _crypto == null || _crypto.IsDisposed) throw new InvalidOperationException("Il vault è bloccato.");
+        var m = ReadMetadata(c, tx) ?? throw new InvalidDataException("Header mancante.");
+        if (m.KeyEpoch != _epoch || m.VerificationCanary != _metadata!.VerificationCanary)
+        {
+            _locked = true; _crypto.Dispose();
+            throw new InvalidOperationException("La chiave è cambiata in un'altra sessione. Bloccare e riaprire il vault.");
+        }
+        Verify(c, tx, m, _crypto, cancellationToken, progress); return m;
+    }
+    private Task<T> ReadAsync<T>(Func<SqliteConnection, SqliteTransaction, CryptoEngine, VaultMetadata, T> action,
+        CancellationToken cancellationToken = default, IProgress<VaultReadProgress>? progress = null) => Task.Run(async () =>
+    {
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            using var c = Open(); using var tx = c.BeginTransaction(deferred: true);
+            var m = RequireSession(c, tx, cancellationToken, progress);
+            cancellationToken.ThrowIfCancellationRequested(); return action(c, tx, _crypto!, m);
+        }
+        catch (Exception ex) when (ex is CryptographicException or FormatException or JsonException or InvalidDataException)
+        { IsReadOnly = true; throw new InvalidDataException("Verifica di integrità fallita. Nessun dato è stato riscritto: usare un backup verificato.", ex); }
+        finally { _gate.Release(); }
+    });
+    private Task WriteAsync(Action<SqliteConnection, SqliteTransaction, CryptoEngine, VaultMetadata> action, CancellationToken cancellationToken = default,
+        string? preservedBackupPurpose = null) => Task.Run(async () =>
+    {
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false); var originalCrypto = _crypto; bool committed = false;
+        try
+        {
+            if (IsReadOnly) throw new InvalidOperationException("Il vault è in sola lettura dopo un errore di integrità.");
+            using (var c = Open()) using (var tx = c.BeginTransaction())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var m = RequireSession(c, tx);
+                if (preservedBackupPurpose != null) CreateSnapshot(PreservedBackupPath(preservedBackupPurpose));
+                action(c, tx, _crypto!, m);
+                cancellationToken.ThrowIfCancellationRequested();
+                if (_locked) throw new OperationCanceledException("Operazione annullata dal blocco del vault.");
+                Seal(c, tx, m, _crypto!);
+                cancellationToken.ThrowIfCancellationRequested();
+                if (_locked) throw new OperationCanceledException("Operazione annullata dal blocco del vault.");
+                SimulateIoFailure?.Invoke(VaultIoStage.BeforeCommit);
+                tx.Commit(); committed = true; _metadata = m; _epoch = m.KeyEpoch;
+            }
+            if (!ReferenceEquals(originalCrypto, _crypto)) originalCrypto?.Dispose();
+            BackupCore();
+        }
+        catch (Exception ex) when (ex is CryptographicException or FormatException or JsonException)
+        { IsReadOnly = true; throw new InvalidDataException("Integrità non valida: scrittura annullata.", ex); }
+        finally { if (!committed) _crypto = originalCrypto; _gate.Release(); }
+    });
+    private void CheckCrypto(CryptoEngine crypto)
+    { if (!ReferenceEquals(_crypto, crypto) || crypto.IsDisposed || _locked) throw new InvalidOperationException("Sessione del vault non valida."); }
 
+    private static List<PwGroup> ReadGroups(SqliteConnection c, SqliteTransaction tx, CryptoEngine crypto, VaultMetadata m)
+    {
+        using var cmd = c.CreateCommand(); cmd.Transaction = tx; cmd.CommandText = "SELECT id,parent_id,revision,payload FROM sp_groups";
+        using var r = cmd.ExecuteReader(); var result = new List<PwGroup>();
+        while (r.Read())
+        {
+            var id = Guid.Parse(r.GetString(0)); Guid? parent = r.IsDBNull(1) ? null : Guid.Parse(r.GetString(1)); long revision = r.GetInt64(2);
+            byte[] plain = crypto.DecryptBytes((byte[])r[3], Context(m, "groups", id, parent, revision));
             try
             {
-                using (var cmd = conn.CreateCommand())
-                {
-                    cmd.Transaction = transaction;
-                    cmd.CommandText = @"
-                        INSERT INTO kp_entries (id, group_id, title, username, password_enc, url, notes_enc, tags, icon_index, expiry_date, autotype_enabled, autotype_seq, created_at, updated_at, last_access_at)
-                        VALUES (@id, @gid, @title, @user, @pass, @url, @notes, @tags, @icon, @expiry, @at_enabled, @at_seq, @created, @updated, @access)
-                        ON CONFLICT(id) DO UPDATE SET
-                            group_id = excluded.group_id,
-                            title = excluded.title,
-                            username = excluded.username,
-                            password_enc = excluded.password_enc,
-                            url = excluded.url,
-                            notes_enc = excluded.notes_enc,
-                            tags = excluded.tags,
-                            icon_index = excluded.icon_index,
-                            expiry_date = excluded.expiry_date,
-                            autotype_enabled = excluded.autotype_enabled,
-                            autotype_seq = excluded.autotype_seq,
-                            updated_at = excluded.updated_at,
-                            last_access_at = excluded.last_access_at;
-                    ";
-
-                    string storedUser = encryptUsernameUrl ? "ENC:" + crypto.EncryptString(entry.UserName) : entry.UserName;
-                    string storedUrl = encryptUsernameUrl ? "ENC:" + crypto.EncryptString(entry.Url) : entry.Url;
-
-                    cmd.Parameters.AddWithValue("@id", entry.Id.ToString());
-                    cmd.Parameters.AddWithValue("@gid", entry.GroupId.ToString());
-                    cmd.Parameters.AddWithValue("@title", entry.Title);
-                    cmd.Parameters.AddWithValue("@user", storedUser);
-                    cmd.Parameters.AddWithValue("@pass", crypto.EncryptString(entry.Password));
-                    cmd.Parameters.AddWithValue("@url", storedUrl);
-                    cmd.Parameters.AddWithValue("@notes", crypto.EncryptString(entry.Notes));
-                    cmd.Parameters.AddWithValue("@tags", entry.Tags ?? "");
-                    cmd.Parameters.AddWithValue("@icon", entry.IconIndex);
-                    cmd.Parameters.AddWithValue("@expiry", entry.ExpiryDate.HasValue ? entry.ExpiryDate.Value.ToString("o") : (object)DBNull.Value);
-                    cmd.Parameters.AddWithValue("@at_enabled", entry.AutoTypeEnabled ? 1 : 0);
-                    cmd.Parameters.AddWithValue("@at_seq", entry.AutoTypeSequence ?? "{USERNAME}{TAB}{PASSWORD}{ENTER}");
-                    cmd.Parameters.AddWithValue("@created", entry.CreatedAt.ToString("o"));
-                    cmd.Parameters.AddWithValue("@updated", DateTime.UtcNow.ToString("o"));
-                    cmd.Parameters.AddWithValue("@access", entry.LastAccessAt.ToString("o"));
-
-                    await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-                }
-
-                // Custom fields
-                using (var delCmd = conn.CreateCommand())
-                {
-                    delCmd.Transaction = transaction;
-                    delCmd.CommandText = "DELETE FROM kp_custom_fields WHERE entry_id = @eid;";
-                    delCmd.Parameters.AddWithValue("@eid", entry.Id.ToString());
-                    await delCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-                }
-
-                foreach (var field in entry.CustomFields)
-                {
-                    using var fCmd = conn.CreateCommand();
-                    fCmd.Transaction = transaction;
-                    fCmd.CommandText = @"INSERT INTO kp_custom_fields (id, entry_id, field_key, field_val_enc, is_protected)
-                                         VALUES (@id, @eid, @key, @val, @prot);";
-                    fCmd.Parameters.AddWithValue("@id", field.Id.ToString());
-                    fCmd.Parameters.AddWithValue("@eid", entry.Id.ToString());
-                    fCmd.Parameters.AddWithValue("@key", field.Key);
-                    fCmd.Parameters.AddWithValue("@val", crypto.EncryptString(field.Value));
-                    fCmd.Parameters.AddWithValue("@prot", field.IsProtected ? 1 : 0);
-                    await fCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-                }
-
-                // Attachments
-                using (var delAttach = conn.CreateCommand())
-                {
-                    delAttach.Transaction = transaction;
-                    delAttach.CommandText = "DELETE FROM kp_attachments WHERE entry_id = @eid;";
-                    delAttach.Parameters.AddWithValue("@eid", entry.Id.ToString());
-                    await delAttach.ExecuteNonQueryAsync().ConfigureAwait(false);
-                }
-
-                foreach (var attach in entry.Attachments)
-                {
-                    using var aCmd = conn.CreateCommand();
-                    aCmd.Transaction = transaction;
-                    aCmd.CommandText = @"INSERT INTO kp_attachments (id, entry_id, filename, filesize, data_enc, created_at)
-                                         VALUES (@id, @eid, @name, @size, @data, @created);";
-                    aCmd.Parameters.AddWithValue("@id", attach.Id.ToString());
-                    aCmd.Parameters.AddWithValue("@eid", entry.Id.ToString());
-                    aCmd.Parameters.AddWithValue("@name", attach.FileName);
-                    aCmd.Parameters.AddWithValue("@size", attach.Data?.Length ?? 0);
-                    aCmd.Parameters.AddWithValue("@data", crypto.EncryptBytes(attach.Data));
-                    aCmd.Parameters.AddWithValue("@created", attach.CreatedAt.ToString("o"));
-                    await aCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-                }
-
-                // History snapshots
-                foreach (var hist in entry.History)
-                {
-                    using var hCmd = conn.CreateCommand();
-                    hCmd.Transaction = transaction;
-                    hCmd.CommandText = @"INSERT OR IGNORE INTO kp_history (id, entry_id, title, username, password_enc, url, notes_enc, saved_at)
-                                         VALUES (@id, @eid, @title, @user, @pass, @url, @notes, @saved);";
-                    string histUser = encryptUsernameUrl ? "ENC:" + crypto.EncryptString(hist.UserName) : hist.UserName;
-                    hCmd.Parameters.AddWithValue("@id", hist.Id.ToString());
-                    hCmd.Parameters.AddWithValue("@eid", entry.Id.ToString());
-                    hCmd.Parameters.AddWithValue("@title", hist.Title);
-                    hCmd.Parameters.AddWithValue("@user", histUser);
-                    hCmd.Parameters.AddWithValue("@pass", crypto.EncryptString(hist.Password));
-                    hCmd.Parameters.AddWithValue("@url", hist.Url);
-                    hCmd.Parameters.AddWithValue("@notes", crypto.EncryptString(hist.Notes));
-                    hCmd.Parameters.AddWithValue("@saved", hist.SavedAt.ToString("o"));
-                    await hCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-                }
-
-                transaction.Commit();
+                var g = JsonSerializer.Deserialize<PwGroup>(plain, EntrySerialization.Options) ?? throw new InvalidDataException("Gruppo vuoto.");
+                if (g.Id != id || g.ParentId != parent || g.Revision != revision) throw new InvalidDataException("Identità del gruppo non valida.");
+                g.IsRoot = id == m.RootGroupId; g.IsRecycleBin = id == m.RecycleBinGroupId; result.Add(g);
             }
-            catch
-            {
-                transaction.Rollback();
-                throw;
-            }
-
-            TriggerAtomicBackup();
+            finally { CryptographicOperations.ZeroMemory(plain); }
         }
-
-        public async Task DeleteEntryAsync(Guid entryId)
+        return result.OrderBy(g => g.SortOrder).ThenBy(g => g.CreatedAt).ToList();
+    }
+    private static List<PwEntry> ReadEntries(SqliteConnection c, SqliteTransaction tx, CryptoEngine crypto, VaultMetadata m,
+        Guid? groupId = null, bool includeDetails = true, Guid? entryId = null,
+        CancellationToken cancellationToken = default, IProgress<VaultReadProgress>? progress = null)
+    {
+        var result = new List<PwEntry>();
+        try
         {
-            using var conn = CreateOpenConnection();
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = "DELETE FROM kp_entries WHERE id = @id;";
-            cmd.Parameters.AddWithValue("@id", entryId.ToString());
-
-            await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-            TriggerAtomicBackup();
+            foreach (var entry in EnumerateEntries(c, tx, crypto, m, groupId, includeDetails, entryId, cancellationToken, progress)) result.Add(entry);
+            return result;
         }
+        catch { foreach (var entry in result) entry.ClearSecrets(); throw; }
+    }
 
-        /// <summary>
-        /// Saves multiple entries within a single SQLite transaction and triggers a single atomic backup at the end.
-        /// Boosts bulk import performance by ~50x.
-        /// </summary>
-        public async Task SaveEntriesBatchAsync(IEnumerable<PwEntry> entries, CryptoEngine crypto, bool encryptUsernameUrl = false)
+    // The consumer owns each yielded model and must clear models it does not retain.
+    private static IEnumerable<PwEntry> EnumerateEntries(SqliteConnection c, SqliteTransaction tx, CryptoEngine crypto, VaultMetadata m,
+        Guid? groupId = null, bool includeDetails = true, Guid? entryId = null,
+        CancellationToken cancellationToken = default, IProgress<VaultReadProgress>? progress = null)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var cmd = c.CreateCommand(); cmd.Transaction = tx;
+        cmd.CommandText = "SELECT id,group_id,revision,payload FROM sp_entries" + (groupId.HasValue ? " WHERE group_id=$group" : "");
+        if (groupId.HasValue) cmd.Parameters.AddWithValue("$group", groupId.Value.ToString());
+        if (entryId.HasValue)
         {
-            using var conn = CreateOpenConnection();
-            using var transaction = conn.BeginTransaction();
-
+            cmd.CommandText += groupId.HasValue ? " AND id=$id" : " WHERE id=$id";
+            cmd.Parameters.AddWithValue("$id", entryId.Value.ToString());
+        }
+        int total = 0;
+        if (progress != null)
+        {
+            using var count = c.CreateCommand(); count.Transaction = tx; count.CommandText = "SELECT COUNT(*) FROM sp_entries";
+            total = Convert.ToInt32(count.ExecuteScalar()); progress.Report(new(VaultReadPhase.LoadingEntries, 0, total));
+        }
+        using var r = cmd.ExecuteReader(); int completed = 0;
+        while (r.Read())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var id = Guid.Parse(r.GetString(0)); var group = Guid.Parse(r.GetString(1)); long revision = r.GetInt64(2);
+            byte[] plain = crypto.DecryptBytes((byte[])r[3], Context(m, "entries", id, group, revision));
+            PwEntry entry;
             try
             {
-                foreach (var entry in entries)
-                {
-                    using (var cmd = conn.CreateCommand())
-                    {
-                        cmd.Transaction = transaction;
-                        cmd.CommandText = @"
-                            INSERT INTO kp_entries (id, group_id, title, username, password_enc, url, notes_enc, tags, icon_index, expiry_date, autotype_enabled, autotype_seq, created_at, updated_at, last_access_at)
-                            VALUES (@id, @gid, @title, @user, @pass, @url, @notes, @tags, @icon, @expiry, @at_enabled, @at_seq, @created, @updated, @access)
-                            ON CONFLICT(id) DO UPDATE SET
-                                group_id = excluded.group_id,
-                                title = excluded.title,
-                                username = excluded.username,
-                                password_enc = excluded.password_enc,
-                                url = excluded.url,
-                                notes_enc = excluded.notes_enc,
-                                tags = excluded.tags,
-                                icon_index = excluded.icon_index,
-                                expiry_date = excluded.expiry_date,
-                                autotype_enabled = excluded.autotype_enabled,
-                                autotype_seq = excluded.autotype_seq,
-                                updated_at = excluded.updated_at,
-                                last_access_at = excluded.last_access_at;
-                        ";
-
-                        string storedUser = encryptUsernameUrl ? "ENC:" + crypto.EncryptString(entry.UserName) : entry.UserName;
-                        string storedUrl = encryptUsernameUrl ? "ENC:" + crypto.EncryptString(entry.Url) : entry.Url;
-
-                        cmd.Parameters.AddWithValue("@id", entry.Id.ToString());
-                        cmd.Parameters.AddWithValue("@gid", entry.GroupId.ToString());
-                        cmd.Parameters.AddWithValue("@title", entry.Title);
-                        cmd.Parameters.AddWithValue("@user", storedUser);
-                        cmd.Parameters.AddWithValue("@pass", crypto.EncryptString(entry.Password));
-                        cmd.Parameters.AddWithValue("@url", storedUrl);
-                        cmd.Parameters.AddWithValue("@notes", crypto.EncryptString(entry.Notes));
-                        cmd.Parameters.AddWithValue("@tags", entry.Tags ?? "");
-                        cmd.Parameters.AddWithValue("@icon", entry.IconIndex);
-                        cmd.Parameters.AddWithValue("@expiry", entry.ExpiryDate.HasValue ? entry.ExpiryDate.Value.ToString("o") : (object)DBNull.Value);
-                        cmd.Parameters.AddWithValue("@at_enabled", entry.AutoTypeEnabled ? 1 : 0);
-                        cmd.Parameters.AddWithValue("@at_seq", entry.AutoTypeSequence ?? "{USERNAME}{TAB}{PASSWORD}{ENTER}");
-                        cmd.Parameters.AddWithValue("@created", entry.CreatedAt.ToString("o"));
-                        cmd.Parameters.AddWithValue("@updated", DateTime.UtcNow.ToString("o"));
-                        cmd.Parameters.AddWithValue("@access", entry.LastAccessAt.ToString("o"));
-
-                        await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-                    }
-
-                    if (entry.CustomFields.Count > 0)
-                    {
-                        using var delCmd = conn.CreateCommand();
-                        delCmd.Transaction = transaction;
-                        delCmd.CommandText = "DELETE FROM kp_custom_fields WHERE entry_id = @eid;";
-                        delCmd.Parameters.AddWithValue("@eid", entry.Id.ToString());
-                        await delCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-
-                        foreach (var field in entry.CustomFields)
-                        {
-                            using var fCmd = conn.CreateCommand();
-                            fCmd.Transaction = transaction;
-                            fCmd.CommandText = @"INSERT INTO kp_custom_fields (id, entry_id, field_key, field_val_enc, is_protected)
-                                                 VALUES (@id, @eid, @key, @val, @prot);";
-                            fCmd.Parameters.AddWithValue("@id", field.Id.ToString());
-                            fCmd.Parameters.AddWithValue("@eid", entry.Id.ToString());
-                            fCmd.Parameters.AddWithValue("@key", field.Key);
-                            fCmd.Parameters.AddWithValue("@val", crypto.EncryptString(field.Value));
-                            fCmd.Parameters.AddWithValue("@prot", field.IsProtected ? 1 : 0);
-                            await fCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-                        }
-                    }
-                }
-
-                transaction.Commit();
+                entry = JsonSerializer.Deserialize<PwEntry>(plain, includeDetails ? EntrySerialization.Options : EntrySerialization.OverviewOptions)
+                    ?? throw new InvalidDataException("Voce vuota.");
+                if (entry.Id != id || entry.GroupId != group || entry.Revision != revision)
+                { entry.ClearSecrets(); throw new InvalidDataException("Identità della voce non valida."); }
+                if (!includeDetails) entry.MarkAsOverview();
             }
-            catch (Exception ex)
-            {
-                transaction.Rollback();
-                AppLogger.LogError("Batch save entries transaction failed", ex);
-                throw;
-            }
-
-            TriggerAtomicBackup();
+            finally { CryptographicOperations.ZeroMemory(plain); }
+            // Report only after ownership has passed to the consumer, including on cancellation.
+            yield return entry;
+            completed++;
+            if (completed % 50 == 0 || completed == total) progress?.Report(new(VaultReadPhase.LoadingEntries, completed, total));
         }
-
-        /// <summary>
-        /// Deletes multiple entries in a single SQLite transaction and triggers a single backup.
-        /// </summary>
-        public async Task DeleteEntriesBatchAsync(IEnumerable<Guid> entryIds)
+        cancellationToken.ThrowIfCancellationRequested();
+    }
+    public Task<List<PwGroup>> LoadAllGroupsAsync(CryptoEngine crypto)
+    { CheckCrypto(crypto); return ReadAsync((c, tx, key, m) => { var groups = ReadGroups(c, tx, key, m); ValidateTree(groups, []); return groups; }); }
+    public Task<List<PwEntry>> LoadEntriesAsync(Guid? groupId, CryptoEngine crypto)
+    { CheckCrypto(crypto); return ReadAsync((c, tx, key, m) => ReadEntries(c, tx, key, m, groupId)); }
+    public Task<PwEntry> LoadEntryAsync(Guid entryId, CryptoEngine crypto, long? expectedRevision = null,
+        CancellationToken cancellationToken = default)
+    {
+        CheckCrypto(crypto);
+        return ReadAsync((c, tx, key, m) =>
         {
-            using var conn = CreateOpenConnection();
-            using var transaction = conn.BeginTransaction();
-
-            try
-            {
-                foreach (var id in entryIds)
-                {
-                    using var cmd = conn.CreateCommand();
-                    cmd.Transaction = transaction;
-                    cmd.CommandText = "DELETE FROM kp_entries WHERE id = @id;";
-                    cmd.Parameters.AddWithValue("@id", id.ToString());
-                    await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-                }
-
-                transaction.Commit();
-            }
-            catch (Exception ex)
-            {
-                transaction.Rollback();
-                AppLogger.LogError("Batch delete entries transaction failed", ex);
-                throw;
-            }
-
-            TriggerAtomicBackup();
-        }
-
-        /// <summary>
-        /// Executes an isolated, atomic snapshot to the .backup file using SQLite's native Online Backup API.
-        /// Leaves the backup file completely closed on disk, immune to concurrent corruption.
-        /// </summary>
-        public void TriggerAtomicBackup()
+            var entry = ReadEntries(c, tx, key, m, entryId: entryId, cancellationToken: cancellationToken).SingleOrDefault()
+                ?? throw new InvalidOperationException("La voce non esiste più. Aggiornare il vault.");
+            if (expectedRevision.HasValue && entry.Revision != expectedRevision.Value)
+            { entry.ClearSecrets(); throw new InvalidOperationException("La voce è cambiata in un'altra sessione. Aggiornare e riprovare."); }
+            return entry;
+        }, cancellationToken);
+    }
+    public Task<VaultSnapshot> LoadSnapshotAsync(CryptoEngine crypto, bool includeDetails = true,
+        CancellationToken cancellationToken = default, IProgress<VaultReadProgress>? progress = null)
+    {
+        CheckCrypto(crypto);
+        return ReadAsync((c, tx, key, metadata) =>
         {
-            try
-            {
-                string tempBackupPath = BackupFilePath + ".tmp";
-                string destConnStr = new SqliteConnectionStringBuilder
-                {
-                    DataSource = tempBackupPath,
-                    Pooling = false
-                }.ToString();
+            var groups = ReadGroups(c, tx, key, metadata);
+            var entries = ReadEntries(c, tx, key, metadata, includeDetails: includeDetails, cancellationToken: cancellationToken, progress: progress);
+            try { ValidateTree(groups, entries); ValidateSystemGroups(groups, metadata); return new VaultSnapshot(metadata, groups, entries); }
+            catch { foreach (var entry in entries) entry.ClearSecrets(); throw; }
+        }, cancellationToken, progress);
+    }
 
-                // 1. Perform SQLite online backup into temporary file
-                using (var source = new SqliteConnection(_connectionString))
-                using (var dest = new SqliteConnection(destConnStr))
-                {
-                    source.Open();
-                    dest.Open();
-                    source.BackupDatabase(dest);
-                }
-
-                // 2. Atomically replace the target backup file
-                if (File.Exists(tempBackupPath))
-                {
-                    if (File.Exists(BackupFilePath))
-                    {
-                        File.Replace(tempBackupPath, BackupFilePath, null);
-                    }
-                    else
-                    {
-                        File.Move(tempBackupPath, BackupFilePath);
-                    }
-
-                    // 3. Optional copy to secondary backup directory (USB drive, secondary disk)
-                    try
-                    {
-                        var settings = Services.AppSettingsManager.Load();
-                        if (!string.IsNullOrWhiteSpace(settings.SecondaryBackupDir) && Directory.Exists(settings.SecondaryBackupDir))
-                        {
-                            string secDest = Path.Combine(settings.SecondaryBackupDir, Path.GetFileName(BackupFilePath));
-                            File.Copy(BackupFilePath, secDest, overwrite: true);
-                        }
-                    }
-                    catch { }
-                }
-            }
-            catch (Exception ex)
-            {
-                AppLogger.LogError($"Atomic backup failed for {FilePath}", ex);
-            }
-        }
-
-        /// <summary>
-        /// Changes the Master Key of the vault by re-encrypting all sensitive records in a single atomic transaction.
-        /// </summary>
-        public async Task ChangeMasterKeyAsync(
-            CryptoEngine oldCrypto,
-            CryptoEngine newCrypto,
-            string newSaltBase64,
-            int iterations,
-            int memoryKb,
-            int parallelism,
-            bool encryptUsernameUrl)
+    private static void ValidateTree(List<PwGroup> groups, IEnumerable<PwEntry> entries)
+    {
+        var map = groups.ToDictionary(g => g.Id);
+        foreach (var group in groups)
         {
-            using var conn = CreateOpenConnection();
-            using var transaction = conn.BeginTransaction();
-
-            try
+            var seen = new HashSet<Guid>(); PwGroup? current = group;
+            while (current != null)
             {
-                // 1. Re-encrypt entries
-                var entryUpdates = new List<(string id, string passEnc, string notesEnc, string user, string url)>();
-                using (var cmd = conn.CreateCommand())
-                {
-                    cmd.Transaction = transaction;
-                    cmd.CommandText = "SELECT id, password_enc, notes_enc, username, url FROM kp_entries;";
-                    using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
-                    while (await reader.ReadAsync().ConfigureAwait(false))
-                    {
-                        string id = reader.GetString(0);
-                        string passEnc = reader.GetString(1);
-                        string notesEnc = reader.GetString(2);
-                        string rawUser = reader.GetString(3);
-                        string rawUrl = reader.GetString(4);
-
-                        string decPass = oldCrypto.DecryptString(passEnc);
-                        string decNotes = oldCrypto.DecryptString(notesEnc);
-                        string decUser = rawUser.StartsWith("ENC:") ? oldCrypto.DecryptString(rawUser.Substring(4)) : rawUser;
-                        string decUrl = rawUrl.StartsWith("ENC:") ? oldCrypto.DecryptString(rawUrl.Substring(4)) : rawUrl;
-
-                        string newPass = newCrypto.EncryptString(decPass);
-                        string newNotes = newCrypto.EncryptString(decNotes);
-                        string newUser = encryptUsernameUrl ? "ENC:" + newCrypto.EncryptString(decUser) : decUser;
-                        string newUrl = encryptUsernameUrl ? "ENC:" + newCrypto.EncryptString(decUrl) : decUrl;
-
-                        entryUpdates.Add((id, newPass, newNotes, newUser, newUrl));
-                    }
-                }
-
-                foreach (var u in entryUpdates)
-                {
-                    using var cmd = conn.CreateCommand();
-                    cmd.Transaction = transaction;
-                    cmd.CommandText = "UPDATE kp_entries SET password_enc = @pass, notes_enc = @notes, username = @user, url = @url WHERE id = @id;";
-                    cmd.Parameters.AddWithValue("@id", u.id);
-                    cmd.Parameters.AddWithValue("@pass", u.passEnc);
-                    cmd.Parameters.AddWithValue("@notes", u.notesEnc);
-                    cmd.Parameters.AddWithValue("@user", u.user);
-                    cmd.Parameters.AddWithValue("@url", u.url);
-                    await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-                }
-
-                // 2. Re-encrypt custom fields
-                var fieldUpdates = new List<(string id, string valEnc)>();
-                using (var cmd = conn.CreateCommand())
-                {
-                    cmd.Transaction = transaction;
-                    cmd.CommandText = "SELECT id, field_val_enc FROM kp_custom_fields;";
-                    using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
-                    while (await reader.ReadAsync().ConfigureAwait(false))
-                    {
-                        string id = reader.GetString(0);
-                        string valEnc = reader.GetString(1);
-                        string decVal = oldCrypto.DecryptString(valEnc);
-                        fieldUpdates.Add((id, newCrypto.EncryptString(decVal)));
-                    }
-                }
-
-                foreach (var f in fieldUpdates)
-                {
-                    using var cmd = conn.CreateCommand();
-                    cmd.Transaction = transaction;
-                    cmd.CommandText = "UPDATE kp_custom_fields SET field_val_enc = @val WHERE id = @id;";
-                    cmd.Parameters.AddWithValue("@id", f.id);
-                    cmd.Parameters.AddWithValue("@val", f.valEnc);
-                    await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-                }
-
-                // 3. Re-encrypt attachments
-                var attachUpdates = new List<(string id, byte[] dataEnc)>();
-                using (var cmd = conn.CreateCommand())
-                {
-                    cmd.Transaction = transaction;
-                    cmd.CommandText = "SELECT id, data_enc FROM kp_attachments;";
-                    using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
-                    while (await reader.ReadAsync().ConfigureAwait(false))
-                    {
-                        string id = reader.GetString(0);
-                        byte[] encBytes = (byte[])reader[1];
-                        byte[] decBytes = oldCrypto.DecryptBytes(encBytes);
-                        attachUpdates.Add((id, newCrypto.EncryptBytes(decBytes)));
-                    }
-                }
-
-                foreach (var a in attachUpdates)
-                {
-                    using var cmd = conn.CreateCommand();
-                    cmd.Transaction = transaction;
-                    cmd.CommandText = "UPDATE kp_attachments SET data_enc = @data WHERE id = @id;";
-                    cmd.Parameters.AddWithValue("@id", a.id);
-                    cmd.Parameters.AddWithValue("@data", a.dataEnc);
-                    await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-                }
-
-                // 4. Re-encrypt history
-                var histUpdates = new List<(string id, string passEnc, string notesEnc, string user)>();
-                using (var cmd = conn.CreateCommand())
-                {
-                    cmd.Transaction = transaction;
-                    cmd.CommandText = "SELECT id, password_enc, notes_enc, username FROM kp_history;";
-                    using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
-                    while (await reader.ReadAsync().ConfigureAwait(false))
-                    {
-                        string id = reader.GetString(0);
-                        string passEnc = reader.GetString(1);
-                        string notesEnc = reader.GetString(2);
-                        string rawUser = reader.GetString(3);
-
-                        string decPass = oldCrypto.DecryptString(passEnc);
-                        string decNotes = oldCrypto.DecryptString(notesEnc);
-                        string decUser = rawUser.StartsWith("ENC:") ? oldCrypto.DecryptString(rawUser.Substring(4)) : rawUser;
-
-                        string newPass = newCrypto.EncryptString(decPass);
-                        string newNotes = newCrypto.EncryptString(decNotes);
-                        string newUser = encryptUsernameUrl ? "ENC:" + newCrypto.EncryptString(decUser) : decUser;
-
-                        histUpdates.Add((id, newPass, newNotes, newUser));
-                    }
-                }
-
-                foreach (var h in histUpdates)
-                {
-                    using var cmd = conn.CreateCommand();
-                    cmd.Transaction = transaction;
-                    cmd.CommandText = "UPDATE kp_history SET password_enc = @pass, notes_enc = @notes, username = @user WHERE id = @id;";
-                    cmd.Parameters.AddWithValue("@id", h.id);
-                    cmd.Parameters.AddWithValue("@pass", h.passEnc);
-                    cmd.Parameters.AddWithValue("@notes", h.notesEnc);
-                    cmd.Parameters.AddWithValue("@user", h.user);
-                    await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-                }
-
-                // 5. Update vault metadata
-                string newCanary = newCrypto.GenerateCanaryToken();
-                using (var cmd = conn.CreateCommand())
-                {
-                    cmd.Transaction = transaction;
-                    cmd.CommandText = @"
-                        UPDATE kp_vault_metadata SET
-                            salt_base64 = @salt,
-                            kdf_iterations = @iters,
-                            kdf_memory_kb = @mem,
-                            kdf_parallelism = @par,
-                            verification_canary = @canary,
-                            encrypt_username_url = @enc_meta,
-                            updated_at = @updated;
-                    ";
-                    cmd.Parameters.AddWithValue("@salt", newSaltBase64);
-                    cmd.Parameters.AddWithValue("@iters", iterations);
-                    cmd.Parameters.AddWithValue("@mem", memoryKb);
-                    cmd.Parameters.AddWithValue("@par", parallelism);
-                    cmd.Parameters.AddWithValue("@canary", newCanary);
-                    cmd.Parameters.AddWithValue("@enc_meta", encryptUsernameUrl ? 1 : 0);
-                    cmd.Parameters.AddWithValue("@updated", DateTime.UtcNow.ToString("o"));
-                    await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-                }
-
-                transaction.Commit();
-                AppLogger.LogInfo("Master Key changed and vault re-encrypted successfully.");
+                if (!seen.Add(current.Id) || seen.Count > 64) throw new InvalidDataException("Gerarchia ciclica o troppo profonda.");
+                if (current.ParentId.HasValue && !map.ContainsKey(current.ParentId.Value)) throw new InvalidDataException("Gruppo orfano.");
+                current = current.ParentId.HasValue ? map[current.ParentId.Value] : null;
             }
-            catch (Exception ex)
-            {
-                transaction.Rollback();
-                AppLogger.LogError("Change Master Key transaction failed", ex);
-                throw;
-            }
-
-            TriggerAtomicBackup();
         }
-
-        /// <summary>
-        /// Reclaims unused disk space from SQLite database using incremental vacuum and full vacuum.
-        /// </summary>
-        public async Task VacuumAsync()
+        if (entries.Any(e => !map.ContainsKey(e.GroupId))) throw new InvalidDataException("Voce senza gruppo.");
+    }
+    private static void ValidateSystemGroups(List<PwGroup> groups, VaultMetadata metadata)
+    {
+        var root = groups.FirstOrDefault(g => g.Id == metadata.RootGroupId);
+        if (groups.Count > 0 && (root == null || root.ParentId.HasValue)) throw new InvalidDataException("La radice del vault deve esistere al livello principale.");
+        if (metadata.RecycleBinGroupId.HasValue)
         {
-            try
-            {
-                using var conn = CreateOpenConnection();
-                using var cmd = conn.CreateCommand();
-                cmd.CommandText = "PRAGMA incremental_vacuum; VACUUM;";
-                await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
-                AppLogger.LogInfo($"Database VACUUM executed successfully on {FilePath}");
-            }
-            catch (Exception ex)
-            {
-                AppLogger.LogError($"Database VACUUM failed on {FilePath}", ex);
-            }
+            var trash = groups.FirstOrDefault(g => g.Id == metadata.RecycleBinGroupId);
+            if (trash == null || trash.Id == metadata.RootGroupId || trash.ParentId != metadata.RootGroupId || groups.Any(g => g.ParentId == trash.Id))
+                throw new InvalidDataException("Il cestino deve essere una cartella di sistema senza sottocartelle, sotto la radice.");
         }
+    }
+    private static void WriteGroup(SqliteConnection c, SqliteTransaction tx, PwGroup group, CryptoEngine crypto, VaultMetadata m)
+    {
+        var copy = JsonSerializer.Deserialize<PwGroup>(JsonSerializer.Serialize(group, EntrySerialization.Options), EntrySerialization.Options)!;
+        copy.Revision = group.Revision + 1; copy.UpdatedAt = DateTime.UtcNow;
+        byte[] plain = JsonSerializer.SerializeToUtf8Bytes(copy, EntrySerialization.Options);
+        try { Upsert(c, tx, "sp_groups", "parent_id", copy.Id, copy.ParentId, group.Revision, crypto.EncryptBytes(plain, Context(m, "groups", copy.Id, copy.ParentId, copy.Revision))); }
+        finally { CryptographicOperations.ZeroMemory(plain); }
+    }
+    private static void WriteEntry(SqliteConnection c, SqliteTransaction tx, PwEntry entry, CryptoEngine crypto, VaultMetadata m)
+    {
+        if (!entry.HasLoadedDetails) throw new InvalidOperationException("Una vista parziale non può essere salvata. Caricare prima i dettagli completi.");
+        var copy = entry.CreateStorageCopy(); copy.Revision = entry.Revision + 1; copy.UpdatedAt = DateTime.UtcNow;
+        byte[] plain = JsonSerializer.SerializeToUtf8Bytes(copy, EntrySerialization.Options);
+        try
+        {
+            if (plain.Length > 64 * 1024 * 1024 - 28) throw new InvalidDataException("La voce e la sua cronologia superano 64 MB. Ridurre allegati o revisioni.");
+            Upsert(c, tx, "sp_entries", "group_id", copy.Id, copy.GroupId, entry.Revision, crypto.EncryptBytes(plain, Context(m, "entries", copy.Id, copy.GroupId, copy.Revision)));
+        }
+        finally { CryptographicOperations.ZeroMemory(plain); }
+    }
+    private static void Upsert(SqliteConnection c, SqliteTransaction tx, string table, string parentColumn, Guid id, Guid? parent, long expected, byte[] payload)
+    {
+        using var cmd = c.CreateCommand(); cmd.Transaction = tx;
+        cmd.CommandText = expected == 0 ? $"INSERT INTO {table}(id,{parentColumn},revision,payload) VALUES($id,$parent,1,$payload)" :
+            $"UPDATE {table} SET {parentColumn}=$parent,revision=$next,payload=$payload WHERE id=$id AND revision=$expected";
+        cmd.Parameters.AddWithValue("$id", id.ToString()); cmd.Parameters.AddWithValue("$parent", parent?.ToString() ?? (object)DBNull.Value);
+        cmd.Parameters.AddWithValue("$payload", payload); cmd.Parameters.AddWithValue("$expected", expected); cmd.Parameters.AddWithValue("$next", expected + 1);
+        if (cmd.ExecuteNonQuery() != 1) throw new InvalidOperationException("Record modificato in un'altra sessione. Aggiornare e riprovare.");
+    }
+    public Task SaveGroupAsync(PwGroup group, CryptoEngine crypto) => SaveGroupsBatchAsync([group], crypto);
+    public async Task SaveGroupsBatchAsync(IEnumerable<PwGroup> groups, CryptoEngine crypto)
+    {
+        CheckCrypto(crypto); var list = groups.ToList();
+        await WriteAsync((c, tx, key, m) =>
+        {
+            foreach (var group in list) WriteGroup(c, tx, group, key, m);
+            var all = ReadGroups(c, tx, key, m); ValidateTree(all, []);
+            m.RootGroupId ??= all.FirstOrDefault(g => g.ParentId == null)?.Id;
+            m.RecycleBinGroupId ??= list.FirstOrDefault(g => g.IsRecycleBin)?.Id;
+            ValidateSystemGroups(all, m);
+        }).ConfigureAwait(false);
+        foreach (var g in list) { g.Revision++; g.IsRoot = g.Id == _metadata!.RootGroupId; g.IsRecycleBin = g.Id == _metadata.RecycleBinGroupId; }
+    }
+    public Task SaveEntryAsync(PwEntry entry, CryptoEngine crypto, bool encryptUsernameUrl = true) => SaveEntriesBatchAsync([entry], crypto, encryptUsernameUrl);
+    public async Task SaveEntriesBatchAsync(IEnumerable<PwEntry> entries, CryptoEngine crypto, bool encryptUsernameUrl = true)
+    {
+        CheckCrypto(crypto); var list = entries.ToList();
+        if (list.Count > 100000) throw new InvalidDataException("Troppe voci in una singola operazione.");
+        await WriteAsync((c, tx, key, m) => { foreach (var entry in list) WriteEntry(c, tx, entry, key, m); }).ConfigureAwait(false);
+        foreach (var entry in list) { entry.Revision++; entry.UpdatedAt = DateTime.UtcNow; }
+    }
+    public Task DeleteEntryAsync(Guid entryId) => DeleteEntriesBatchAsync([entryId]);
+
+    // UI confirmations refer to specific revisions. A later edit must not be deleted silently.
+    public Task DeleteEntryAsync(Guid entryId, long expectedRevision) =>
+        DeleteEntriesBatchAsync(new Dictionary<Guid, long> { [entryId] = expectedRevision });
+
+    public Task DeleteEntriesBatchAsync(IReadOnlyDictionary<Guid, long> expectedRevisions)
+    {
+        var revisions = expectedRevisions.ToArray();
+        return WriteAsync((c, tx, key, m) =>
+        {
+            foreach (var (id, revision) in revisions)
+            {
+                using var command = c.CreateCommand(); command.Transaction = tx;
+                command.CommandText = "DELETE FROM sp_entries WHERE id=$id AND revision=$revision";
+                command.Parameters.AddWithValue("$id", id.ToString());
+                command.Parameters.AddWithValue("$revision", revision);
+                if (command.ExecuteNonQuery() != 1)
+                    throw new InvalidOperationException("Record modified in another session. Refresh before retrying.");
+            }
+        }, preservedBackupPurpose: "pre-delete");
+    }
+    public Task DeleteEntriesBatchAsync(IEnumerable<Guid> entryIds)
+    {
+        var ids = entryIds.ToList();
+        return WriteAsync((c, tx, key, m) => { foreach (var id in ids) Execute(c, tx, "DELETE FROM sp_entries WHERE id=$id", ("$id", id.ToString())); }, preservedBackupPurpose: "pre-delete");
+    }
+    public Task DeleteGroupAsync(Guid groupId) => WriteAsync((c, tx, key, m) =>
+    {
+        if (groupId == m.RootGroupId || groupId == m.RecycleBinGroupId) throw new InvalidOperationException("Gruppo di sistema protetto.");
+        var all = ReadGroups(c, tx, key, m); var ids = new HashSet<Guid> { groupId }; bool added;
+        do { added = false; foreach (var g in all) if (g.ParentId.HasValue && ids.Contains(g.ParentId.Value)) added |= ids.Add(g.Id); } while (added);
+        foreach (var id in ids) Execute(c, tx, "DELETE FROM sp_entries WHERE group_id=$id", ("$id", id.ToString()));
+        foreach (var id in ids) Execute(c, tx, "DELETE FROM sp_groups WHERE id=$id", ("$id", id.ToString()));
+    }, preservedBackupPurpose: "pre-delete-group");
+    public Task TrashGroupAsync(Guid groupId, CryptoEngine crypto)
+    {
+        CheckCrypto(crypto);
+        return WriteAsync((c, tx, key, m) =>
+        {
+            if (groupId == m.RootGroupId || groupId == m.RecycleBinGroupId || !m.RecycleBinGroupId.HasValue)
+                throw new InvalidOperationException("Gruppo di sistema protetto o cestino mancante.");
+            var groups = ReadGroups(c, tx, key, m); var ids = new HashSet<Guid> { groupId }; bool added;
+            do { added = false; foreach (var g in groups) if (g.ParentId.HasValue && ids.Contains(g.ParentId.Value)) added |= ids.Add(g.Id); } while (added);
+            if (ids.Contains(m.RecycleBinGroupId.Value)) throw new InvalidOperationException("Il gruppo contiene il cestino di sistema.");
+            foreach (var (id, revision) in EntryIdentities(c, tx, ids)) MoveEntry(c, tx, id, revision, m.RecycleBinGroupId.Value, key, m);
+            foreach (var id in ids) Execute(c, tx, "DELETE FROM sp_groups WHERE id=$id", ("$id", id.ToString()));
+        }, preservedBackupPurpose: "pre-trash-group");
+    }
+    public async Task ChangeMasterKeyAsync(CryptoEngine oldCrypto, CryptoEngine newCrypto, string salt, int iterations, int memoryKb, int parallelism, bool encryptUsernameUrl, bool usesKeyFile = false)
+    {
+        CheckCrypto(oldCrypto); CryptoEngine.ValidateKdf(Convert.FromBase64String(salt), iterations, memoryKb, parallelism);
+        await WriteAsync((c, tx, key, m) =>
+        {
+            var groups = ReadGroups(c, tx, key, m); var entries = EntryIdentities(c, tx);
+            var originalMetadata = JsonSerializer.Deserialize<VaultMetadata>(JsonSerializer.Serialize(m))!;
+            CreateSnapshot(PreservedBackupPath("pre-rekey"));
+            m.SaltBase64 = salt; m.KdfIterations = iterations; m.KdfMemoryKb = memoryKb; m.KdfParallelism = parallelism;
+            m.VerificationCanary = newCrypto.GenerateCanaryToken(); m.KeyEpoch = Guid.NewGuid(); m.UsesKeyFile = newCrypto.DerivedWithKeyFile ?? usesKeyFile; m.EncryptUsernameUrl = true;
+            foreach (var group in groups) WriteGroup(c, tx, group, newCrypto, m);
+            foreach (var (id, _) in entries)
+            {
+                var entry = ReadEntries(c, tx, key, originalMetadata, entryId: id).Single();
+                try { WriteEntry(c, tx, entry, newCrypto, m); }
+                finally { entry.ClearSecrets(); }
+            }
+            _crypto = newCrypto;
+        }).ConfigureAwait(false);
+    }
+    public Task VacuumAsync() => Task.CompletedTask;
+    public void Dispose()
+    {
+        CloseAsync().GetAwaiter().GetResult();
+    }
+    public async Task CloseAsync()
+    {
+        _locked = true; _crypto?.Dispose();
+        await _gate.WaitAsync().ConfigureAwait(false);
+        try { _crypto?.Dispose(); _crypto = null; _lease?.Dispose(); _lease = null; }
+        finally { _gate.Release(); }
     }
 }

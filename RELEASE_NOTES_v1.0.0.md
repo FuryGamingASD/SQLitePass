@@ -1,3 +1,5 @@
+> Historical release notes. Security, memory-erasure and corruption-prevention claims in this document are superseded by the current README, SECURITY.md and the November 2026 audit.
+
 # SQLitePass v1.0.0 — First Official Release 🚀
 
 **SQLitePass** is a modern, lightweight, and ultra-resilient Windows password manager designed to provide a secure and anti-corruption alternative to KeePass's monolithic `.kdbx` file format.

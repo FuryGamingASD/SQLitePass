@@ -16,6 +16,7 @@ namespace SQLitePass.UI.Dialogs
             SQLitePass.UI.Services.WindowSecurityService.ApplyProtection(this, settings.ProtectScreenCapture);
             _isInitialized = true;
             GenerateNewPassword();
+            Closed += (_, _) => { TxtGeneratedPassword.Clear(); if (DialogResult != true) ResultPassword = string.Empty; };
         }
 
         private void GenerateNewPassword()
@@ -39,12 +40,17 @@ namespace SQLitePass.UI.Dialogs
                 ExcludeLookAlike = ChkExcludeLookAlike.IsChecked == true
             };
 
-            ResultPassword = PasswordGenerator.Generate(options);
+            try { ResultPassword = PasswordGenerator.Generate(options); }
+            catch (ArgumentException)
+            {
+                ResultPassword = string.Empty; TxtGeneratedPassword.Text = SQLitePass.UI.Services.LocalizationManager.GetString("GeneratorChooseClass");
+                PbEntropy.Value = 0; TxtEntropy.Text = "0/100"; return;
+            }
             TxtGeneratedPassword.Text = ResultPassword;
 
             double entropy = PasswordGenerator.CalculateEntropy(ResultPassword);
-            PbEntropy.Value = Math.Min(entropy, 128);
-            TxtEntropy.Text = $"{entropy:F1} bits";
+            PbEntropy.Value = entropy;
+            TxtEntropy.Text = SQLitePass.UI.Services.LocalizationManager.GetString("QualityScore", entropy);
         }
 
         private void SliderLength_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -66,13 +72,14 @@ namespace SQLitePass.UI.Dialogs
         {
             if (!string.IsNullOrEmpty(ResultPassword))
             {
-                Clipboard.SetText(ResultPassword);
-                MessageBox.Show("Password copied to clipboard!", "Copied", MessageBoxButton.OK, MessageBoxImage.Information);
+                SQLitePass.UI.Services.ClipboardCoordinator.Shared.CopyWithAutoClear(ResultPassword, SQLitePass.UI.Services.LocalizationManager.GetString("GeneratedPassword"));
             }
         }
 
         private void BtnAccept_Click(object sender, RoutedEventArgs e)
         {
+            if (string.IsNullOrEmpty(ResultPassword)) return;
+            SQLitePass.UI.Services.ClipboardCoordinator.Shared.CopyWithAutoClear(ResultPassword, SQLitePass.UI.Services.LocalizationManager.GetString("GeneratedPassword"));
             DialogResult = true;
             Close();
         }

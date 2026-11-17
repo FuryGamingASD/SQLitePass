@@ -28,8 +28,8 @@ namespace SQLitePass.Core.Services
 
         public static string Generate(PasswordGeneratorOptions options)
         {
-            if (options.Length < 4)
-                options.Length = 4;
+            ArgumentNullException.ThrowIfNull(options);
+            if (options.Length is < 4 or > 1024) throw new ArgumentOutOfRangeException(nameof(options), "La lunghezza deve essere tra 4 e 1024 caratteri.");
 
             var charSets = new List<string>();
 
@@ -41,13 +41,12 @@ namespace SQLitePass.Core.Services
 
             if (!string.IsNullOrEmpty(options.CustomCharacters))
             {
-                charSets.Add(FilterLookAlike(options.CustomCharacters, options.ExcludeLookAlike));
+                charSets.Add(new string(FilterLookAlike(options.CustomCharacters, options.ExcludeLookAlike).Distinct().ToArray()));
             }
 
-            if (charSets.Count == 0)
-            {
-                charSets.Add(LowerCaseChars + DigitChars);
-            }
+            charSets.RemoveAll(set => set.Length == 0);
+            if (charSets.Count == 0) throw new ArgumentException("Selezionare almeno un insieme di caratteri.");
+            if (options.Length < charSets.Count) throw new ArgumentException("La lunghezza non permette di includere tutte le classi selezionate.");
 
             var fullPool = new StringBuilder();
             foreach (var set in charSets)
@@ -55,8 +54,7 @@ namespace SQLitePass.Core.Services
                 fullPool.Append(set);
             }
 
-            string pool = fullPool.ToString();
-            if (pool.Length == 0) pool = "abcdefghijklmnopqrstuvwxyz0123456789";
+            string pool = new(fullPool.ToString().Distinct().ToArray());
 
             var resultChars = new List<char>(options.Length);
 
@@ -109,7 +107,16 @@ namespace SQLitePass.Core.Services
             if (hasSpecial) poolSize += 32;
 
             if (poolSize == 0) return 0.0;
-            return Math.Round(Math.Log2(poolSize) * password.Length, 1);
+            // Compatibility name: the UI presents this as a heuristic score, never measured entropy.
+            string lower = password.ToLowerInvariant();
+            if (password.Distinct().Count() <= 1) return 0;
+            double bits = Math.Log2(poolSize) * password.Length;
+            for (int period = 1; period <= password.Length / 2; period++)
+                if (password.Length % period == 0 && Enumerable.Range(0, password.Length).All(i => password[i] == password[i % period]))
+                { bits = Math.Min(bits, Math.Log2(poolSize) * period); break; }
+            double score = Math.Min(100, bits * 100 / 128);
+            if (new[] { "password", "qwerty", "123456", "abcdef", "letmein", "admin", "welcome", "ciao", "iloveyou" }.Any(lower.Contains)) score = Math.Min(score, 20);
+            return Math.Round(score, 1);
         }
 
         private static string FilterLookAlike(string input, bool exclude)

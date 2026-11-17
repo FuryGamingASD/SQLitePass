@@ -42,7 +42,7 @@ namespace SQLitePass.UI.Services
             }
             catch (Exception ex)
             {
-                AppLogger.LogWarning($"Failed to apply screen capture protection on {window.GetType().Name}: {ex.Message}");
+                AppLogger.LogWarning($"Failed to apply screen capture protection on {window.GetType().Name}: {ex.GetType().Name}");
             }
         }
 
@@ -60,7 +60,8 @@ namespace SQLitePass.UI.Services
             if (!SetWindowDisplayAffinity(handle, WDA_EXCLUDEFROMCAPTURE))
             {
                 // Fallback for earlier Windows 10 versions
-                SetWindowDisplayAffinity(handle, WDA_MONITOR);
+                if (!SetWindowDisplayAffinity(handle, WDA_MONITOR))
+                    AppLogger.LogWarning("Screen capture exclusion is unavailable for this window.");
             }
         }
     }

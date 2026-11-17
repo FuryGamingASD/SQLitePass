@@ -21,12 +21,7 @@ namespace SQLitePass.UI.Services
         public static bool IsRecycleBinGroup(PwGroup? group)
         {
             if (group == null) return false;
-            return group.IconIndex == RecycleBinIconIndex ||
-                   string.Equals(group.Name, "Cestino", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(group.Name, "Trash", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(group.Name, "Corbeille", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(group.Name, "Papierkorb", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(group.Name, "Papelera", StringComparison.OrdinalIgnoreCase);
+            return group.IsRecycleBin;
         }
 
         public static async Task<PwGroup> GetOrCreateRecycleBinGroupAsync(
@@ -39,13 +34,14 @@ namespace SQLitePass.UI.Services
             if (found != null) return found;
 
             // Create new Recycle Bin group under the first root group
-            var parent = rootGroups.FirstOrDefault();
+            var parent = rootGroups.FirstOrDefault(g => g.IsRoot) ?? rootGroups.FirstOrDefault();
             var newTrash = new PwGroup
             {
                 Id = Guid.NewGuid(),
                 ParentId = parent?.Id,
-                Name = "Cestino",
+                Name = LocalizationManager.GetString("RecycleBin"),
                 IconIndex = RecycleBinIconIndex,
+                IsRecycleBin = true,
                 IsExpanded = true
             };
 
@@ -87,25 +83,25 @@ namespace SQLitePass.UI.Services
             // If entry is not yet in trash -> Soft Delete (move to Trash)
             if (entry.GroupId != trashGroup.Id)
             {
-                entry.GroupId = trashGroup.Id;
-                await storage.SaveEntryAsync(entry, crypto);
-                AppLogger.LogInfo($"Entry '{entry.Title}' ({entry.Id}) soft-deleted to Recycle Bin.");
+                long revision = await storage.MoveEntryAsync(entry.Id, entry.Revision, trashGroup.Id, crypto);
+                entry.GroupId = trashGroup.Id; entry.Revision = revision;
+                AppLogger.LogInfo("Entry moved to recycle bin.");
                 return (movedToTrash: true, permanentlyDeleted: false);
             }
 
             // Entry is already in Trash -> Permanent Delete with confirmation
             var confirm = MessageBox.Show(
                 ownerWindow,
-                $"Eliminare definitivamente la voce '{entry.Title}' dal Cestino?\n\nQuesta operazione non può essere annullata.",
-                "Conferma Eliminazione Definitiva",
+                LocalizationManager.GetString("TrashPermanentConfirm"),
+                LocalizationManager.GetString("MenuDeleteEntry"),
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning
             );
 
             if (confirm == MessageBoxResult.Yes)
             {
-                await storage.DeleteEntryAsync(entry.Id);
-                AppLogger.LogInfo($"Entry '{entry.Title}' ({entry.Id}) permanently deleted from Recycle Bin.");
+                await storage.DeleteEntryAsync(entry.Id, entry.Revision);
+                AppLogger.LogInfo("Entry permanently deleted from recycle bin.");
                 return (movedToTrash: false, permanentlyDeleted: true);
             }
 
@@ -116,35 +112,28 @@ namespace SQLitePass.UI.Services
             SqliteStorageProvider storage,
             CryptoEngine crypto,
             IList<PwGroup> rootGroups,
-            ICollection<PwEntry> allEntries,
             Window ownerWindow)
         {
             var trashGroup = await GetOrCreateRecycleBinGroupAsync(storage, crypto, rootGroups);
-            var trashEntries = allEntries.Where(e => e.GroupId == trashGroup.Id).ToList();
+            var ids = await storage.LoadEntryRevisionsAsync(trashGroup.Id, crypto);
 
-            if (trashEntries.Count == 0)
+            if (ids.Count == 0)
             {
-                MessageBox.Show(ownerWindow, "Il Cestino è già vuoto.", "Cestino Vuoto", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(ownerWindow, LocalizationManager.GetString("TrashEmpty"), LocalizationManager.GetString("RecycleBin"), MessageBoxButton.OK, MessageBoxImage.Information);
                 return 0;
             }
 
             var confirm = MessageBox.Show(
                 ownerWindow,
-                $"Sei sicuro di voler eliminare definitivamente tutte le {trashEntries.Count} voci presenti nel Cestino?\n\nI dati non potranno più essere recuperati.",
-                "Svuota Cestino",
+                LocalizationManager.GetString("TrashEmptyConfirm", ids.Count),
+                LocalizationManager.GetString("MenuEmptyTrash"),
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning
             );
 
             if (confirm != MessageBoxResult.Yes) return 0;
 
-            var ids = trashEntries.Select(e => e.Id).ToList();
             await storage.DeleteEntriesBatchAsync(ids);
-
-            foreach (var entry in trashEntries)
-            {
-                allEntries.Remove(entry);
-            }
 
             AppLogger.LogInfo($"Emptied recycle bin: {ids.Count} entries permanently deleted.");
             return ids.Count;

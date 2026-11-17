@@ -12,6 +12,7 @@ namespace SQLitePass.Core.Crypto
     {
         private byte[] _compositeKeyHash;
         private bool _disposed;
+        public bool UsesKeyFile { get; }
 
         public MasterKey(string password, byte[]? keyFileBytes = null)
         {
@@ -20,7 +21,32 @@ namespace SQLitePass.Core.Crypto
                 throw new ArgumentException("A master password or a key file must be provided.");
             }
 
+            UsesKeyFile = keyFileBytes?.Length > 0;
             _compositeKeyHash = ComputeCompositeKey(password, keyFileBytes);
+        }
+
+        private MasterKey(byte[] compositeHash) { _compositeKeyHash = compositeHash.ToArray(); UsesKeyFile = true; }
+
+        public static MasterKey FromFile(string password, string filePath)
+        {
+            byte[]? passwordBytes = null, passwordHash = null, fileHash = null, combined = null;
+            try
+            {
+                using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                if (stream.Length == 0) throw new InvalidDataException("Il file chiave è vuoto.");
+                fileHash = SHA256.HashData(stream);
+                if (string.IsNullOrEmpty(password)) return new MasterKey(fileHash);
+                passwordBytes = Encoding.UTF8.GetBytes(password); passwordHash = SHA256.HashData(passwordBytes);
+                combined = new byte[64]; passwordHash.CopyTo(combined, 0); fileHash.CopyTo(combined, 32);
+                byte[] result = SHA256.HashData(combined);
+                try { return new MasterKey(result); }
+                finally { CryptographicOperations.ZeroMemory(result); }
+            }
+            finally
+            {
+                foreach (byte[]? buffer in new[] { passwordBytes, passwordHash, fileHash, combined })
+                    if (buffer != null) CryptographicOperations.ZeroMemory(buffer);
+            }
         }
 
         public byte[] GetKeySeed()

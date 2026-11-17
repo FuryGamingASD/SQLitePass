@@ -1,9 +1,9 @@
 <Window x:Class="SQLitePass.UI.Dialogs.SettingsDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="{DynamicResource SettingsTitle}" Height="640" Width="530"
-        Icon="/Resources/app_icon.png"
-        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Title="{DynamicResource SettingsTitle}" Height="640" Width="530" MinHeight="360" MinWidth="420"
+        Icon="/SQLitePass;component/Resources/app_icon.png"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResize"
         Background="{DynamicResource AppBg}" FontFamily="Segoe UI" FontSize="13">
     <Grid Margin="20">
         <Grid.RowDefinitions>
@@ -28,17 +28,19 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="{DynamicResource SettingsLanguage}" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"/>
-                            <ComboBox x:Name="CmbLanguage" Grid.Column="1" Width="150" Padding="6,3">
-                                <ComboBoxItem Content="🇮🇹 Italiano" Tag="it"/>
-                                <ComboBoxItem Content="🇬🇧 English" Tag="en"/>
-                                <ComboBoxItem Content="🇫🇷 Français" Tag="fr"/>
-                                <ComboBoxItem Content="🇩🇪 Deutsch" Tag="de"/>
-                                <ComboBoxItem Content="🇪🇸 Español" Tag="es"/>
+                            <ComboBox x:Name="CmbLanguage" AutomationProperties.Name="{DynamicResource SettingsLanguage}" Grid.Column="1" Width="150" Padding="6,3">
+                                <ComboBoxItem Content="{DynamicResource SystemLanguage}" Tag=""/>
+                                <ComboBoxItem Content="Italiano" Tag="it"/>
+                                <ComboBoxItem Content="English" Tag="en"/>
+                                <ComboBoxItem Content="Français" Tag="fr"/>
+                                <ComboBoxItem Content="Deutsch" Tag="de"/>
+                                <ComboBoxItem Content="Español" Tag="es"/>
                             </ComboBox>
                         </Grid>
 
                         <CheckBox x:Name="ChkDarkMode" Content="{DynamicResource SettingsDarkMode}" IsChecked="True" FontWeight="Medium" Margin="0,3"/>
                         <CheckBox x:Name="ChkShowPasswordDefault" Content="{DynamicResource SettingsShowPasswordDefault}" Margin="0,3"/>
+                        <CheckBox x:Name="ChkDiagnosticLogging" Content="{DynamicResource SettingsDiagnosticLogging}" Margin="0,3"/>
                     </StackPanel>
                 </Border>
 
@@ -54,7 +56,7 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="{DynamicResource SettingsClipboardTimeout}" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"/>
                             <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                <TextBox x:Name="TxtClipboardSeconds" Text="12" Width="45" TextAlignment="Center" Padding="4,2"/>
+                                <TextBox x:Name="TxtClipboardSeconds" AutomationProperties.Name="{DynamicResource SettingsClipboardTimeout}" Text="12" Width="45" TextAlignment="Center" Padding="4,2"/>
                                 <TextBlock Text="{DynamicResource SettingsSeconds}" VerticalAlignment="Center" Margin="4,0,0,0" Foreground="{DynamicResource TextMuted}"/>
                             </StackPanel>
                         </Grid>
@@ -65,8 +67,8 @@
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="{DynamicResource SettingsAutoLockTimeout}" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"/>
-                            <ComboBox x:Name="CmbAutoLockMinutes" Grid.Column="1" Width="130" Padding="6,3">
-                                <ComboBoxItem Content="Disabled" Tag="0"/>
+                            <ComboBox x:Name="CmbAutoLockMinutes" AutomationProperties.Name="{DynamicResource SettingsAutoLockTimeout}" Grid.Column="1" Width="130" Padding="6,3">
+                                <ComboBoxItem Content="{DynamicResource Disabled}" Tag="0"/>
                                 <ComboBoxItem Content="1 min" Tag="1"/>
                                 <ComboBoxItem Content="3 min" Tag="3"/>
                                 <ComboBoxItem Content="5 min" Tag="5"/>
@@ -108,10 +110,11 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBox x:Name="TxtSecondaryBackupDir" Padding="6,3" FontSize="11" IsReadOnly="True"/>
+                            <TextBox x:Name="TxtSecondaryBackupDir" AutomationProperties.Name="{DynamicResource SettingsSecondaryDir}" Padding="6,3" FontSize="11" IsReadOnly="True"/>
                             <Button Grid.Column="1" Content="{DynamicResource Browse}" Click="BtnBrowseSecondaryDir_Click"
                                     Margin="6,0,0,0" Padding="10,3" Background="{DynamicResource HoverBg}" Foreground="{DynamicResource TextPrimary}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" Cursor="Hand"/>
                         </Grid>
+                        <Button Content="{DynamicResource ClearSecondaryBackup}" Click="BtnClearSecondaryDir_Click" HorizontalAlignment="Left" Margin="0,8,0,0"/>
                     </StackPanel>
                 </Border>
             </StackPanel>
@@ -120,7 +123,7 @@
         <!-- Bottoni Azione -->
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
             <Button Content="{DynamicResource Save}" Click="BtnSave_Click" IsDefault="True" Padding="18,8" Margin="0,0,10,0"
-                    Background="#2563EB" Foreground="White" BorderThickness="0" Cursor="Hand" FontWeight="SemiBold"/>
+                    Background="{DynamicResource AccentColor}" Foreground="{DynamicResource AccentForeground}" BorderThickness="0" Cursor="Hand" FontWeight="SemiBold"/>
             <Button Content="{DynamicResource Cancel}" Click="BtnCancel_Click" IsCancel="True" Padding="14,8"
                     Background="{DynamicResource HoverBg}" Foreground="{DynamicResource TextSecondary}" BorderThickness="0" Cursor="Hand"/>
         </StackPanel>

@@ -1,198 +1,99 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/FuryGamingASD/SQLitePass/main/assets/logo.png" width="128" height="128" alt="SQLitePass Logo" />
-</p>
+# SQLitePass
 
-# SQLitePass 🛡️
+A local Windows password manager built with WPF, .NET 10, SQLite, Argon2id and AES-256-GCM.
 
-A modern, lightweight, and ultra-resilient password manager for Windows (.NET 8 C# + WPF) inspired by the core capabilities of **KeePass 2**, but re-engineered from the ground up to **permanently eliminate database corruption and catastrophic data loss**.
+**SQLitePass 1.1 uses vault format 2** and addresses integrity, recovery and session-management defects identified in the [November 2026 audit](docs/AUDIT_2026-11-16.md). Changes and outstanding validation are tracked in [the remediation report](docs/REMEDIATION_2026-11-16.md) and the [17 November release verification](docs/RELEASE_READINESS_2026-11-17.md). This is not a claim of independent security certification or immunity to data loss.
 
----
+## Vault protection
 
-## 💡 Why SQLitePass instead of KeePass?
+- Passwords and optional key files form the master key. The default Argon2id parameters are 64 MB memory, 3 iterations and 2 lanes; files with unsupported or excessive parameters are rejected before derivation.
+- Format 2 encrypts entry and group data, including titles, usernames, URLs, notes, custom fields, attachments and history. Each record is authenticated with its vault, record type, identity, parent and revision as context. An authenticated manifest covers the current rows and header.
+- The SQLite container remains inspectable. Vault name, identifiers, relationships, revisions, encrypted sizes, header timestamps and KDF information remain visible. Complete-file rollback cannot be detected without trusted external state.
+- Integrity failures stop normal reads/writes instead of turning errors into password values. Existing encrypted payloads and known-good backups are not overwritten by the failed operation.
+- Concurrent writers use record revisions and a key epoch. A session with an old key must reopen the vault after another session changes it.
 
-In traditional KeePass `.kdbx` files, the entire database is stored as a single monolithic encrypted binary blob. If a Windows update, system crash, bluescreen, or power outage interrupts a write operation, even a single altered byte in the header will render **100% of your credentials completely unrecoverable** (*"Header corrupt"* or *"HMAC mismatch"* errors).
+SQLite WAL with `synchronous=FULL` improves durability, but hardware, operating-system or filesystem failures can still damage data. The master password and key file cannot be recovered if lost.
 
-### The SQLitePass Architectural Solution:
+## Backups and recovery
 
-1. **Unencrypted Database at the File Level (Field-Level Encryption):**
-   * The `.kpd` file is a standard SQLite database that can be inspected, queried, and repaired at any time using standard tools (such as *DB Browser for SQLite*).
-   * **Zero-Knowledge Field-Level Encryption:** Sensitive fields (Passwords, Notes, Attachments, Custom Fields) are encrypted individually using **AES-256-GCM** with keys derived via **Argon2id** (memory-hard, GPU/ASIC resistant).
-   * *The benefit:* Even in the worst-case scenario of physical bad sectors on disk, only the affected row or byte is impacted—**all other passwords and groups remain completely intact and decryptable**.
+Automatic backups use SQLite's online backup API and atomic replacement. The current `.backup` and three preceding generations (`.backup.1`, `.backup.2`, `.backup.3`) are retained. The status bar reports the last verified backup or a failure separately from a successful save. An optional secondary directory uses a vault-ID based filename to avoid collisions.
 
-2. **WAL (Write-Ahead Logging) Mode:**
-   * Native ACID transactions with `PRAGMA journal_mode = WAL;` and `PRAGMA synchronous = NORMAL;`. Changes are written sequentially to a dedicated WAL append-only log before commit. In the event of a sudden power outage, SQLite automatically replays or rolls back incomplete operations to the last consistent state.
+Recovery verifies the candidate with the supplied password/key file before replacement, refuses an active application session, and preserves the original file together with its old WAL/SHM files under a `.recovery-...` name. Do not mix a database with another copy's journal files or manually delete a WAL to try to repair it.
 
-3. **Isolated Atomic Dual-Backup (`.kpd.backup`):**
-   * SQLitePass only keeps the primary database file open in memory.
-   * On every change (add, update, delete), an atomic snapshot is created via SQLite's online backup API to a temporary file and swapped into `[vault].kpd.backup` using atomic OS file replacement.
-   * The backup file is **never kept open**, completely eliminating concurrent file corruption risks.
-   * Built-in **"Restore from .backup"** button directly in the initial unlock screen.
+Before rekeying or migrating, an additional `.pre-rekey-...backup` or `.pre-v2-...backup` snapshot is kept. These snapshots are not automatically deleted. **Older backups retain the previous key and the privacy properties of the previous format.** Plan their retention explicitly and keep an independent backup on another device. A mirror on the same disk does not protect against losing the disk.
 
-4. **Proactive Database Integrity Check (`PRAGMA quick_check;`):**
-   * Automatically verifies physical SQLite page consistency on vault unlock. If file corruption is detected, SQLitePass immediately alerts the user and offers instant one-click recovery from the synchronized `.kpd.backup` file.
+To upgrade a 1.0 vault:
 
-5. **High-Performance Batch Architecture & DDL Indexes:**
-   * Eliminates N+1 query overhead: loads custom fields, attachments, and history across all entries in 3 aggregated batch queries mapped in memory (reducing queries from 3,001 to 4 for a 1,000-entry vault).
-   * Schema-optimized B-Tree indexes on `kp_entries(group_id)`, `kp_groups(parent_id)`, `kp_custom_fields(entry_id)`, `kp_attachments(entry_id)`, and `kp_history(entry_id)`.
-   * Automatic space reclamation with `PRAGMA auto_vacuum = INCREMENTAL;` and database `VACUUM` executed on "Svuota Cestino" (Empty Recycle Bin).
+1. Make an independent copy of the vault and any associated files while all applications using it are closed.
+2. Open it in SQLitePass 1.1 and confirm the format upgrade.
+3. Supply the original password and key file, if used. Conversion begins only after successful authentication and validation; a legacy snapshot is retained.
+4. Verify the entries and test recovery on a separate copy before replacing your independent backups.
 
-6. **Zero-Configuration Embedded Engine:**
-   * Powered by embedded SQLite—no database servers, background services, daemon processes, or open ports required.
+Format 2 requires SQLitePass 1.1 or later. Migration cannot reconstruct credentials already overwritten or lost by an older application. Do not reopen an upgraded vault with a 1.0 build.
 
----
+## Daily use
 
-## 🛡️ Security & Privacy Hardening
+- Groups, global search, entry editing, full-copy duplication and a recycle bin. The recycle bin has an explicit restore command with a destination folder and revision checks. Removing a folder moves its descendant entries to the bin; the old folder hierarchy is removed after confirmation. Folder expansion is remembered per user and vault without rewriting the vault.
+- The list shows the selected folder path and has exact tag filters (comma/semicolon separators), expired entries and entries expiring within 30 days. Expiry compares calendar dates; today is included in the upcoming window. The reference date stays fixed while paging and refreshes with a new query or F5. Search scope is explicit and operational feedback is separate from the clipboard countdown.
+- Editing uses a separate draft; cancellation does not change the active entry. Inline validation covers title, enabled expiry date and Auto-Type. The editor shows whether it has been edited and confirms discarding changes on window close; explicit Cancel discards directly. Final comparison and Auto-Type parsing run on a worker. Reverted edits do not write an unchanged existing record or add history. Revisions include complete snapshots for new changes. Up to 50 revisions are retained per entry; the combined record has a 64 MB size limit. You can remove history in the editor before saving.
+- The list holds one page of up to 200 lightweight entries, with an estimated 8 MiB budget (one oversized entry is allowed). Navigation uses snapshot-bound cursors without keeping previous pages. Search and sorting cover the whole vault; export, Auto-Type matching and emptying the bin also operate beyond the visible page. Attachment, custom-field and history collections are loaded when needed for editing, copying or confirmed Auto-Type. The entire encrypted vault is still authenticated on each query. Loading shows progress and can be cancelled with `Esc`; `F5` retries. See the [synthetic memory benchmark](docs/PERFORMANCE_2026-11-16.md) for measured benefits and remaining limits.
+- Attachments are limited to 20 MB per file. Reading, exporting and restoring a revision run off the UI thread. Exported attachments are plaintext files; failed replacement preserves an existing destination, and closing the editor requests cancellation.
+- Custom fields marked protected are masked in the list and edited in a dedicated dialog. Entry passwords, preview/list passwords and custom-field values can be revealed for 15 seconds; changing windows or locking hides them earlier. The deadline uses a monotonic clock and is checked by the UI dispatcher, so a stalled UI can delay the visible update. Hidden entry password text controls are cleared, with undo disabled. Attachment rows show actual loaded byte length.
+- The password generator uses a cryptographic random source. Its quality indicator is a **heuristic score, not measured entropy or a guarantee against guessing**.
+- Sensitive copy actions share a timed clipboard service with Windows history/cloud exclusion formats. The OS and other processes can still access clipboard content; the flags are not protection from arbitrary malware.
+- Locking clears active controls and drafts, disposes the key, cancels Auto-Type and blocks vault commands. .NET strings and operating-system buffers cannot be guaranteed to be erased.
+- Auto-Type requires an explicit target and confirmation. The global shortcut is `Ctrl+Alt+A`; registration conflicts are reported. The window title is only a matching heuristic. Input stops on detected focus/title changes or lock. Use care: foreground keyboard APIs have unavoidable timing races and do not authenticate a website's origin.
+- `Ctrl+L` locks; `Ctrl+I` adds an entry; `Ctrl+G` adds a group; `Ctrl+M` changes the master credential. `Enter`/`Delete` operate on selected entries and `F2` renames a group.
+- Startup with `--minimized` opens a locked tray entry without prompting for the vault immediately.
+- Localized in English, Italian, French, German, and Spanish with runtime language switching and catalog validation. Scalable vector `AppIcon` controls replace emoji glyphs, suppressing accessibility peers for decorative elements while exposing `AutomationProperties.Name` across interactive controls for screen readers.
 
-* **Change Master Password (Atomic Re-Encryption):**
-  * Re-encrypts the entire database (entries, custom fields, attachments, history) in a single atomic SQLite transaction with newly generated Argon2id salt and verification canary.
-  * Ensures zero downtime and zero risk of partial key updates.
+Screen-capture exclusion is best-effort Windows functionality. It does not defend against a compromised operating system, memory access, cameras or all recording tools. See [SECURITY.md](SECURITY.md).
 
-* **Windows Clipboard History & Cloud Isolation:**
-  * When copying passwords, SQLitePass sets `CanIncludeInClipboardHistory = 0`, `CanUploadToCloudStore = 0`, and `ExcludeClipboardContentFromMonitorProcessing = 0` on the clipboard `DataObject`.
-  * Passwords never appear in Windows 10/11 Clipboard History (`Win+V`) and are never synchronized to Microsoft cloud accounts.
+## Import and export
 
-* **Optional Stealth Encryption for Usernames & URLs:**
-  * In addition to passwords and notes, users can encrypt username and URL fields (`ENC:` prefix in SQLite records) for complete zero-knowledge privacy against anyone inspecting `.kpd` files.
+Supported input paths include KeePass-style CSV (`Group,Title,Username,Password,URL,Notes`, in that exact order), browser CSV with recognized, unambiguous headers, and unencrypted Bitwarden JSON. Imports validate structure and show a confirmation before writing. Folder paths are reconstructed under the selected destination; ambiguous existing folder names and paths into the recycle bin are rejected. Folders and entries commit in one transaction: failure or cancellation before commit leaves neither partial entries nor empty import folders. Reading/parsing and database work run off the UI thread, with progress and cancellation. Bitwarden data without a dedicated field is retained in the protected `BitwardenOriginalJson` custom field; this does not make cards, passkeys or other types native application features. Data absent from an export cannot be reconstructed.
 
-* **Anti-Screenshot & Screen Capture Protection (Anti-Spyware):**
-  * Integrated native Win32 `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE / WDA_MONITOR)`.
-  * All application windows (Unlock Vault, Dashboard, Entry Editor, Settings, Password Generator, Group Editor) appear **completely blacked out or invisible** to screen capture software, video recording tools (OBS, Discord screen share, Teams, TeamViewer), and background screenshot malware. Can be toggled in *Settings*.
+CSV export streams in the background, supports progress and cancellation, and replaces the destination atomically. It contains passwords and notes **in plaintext**, excludes the recycle bin, and omits attachments, custom fields and history. It is a migration format, not a complete backup. Do not open untrusted CSV content in spreadsheet software; formula-like cells may be interpreted. Use a verified encrypted vault backup for a complete copy.
 
-* **In-Memory Key File Sanitization:**
-  * Key file byte buffers (`_keyFileBytes`) are immediately zeroed out in memory using `CryptographicOperations.ZeroMemory` within guaranteed `finally` blocks upon Argon2id key derivation, dialog closing, or option deselection.
+Input is limited to 32 MB and CSV imports to 100,000 records. Importing a malformed file fails rather than guessing unknown columns. Keep any plaintext source export only in an appropriately protected location.
 
-* **RAM Purge on Vault Lock:**
-  * When locking the vault, SQLitePass disposes encryption engines, clears credentials in memory, and triggers explicit garbage collection (`GC.Collect()` and finalizer synchronization) to purge sensitive string remnants from RAM.
+## Build and test
 
----
-
-## 🚀 Key Features & Productivity
-
-* **Full Drag & Drop Organization:**
-  * **Entries to Folders:** Drag and drop accounts directly from the DataGrid onto sidebar folders to organize them instantly.
-  * **Folder Hierarchy & Nesting:** Drag and drop folders inside other folders to create nested subfolders.
-  * **Folder Reordering:** Drag folders above or below other folders to reorder them at the same level.
-  * **Folder Elevation:** Drag folders out to empty space to promote them back to root level.
-  * **Anti-Loop Safety:** Built-in cycle detection blocks accidental loops (cannot drop a folder into itself or its own descendants).
-  * **Keyboard & Context Controls:** Quickly reorder folders via right-click or shortcuts: **Move Up** (`Ctrl+Up`), **Move Down** (`Ctrl+Down`), and **Move to Parent Level**.
-
-* **Recycle Bin with Soft-Delete:**
-  * Deleting an entry moves it safely into the default **"Cestino" (Recycle Bin)** folder to prevent accidental data loss.
-  * Permanent deletion requires confirmation only when deleting directly from within the Recycle Bin or using the **"Empty Recycle Bin..."** action.
-
-* **Interactive DataGrid Column Sorting:**
-  * Click any column header (*Title*, *User Name*, *Password*, *URL*, *Notes*, *Last Modified*) to sort entries in ascending or descending order.
-
-* **Context-Aware Column Double-Clicking:**
-  * **Password:** Instantly copies the password to the clipboard (without unmasking it) and triggers an automatic countdown to clear the clipboard (default 12s).
-  * **User Name:** Copies the username to clipboard.
-  * **URL:** Opens the URL directly in your default browser.
-  * **Title / Row:** Opens the full entry editor dialog.
-
-* **Smart Context-Aware Action Buttons:**
-  * Toolbar buttons (Copy User, Copy Password, Open URL, Auto-Type) and context menu items dynamically enable only when the selected entry contains that specific data, eliminating misleading clicks on empty fields.
-
-* **Global Auto-Type (`Ctrl+Alt+A`):**
-  * System-wide hotkey using Windows `SendInput`: detects the focused window or browser tab title and automatically types credentials and customizable sequences (e.g. `{USERNAME}{TAB}{PASSWORD}{ENTER}`, `{DELAY 500}`).
-  * Keystrokes are simulated directly without writing passwords to the Windows clipboard, bypassing clipboard sniffers.
-
-* **Multi-Platform Vault Import & Export:**
-  * **Bitwarden JSON Import (`.json`):** Full import of unencrypted Bitwarden vault exports, including usernames, passwords, URLs, notes, custom fields, and TOTP seeds.
-  * **Web Browser CSV Import (`.csv`):** Auto-detects column structures and imports passwords exported from **Google Chrome, Microsoft Edge, Mozilla Firefox, Brave, and Opera**.
-  * **RFC 4180 Multi-Line CSV Engine:** Robust character-level finite-state-machine reader correctly preserving newlines and escaped double quotes (`""`) inside multiline notes.
-  * **KeePass 2 CSV Import & Export (`.csv`):** Seamless migration to and from KeePass 2.
-  * **High-Performance Batch Engine:** Bulk imports run in a single atomic SQLite transaction with a single backup snapshot, importing thousands of items in under half a second.
-
-* **Productivity Keyboard Shortcuts:**
-  * **`Enter`:** Edit selected account/entry.
-  * **`Delete`:** Safely move entry to Recycle Bin (or permanently delete if already in Trash).
-  * **`F2`:** Rapidly rename selected folder/group.
-  * **`Ctrl+M`:** Change Master Password dialog.
-  * **`Ctrl+L`:** Instantly lock vault.
-  * **`Ctrl+I` / `Ctrl+G`:** New Entry / New Group.
-  * **`Ctrl+Alt+A`:** Global Auto-Type into active foreground window.
-
-* **Adaptive Dual Theme Design:**
-  * **Refined Neutral Light Theme:** Soft, neutral Slate-50 (`#F8FAFC`) canvas with crisp white cards, delicate Slate-200/300 borders, soft dark text (`#0F172A`), and pastel blue selection (`#DBEAFE`) for high-contrast, fatigue-free daylight use with vibrant icon rendering.
-  * **Dark Obsidian / Zinc Theme:** Sleek deep Zinc-950 (`#09090B`) canvas with elevated Zinc-900 surfaces and Zinc-800 borders for low eye-strain in dim environments.
-  * Quick theme toggle button (🌓) available both on the main toolbar and unlock window.
-  * **Pixel-Perfect DataGrid Gridlines:** Clean, single 1px horizontal dividers under every row with zero jagged edges or stepped column borders.
-
-* **System Tray & Desktop Integration:**
-  * Notification area (System Tray) icon with quick context menu.
-  * *Minimize to Tray* option.
-  * *Close button (X) minimizes to Tray instead of quitting* option.
-  * *Start with Windows* integration.
-  * *Always on top* mode.
-
-* **Intelligent Auto-Lock:**
-  * Inactivity timeout lock (1, 3, 5, 10, 15, 30 minutes).
-  * Auto-lock on minimize to tray.
-  * Auto-lock on Windows session lock (`Win+L`).
-  * Silent background lock: purges keys in memory quietly without intrusive focus-stealing popups.
-
-* **Password Generator with Entropy Scoring:**
-  * Real-time **bit entropy calculation** with visual quality bar.
-  * Configurable length (6–64 characters), Uppercase, Lowercase, Digits, Symbols, and exclusion of visually ambiguous characters (`0`, `O`, `1`, `l`, `I`).
-
-* **Multi-Language Support (5 Languages Built-In):**
-  * 🇬🇧 **English**
-  * 🇮🇹 **Italiano**
-  * 🇫🇷 **Français**
-  * 🇩🇪 **Deutsch**
-  * 🇪🇸 **Español**
-  * Automatic system culture detection with real-time runtime language switching in Settings.
-
-* **Local Diagnostic File Logging:**
-  * Thread-safe background logger writing to `%APPDATA%\SQLitePass\logs\sqlitepass.log` with automatic 5 MB rotation.
-
-* **History & Versioning:**
-  * Retains previous versions of modified entries for auditing and rollback.
-
-* **Encrypted Attachments & Custom Fields:**
-  * Attach binary files and add unlimited key-value custom attributes with optional masking.
-
-* **Redundant Secondary Backup Directory:**
-  * Optional setting to mirror backups to a second physical location (e.g., USB drive or secondary hard drive).
-
----
-
-## 🛠️ Building & Running from Source
-
-### Prerequisites
-* Windows 10, Windows 11, or Windows Server
-* **.NET 8 SDK**
+Prerequisites: Windows and the .NET SDK selected by `global.json` (10.0.404, with patch roll-forward). NuGet dependencies are pinned in `packages.lock.json` files.
 
 ```powershell
-# Run the test suite (15 unit tests: Cryptography, Argon2id, SQLite, Bulk Import, Drag & Drop, Integrity Check, Multi-line RFC 4180 CSV, Re-encryption)
-dotnet test SQLitePass.slnx
-
-# Run the UI application
+dotnet restore SQLitePass.slnx --locked-mode
+dotnet build SQLitePass.slnx -c Release --no-restore
+dotnet test SQLitePass.slnx -c Release --no-build --no-restore
 dotnet run --project SQLitePass.UI
 ```
 
----
+Tests use synthetic vaults and a fake Auto-Type input adapter. The small `SQLitePass.TestHost` helper leaves a real SQLite WAL in an isolated temporary fixture for recovery testing; it does not send keyboard input or access a real vault. It is not included in the application package.
 
-## 📦 Packaging & Velopack Installer
-
-To package the self-contained installer and portable zip:
+The bounded benchmark creates and removes its own synthetic temporary vault, with no vault path or credential arguments:
 
 ```powershell
-# Via PowerShell (bypassing ExecutionPolicy restrictions if needed):
-powershell -ExecutionPolicy Bypass -File .\build-installer.ps1 -Version "1.0.2"
-
-# Or simply double-click:
-.\build-installer.bat 1.0.2
+dotnet run --project SQLitePass.TestHost -c Release -- --benchmark
 ```
 
-Artifacts generated in `./releases/`:
-* **`SQLitePass-win-Setup.exe`**: Standard Windows installer (creates Start Menu & Desktop shortcuts, with automatic background updates via GitHub Releases).
-* **`SQLitePass-win-Portable.zip`**: Zero-install standalone portable edition (ideal for USB flash drives).
-* **`SQLitePass-1.0.2-full.nupkg` & `releases.win.json`**: Update delta packages for Velopack auto-updater.
+Settings and diagnostics are stored under `%APPDATA%\SQLitePass`. Preferences include recent file paths and opaque vault/group identifiers for folder expansion; they are not encrypted. Writes use an OS lease and atomic replacement. Independent concurrent preference edits are merged, while incompatible edits to the same value are rejected with a request to reload. A Windows startup-registration failure is reported separately from saved preferences. The portable executable does not make these settings portable. Logs omit credential values and raw exception messages, but diagnostic retention and file access still matter.
 
----
+## CI and release
 
-## ⚖️ License
+The Windows [Verify workflow](https://github.com/FuryGamingASD/SQLitePass/actions/workflows/verify.yml) runs the complete verification and packaging sequence, preserves evidence and verifies silent installation/update/uninstall. Run the same sequence locally with `./scripts/Invoke-Ci.ps1`. A main-branch commit marked `[release]` publishes only after those checks pass, with asset digest verification and commit provenance. The published update feed is then downloaded and verified through the application’s Velopack library. See [release procedure and remaining validation](docs/RELEASE_1.1.0.md).
 
-Distributed under the **GNU General Public License v3.0 (GPLv3)**.  
-Free, open-source, and protected by strong copyleft.
+## Packaging
+
+```powershell
+# Local QA only: explicitly unsigned, without installing or publishing anything
+.\build-installer.ps1 -Version 1.1.0 -AllowUnsigned
+
+# Signed release, using an authorized certificate from the Windows store
+.\build-installer.ps1 -Version 1.1.0 -CertificateThumbprint YOUR_CERTIFICATE_SHA1_THUMBPRINT
+```
+
+The signing thumbprint can also be supplied through `SQLITEPASS_SIGN_CERT`. Packaging runs tests first, uses the pinned local Velopack tool, preserves existing releases, writes versioned output under `artifacts/releases/`, and produces SHA-256 checksums. Signing is explicitly waived for this verification candidate. Public release preparation still requires the outstanding Windows, distribution and independent review checks documented in the release verification report. Building packages does not publish them.
+
+## License and security reporting
+
+SQLitePass is licensed under [GPL-3.0](LICENSE). Dependencies retain their own licenses; see [third-party notices](docs/THIRD_PARTY_NOTICES.md). Follow [the security policy](SECURITY.md) when reporting a vulnerability; never attach real secrets or a real vault to a public issue.

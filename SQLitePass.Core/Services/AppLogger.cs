@@ -8,7 +8,7 @@ namespace SQLitePass.Core.Services
     /// </summary>
     public static class AppLogger
     {
-        private static readonly string LogDir = Path.Combine(
+        private static readonly string LogDir = AppContext.GetData("SQLitePass.LogDirectory") as string ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "SQLitePass",
             "logs"
@@ -16,19 +16,22 @@ namespace SQLitePass.Core.Services
         private static readonly string LogPath = Path.Combine(LogDir, "sqlitepass.log");
         private static readonly object LockObj = new();
         private const long MaxLogSizeBytes = 5 * 1024 * 1024; // 5 MB
+        private static volatile bool _enabled = AppContext.GetData("SQLitePass.LogDirectory") is string;
+        public static void Configure(bool enabled) => _enabled = enabled;
 
         public static void LogInfo(string message) => Write("INFO", message);
         public static void LogWarning(string message) => Write("WARN", message);
         public static void LogError(string message, Exception? ex = null)
         {
             string full = ex != null 
-                ? $"{message}\n[Exception] {ex.GetType().FullName}: {ex.Message}\n[StackTrace]\n{ex.StackTrace}" 
+                ? $"{message}\n[Exception] {ex.GetType().FullName}\n[StackTrace]\n{new System.Diagnostics.StackTrace(ex, false)}"
                 : message;
             Write("ERROR", full);
         }
 
         private static void Write(string level, string message)
         {
+            if (!_enabled) return;
             try
             {
                 lock (LockObj)

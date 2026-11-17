@@ -49,7 +49,7 @@ namespace SQLitePass.UI.Services
                 if (GetLastInputInfo(ref lii))
                 {
                     uint envTicks = GetTickCount();
-                    uint idleMs = envTicks >= lii.dwTime ? (envTicks - lii.dwTime) : (uint.MaxValue - lii.dwTime + envTicks);
+                    uint idleMs = unchecked(envTicks - lii.dwTime);
                     if (idleMs >= (uint)settings.AutoLockMinutes * 60 * 1000)
                     {
                         _onLockRequested();

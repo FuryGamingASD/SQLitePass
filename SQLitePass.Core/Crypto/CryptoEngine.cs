@@ -18,6 +18,16 @@ namespace SQLitePass.Core.Crypto
 
         private byte[] _symmetricKey;
         private bool _disposed;
+        public bool IsDisposed => _disposed;
+        // Null denotes a raw imported symmetric key, whose credential factors are unknown.
+        public bool? DerivedWithKeyFile { get; private set; }
+
+        public static CryptoEngine FromMasterKey(MasterKey masterKey, byte[] salt, int iterations = 3, int memoryKb = 65536, int parallelism = 2)
+        {
+            byte[] key = DeriveKeyArgon2(masterKey, salt, iterations, memoryKb, parallelism);
+            try { return new CryptoEngine(key) { DerivedWithKeyFile = masterKey.UsesKeyFile }; }
+            finally { CryptographicOperations.ZeroMemory(key); }
+        }
 
         public CryptoEngine(byte[] symmetricKey)
         {
@@ -35,6 +45,7 @@ namespace SQLitePass.Core.Crypto
         /// </summary>
         public static byte[] DeriveKeyArgon2(MasterKey masterKey, byte[] salt, int iterations = 3, int memoryKb = 64 * 1024, int parallelism = 2)
         {
+            ValidateKdf(salt, iterations, memoryKb, parallelism);
             byte[] seed = masterKey.GetKeySeed();
             try
             {
@@ -54,59 +65,54 @@ namespace SQLitePass.Core.Crypto
             }
         }
 
+        public static void ValidateKdf(byte[] salt, int iterations, int memoryKb, int parallelism)
+        {
+            if (salt.Length is < 16 or > 64 || iterations is < 1 or > 20 ||
+                memoryKb is < 8192 or > 524288 || parallelism is < 1 or > 16 || memoryKb < 8 * parallelism)
+                throw new InvalidDataException("Parametri di derivazione del vault non supportati (massimo 512 MB, 20 iterazioni, 16 thread).");
+        }
+
         /// <summary>
         /// Encrypts raw bytes using AES-256-GCM.
         /// Output format: [12 bytes Nonce] + [16 bytes Tag] + [Ciphertext]
         /// </summary>
-        public byte[] EncryptBytes(byte[]? plainBytes)
+        public byte[] EncryptBytes(byte[]? plainBytes, string? context = null)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
 
-            if (plainBytes == null || plainBytes.Length == 0)
+            if ((plainBytes == null || plainBytes.Length == 0) && context == null)
                 return Array.Empty<byte>();
+            plainBytes ??= Array.Empty<byte>();
 
-            byte[] nonce = new byte[NonceSize];
+            byte[] result = new byte[NonceSize + TagSize + plainBytes.Length];
+            var nonce = result.AsSpan(0, NonceSize);
             RandomNumberGenerator.Fill(nonce);
-
-            byte[] tag = new byte[TagSize];
-            byte[] cipherText = new byte[plainBytes.Length];
-
             using var aesGcm = new AesGcm(_symmetricKey, TagSize);
-            aesGcm.Encrypt(nonce, plainBytes, cipherText, tag);
-
-            byte[] result = new byte[NonceSize + TagSize + cipherText.Length];
-            Buffer.BlockCopy(nonce, 0, result, 0, NonceSize);
-            Buffer.BlockCopy(tag, 0, result, NonceSize, TagSize);
-            Buffer.BlockCopy(cipherText, 0, result, NonceSize + TagSize, cipherText.Length);
-
+            aesGcm.Encrypt(nonce, plainBytes, result.AsSpan(NonceSize + TagSize), result.AsSpan(NonceSize, TagSize),
+                context == null ? null : Encoding.UTF8.GetBytes(context));
             return result;
         }
 
         /// <summary>
         /// Decrypts raw bytes previously encrypted with EncryptBytes.
         /// </summary>
-        public byte[] DecryptBytes(byte[]? encryptedPayload)
+        public byte[] DecryptBytes(byte[]? encryptedPayload, string? context = null)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
 
-            if (encryptedPayload == null || encryptedPayload.Length == 0)
+            if ((encryptedPayload == null || encryptedPayload.Length == 0) && context == null)
                 return Array.Empty<byte>();
+            encryptedPayload ??= Array.Empty<byte>();
 
             if (encryptedPayload.Length < NonceSize + TagSize)
                 throw new CryptographicException("Encrypted payload is corrupted or too short.");
 
-            byte[] nonce = new byte[NonceSize];
-            byte[] tag = new byte[TagSize];
             int cipherTextLength = encryptedPayload.Length - NonceSize - TagSize;
-            byte[] cipherText = new byte[cipherTextLength];
-
-            Buffer.BlockCopy(encryptedPayload, 0, nonce, 0, NonceSize);
-            Buffer.BlockCopy(encryptedPayload, NonceSize, tag, 0, TagSize);
-            Buffer.BlockCopy(encryptedPayload, NonceSize + TagSize, cipherText, 0, cipherTextLength);
-
             byte[] plainBytes = new byte[cipherTextLength];
             using var aesGcm = new AesGcm(_symmetricKey, TagSize);
-            aesGcm.Decrypt(nonce, cipherText, tag, plainBytes);
+            try { aesGcm.Decrypt(encryptedPayload.AsSpan(0, NonceSize), encryptedPayload.AsSpan(NonceSize + TagSize),
+                encryptedPayload.AsSpan(NonceSize, TagSize), plainBytes, context == null ? null : Encoding.UTF8.GetBytes(context)); }
+            catch { CryptographicOperations.ZeroMemory(plainBytes); throw; }
 
             return plainBytes;
         }
@@ -114,15 +120,16 @@ namespace SQLitePass.Core.Crypto
         /// <summary>
         /// Encrypts a string and returns a Base64-encoded string.
         /// </summary>
-        public string EncryptString(string? plainText)
+        public string EncryptString(string? plainText, string? context = null)
         {
-            if (string.IsNullOrEmpty(plainText))
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (string.IsNullOrEmpty(plainText) && context == null)
                 return string.Empty;
 
-            byte[] plainBytes = Encoding.UTF8.GetBytes(plainText);
+            byte[] plainBytes = Encoding.UTF8.GetBytes(plainText ?? string.Empty);
             try
             {
-                byte[] encrypted = EncryptBytes(plainBytes);
+                byte[] encrypted = EncryptBytes(plainBytes, context);
                 return Convert.ToBase64String(encrypted);
             }
             finally
@@ -134,13 +141,14 @@ namespace SQLitePass.Core.Crypto
         /// <summary>
         /// Decrypts a Base64-encoded string previously encrypted with EncryptString.
         /// </summary>
-        public string DecryptString(string? base64Payload)
+        public string DecryptString(string? base64Payload, string? context = null)
         {
-            if (string.IsNullOrEmpty(base64Payload))
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (string.IsNullOrEmpty(base64Payload) && context == null)
                 return string.Empty;
 
-            byte[] encrypted = Convert.FromBase64String(base64Payload);
-            byte[] decrypted = DecryptBytes(encrypted);
+            byte[] encrypted = Convert.FromBase64String(base64Payload ?? string.Empty);
+            byte[] decrypted = DecryptBytes(encrypted, context);
             try
             {
                 return Encoding.UTF8.GetString(decrypted);

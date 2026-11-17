@@ -1,105 +1,60 @@
-using System;
+using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Threading;
 using SQLitePass.Core.Services;
 
-namespace SQLitePass.UI.Services
+namespace SQLitePass.UI.Services;
+
+public sealed class ClipboardCoordinator : IDisposable
 {
-    /// <summary>
-    /// Coordinates clipboard copy operations, auto-clearing sensitive data after timeout,
-    /// and providing live countdown notifications.
-    /// </summary>
-    public sealed class ClipboardCoordinator : IDisposable
+    [DllImport("user32.dll")] private static extern uint GetClipboardSequenceNumber();
+    public static ClipboardCoordinator Shared { get; } = new(_ => { });
+    private DispatcherTimer? _timer;
+    private uint? _sequence;
+    private long _expires;
+    private int _retries;
+    private Action<string> _statusCallback;
+
+    public ClipboardCoordinator(Action<string> statusCallback) => _statusCallback = statusCallback;
+    public void SetStatusCallback(Action<string> callback) => _statusCallback = callback;
+
+    public void CopyWithAutoClear(string text, string description, int customTimeoutSecs = 0)
     {
-        private DispatcherTimer? _timer;
-        private int _secondsRemaining;
-        private string? _lastCopiedText;
-        private readonly Action<string> _statusCallback;
-
-        public ClipboardCoordinator(Action<string> statusCallback)
+        if (string.IsNullOrEmpty(text)) return;
+        int timeout = Math.Clamp(customTimeoutSecs > 0 ? customTimeoutSecs : AppSettingsManager.Load().ClipboardClearSeconds, 3, 300);
+        try
         {
-            _statusCallback = statusCallback ?? throw new ArgumentNullException(nameof(statusCallback));
+            var data = new DataObject(); data.SetData(DataFormats.UnicodeText, text);
+            data.SetData("CanIncludeInClipboardHistory", new MemoryStream(BitConverter.GetBytes(0)), false);
+            data.SetData("CanUploadToCloudClipboard", new MemoryStream(BitConverter.GetBytes(0)), false);
+            data.SetData("ExcludeClipboardContentFromMonitorProcessing", new MemoryStream(new byte[] { 1 }), false);
+            Clipboard.SetDataObject(data, copy: true);
+            _sequence = GetClipboardSequenceNumber(); _expires = System.Diagnostics.Stopwatch.GetTimestamp() + timeout * System.Diagnostics.Stopwatch.Frequency; _retries = 0;
+            _timer ??= new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Normal, Tick, Dispatcher.CurrentDispatcher);
+            _timer.Start(); _statusCallback(LocalizationManager.GetString("ClipboardCopiedFor", description, timeout));
         }
-
-        public void CopyWithAutoClear(string text, string description, int customTimeoutSecs = 0)
+        catch (ExternalException) { _statusCallback(LocalizationManager.GetString("ClipboardBusy")); }
+    }
+    private void Tick(object? sender, EventArgs e)
+    {
+        int seconds = (int)Math.Ceiling((double)(_expires - System.Diagnostics.Stopwatch.GetTimestamp()) / System.Diagnostics.Stopwatch.Frequency);
+        if (seconds > 0) _statusCallback(LocalizationManager.GetString("ClipboardClearedIn", seconds));
+        else TryClear();
+    }
+    private void TryClear()
+    {
+        try
         {
-            if (string.IsNullOrEmpty(text)) return;
-
-            var settings = AppSettingsManager.Load();
-            int timeoutSecs = customTimeoutSecs > 0 
-                ? customTimeoutSecs 
-                : (settings.ClipboardClearSeconds > 0 ? settings.ClipboardClearSeconds : 12);
-
-            try
-            {
-                // Set clipboard text with Windows 10/11 Clipboard History (Win+V) & Cloud Sync exclusion
-                var dataObject = new DataObject();
-                dataObject.SetData(DataFormats.UnicodeText, text);
-                dataObject.SetData("CanIncludeInClipboardHistory", 0);
-                dataObject.SetData("CanUploadToCloudStore", 0);
-                dataObject.SetData("ExcludeClipboardContentFromMonitorProcessing", 0);
-                Clipboard.SetDataObject(dataObject, copy: false);
-
-                _lastCopiedText = text;
-                _secondsRemaining = timeoutSecs;
-
-                _timer?.Stop();
-                _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-                _timer.Tick += (s, e) =>
-                {
-                    _secondsRemaining--;
-                    if (_secondsRemaining > 0)
-                    {
-                        _statusCallback($"📋 {description} negli appunti ({_secondsRemaining}s)");
-                    }
-                    else
-                    {
-                        _timer?.Stop();
-                        SafeClearClipboard();
-                        _statusCallback("📋 Appunti cancellati per sicurezza");
-                    }
-                };
-                _timer.Start();
-
-                _statusCallback($"📋 {description} negli appunti ({timeoutSecs}s)");
-                AppLogger.LogInfo($"Copied {description} to clipboard with {timeoutSecs}s auto-clear");
-            }
-            catch (Exception ex)
-            {
-                AppLogger.LogError("Clipboard operation failed", ex);
-                _statusCallback("⚠️ Impossibile accedere agli appunti");
-            }
+            if (_sequence.HasValue && GetClipboardSequenceNumber() == _sequence.Value) Clipboard.Clear();
+            _sequence = null; _timer?.Stop(); _statusCallback(LocalizationManager.GetString("ClipboardCleared"));
         }
-
-        public void ClearImmediately()
+        catch (ExternalException)
         {
-            _timer?.Stop();
-            SafeClearClipboard();
-            _statusCallback("📋 Appunti cancellati");
-            AppLogger.LogInfo("Clipboard cleared immediately by user");
-        }
-
-        private void SafeClearClipboard()
-        {
-            try
-            {
-                // Only clear if the user hasn't copied something else in the meantime
-                if (_lastCopiedText != null && Clipboard.GetText() == _lastCopiedText)
-                {
-                    Clipboard.Clear();
-                }
-            }
-            catch { }
-            finally
-            {
-                _lastCopiedText = null;
-            }
-        }
-
-        public void Dispose()
-        {
-            _timer?.Stop();
-            _timer = null;
+            if (++_retries <= 5) { _expires = 0; _timer?.Start(); }
+            else { _timer?.Stop(); _statusCallback(LocalizationManager.GetString("ClipboardClearFailed")); }
         }
     }
+    public void ClearImmediately() => TryClear();
+    public void Dispose() { TryClear(); if (_sequence == null) _timer?.Stop(); }
 }

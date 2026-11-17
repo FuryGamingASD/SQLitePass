@@ -11,12 +11,33 @@ namespace SQLitePass.UI.Dialogs
     public partial class EntryEditDialog : Window
     {
         private readonly PwEntry _entry;
+        private readonly EntryEditDraft _draft;
+        private readonly PwEntryHistory _original;
+        public PwEntry ResultEntry => _entry;
         private bool _isPasswordRevealed = false;
+        private bool _closed;
+        private bool _fileOperationBusy;
+        private bool _lifetimeDisposed;
+        private readonly CancellationTokenSource _lifetime = new();
+        private void SetFileOperationBusy(bool busy)
+        {
+            _fileOperationBusy = busy;
+            if (!_closed) EntryTabs.IsEnabled = !busy;
+            else if (!busy) DisposeLifetime();
+            UpdateEditingStatus();
+        }
+        private void DisposeLifetime()
+        { if (!_lifetimeDisposed) { _lifetimeDisposed = true; _lifetime.Dispose(); } }
 
-        public EntryEditDialog(PwEntry entry)
+        public EntryEditDialog(PwEntry entry) : this(EntryEditDraft.Create(entry)) { }
+        public EntryEditDialog(EntryEditDraft draft)
         {
             InitializeComponent();
-            _entry = entry ?? throw new ArgumentNullException(nameof(entry));
+            ArgumentNullException.ThrowIfNull(draft);
+            _original = draft.Original;
+            _draft = draft;
+            _entry = draft.Current;
+            InitializeEditingState();
 
             var settings = AppSettingsManager.Load();
             SQLitePass.UI.Services.WindowSecurityService.ApplyProtection(this, settings.ProtectScreenCapture);
@@ -24,8 +45,7 @@ namespace SQLitePass.UI.Dialogs
             // Load values
             TxtTitle.Text = _entry.Title;
             TxtUserName.Text = _entry.UserName;
-            TxtPasswordMasked.Password = _entry.Password;
-            TxtPasswordPlain.Text = _entry.Password;
+            SetPassword(_entry.Password);
             TxtUrl.Text = _entry.Url;
             TxtNotes.Text = _entry.Notes;
             TxtTags.Text = _entry.Tags;
@@ -45,58 +65,70 @@ namespace SQLitePass.UI.Dialogs
             DgHistory.ItemsSource = _entry.History;
 
             UpdateEntropyDisplay(_entry.Password);
+            StartTrackingEdits();
             TxtTitle.Focus();
+            Closed += (_, _) =>
+            {
+                _closed = true; _lifetime.Cancel();
+                _passwordReveal.Dispose();
+                if (!_fileOperationBusy) DisposeLifetime();
+                TxtPasswordMasked.Clear(); TxtPasswordPlain.Clear(); TxtNotes.Clear(); TxtUserName.Clear();
+                _original.Title = _original.Password = _original.Notes = _original.UserName = _original.Url = _original.SnapshotJson = string.Empty;
+                if (DialogResult != true) _entry.ClearSecrets();
+            };
         }
 
         private string CurrentPassword => _isPasswordRevealed ? TxtPasswordPlain.Text : TxtPasswordMasked.Password;
 
-        private void SetPassword(string pwd)
+        private void SetPassword(string pwd, bool markEdited = true)
         {
-            TxtPasswordPlain.Text = pwd;
-            TxtPasswordMasked.Password = pwd;
+            _syncingPassword = true;
+            try
+            {
+                if (_isPasswordRevealed) { TxtPasswordPlain.Text = pwd; TxtPasswordMasked.Clear(); }
+                else { TxtPasswordMasked.Password = pwd; TxtPasswordPlain.Clear(); }
+            }
+            finally { _syncingPassword = false; }
             UpdateEntropyDisplay(pwd);
+            if (markEdited) MarkEdited();
         }
 
         private void UpdateEntropyDisplay(string pwd)
         {
+            if (pwd.Length > SQLitePass.UI.Services.UiText.MaximumScoredPasswordLength)
+            {
+                PbQuality.Visibility = Visibility.Collapsed;
+                TxtQualityScore.Text = SQLitePass.UI.Services.LocalizationManager.GetString("QualityNotEstimated");
+                return;
+            }
+            PbQuality.Visibility = Visibility.Visible;
             double entropy = PasswordGenerator.CalculateEntropy(pwd);
-            PbQuality.Value = Math.Min(entropy, 128);
-            TxtQualityScore.Text = $"{entropy:F1} bits";
+            PbQuality.Value = Math.Min(entropy, 100);
+            TxtQualityScore.Text = SQLitePass.UI.Services.LocalizationManager.GetString("QualityScore", entropy);
         }
 
         private void TxtPassword_Changed(object sender, TextChangedEventArgs e)
         {
-            if (_isPasswordRevealed)
+            if (_isPasswordRevealed && !_syncingPassword)
             {
-                TxtPasswordMasked.Password = TxtPasswordPlain.Text;
                 UpdateEntropyDisplay(TxtPasswordPlain.Text);
+                MarkEdited();
             }
         }
 
         private void TxtPasswordMasked_PasswordChanged(object sender, RoutedEventArgs e)
         {
-            if (!_isPasswordRevealed)
+            if (!_isPasswordRevealed && !_syncingPassword)
             {
-                TxtPasswordPlain.Text = TxtPasswordMasked.Password;
+                if (TxtQualityScore == null) return;
                 UpdateEntropyDisplay(TxtPasswordMasked.Password);
+                MarkEdited();
             }
         }
 
         private void BtnToggleVisibility_Click(object sender, RoutedEventArgs e)
         {
-            _isPasswordRevealed = !_isPasswordRevealed;
-            if (_isPasswordRevealed)
-            {
-                TxtPasswordPlain.Visibility = Visibility.Visible;
-                TxtPasswordMasked.Visibility = Visibility.Collapsed;
-                BtnToggleVisibility.Content = "🔒";
-            }
-            else
-            {
-                TxtPasswordPlain.Visibility = Visibility.Collapsed;
-                TxtPasswordMasked.Visibility = Visibility.Visible;
-                BtnToggleVisibility.Content = "👁";
-            }
+            _passwordReveal.Toggle();
         }
 
         private void BtnGenerate_Click(object sender, RoutedEventArgs e)
@@ -119,18 +151,25 @@ namespace SQLitePass.UI.Dialogs
 
         private void BtnAddField_Click(object sender, RoutedEventArgs e)
         {
-            _entry.CustomFields.Add(new PwCustomField
-            {
-                Key = "New Field",
-                Value = "",
-                IsProtected = false
-            });
+            var dialog = new CustomFieldDialog { Owner = this };
+            if (dialog.ShowDialog() == true && dialog.Result != null) _entry.CustomFields.Add(dialog.Result);
+        }
+        private void BtnEditField_Click(object sender, RoutedEventArgs e)
+        {
+            if (DgCustomFields.SelectedItem is not PwCustomField field) return;
+            var dialog = new CustomFieldDialog(field) { Owner = this };
+            if (dialog.ShowDialog() == true && dialog.Result != null) _entry.CustomFields[_entry.CustomFields.IndexOf(field)] = dialog.Result;
+        }
+        private void BtnClearHistory_Click(object sender, RoutedEventArgs e)
+        {
+            if (MessageBox.Show(this, SQLitePass.UI.Services.LocalizationManager.GetString("ClearHistoryConfirm"), SQLitePass.UI.Services.LocalizationManager.GetString("ClearHistory"), MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes) _entry.History.Clear();
         }
 
         private void BtnDeleteField_Click(object sender, RoutedEventArgs e)
         {
             if (DgCustomFields.SelectedItem is PwCustomField selected)
             {
+                selected.Value = string.Empty;
                 _entry.CustomFields.Remove(selected);
             }
         }
@@ -143,47 +182,48 @@ namespace SQLitePass.UI.Dialogs
             }
         }
 
-        private void BtnAttachFile_Click(object sender, RoutedEventArgs e)
+        private async void BtnAttachFile_Click(object sender, RoutedEventArgs e)
         {
-            var ofd = new OpenFileDialog { Title = "Select file to attach" };
-            if (ofd.ShowDialog() == true)
+            if (_closed || _fileOperationBusy) return;
+            var ofd = new OpenFileDialog { Title = SQLitePass.UI.Services.LocalizationManager.GetString("AttachmentSelect") };
+            if (ofd.ShowDialog(this) == true && !_closed)
             {
-                var fi = new FileInfo(ofd.FileName);
-                if (fi.Length > 20 * 1024 * 1024)
+                SetFileOperationBusy(true);
+                try
                 {
-                    MessageBox.Show("Il file selezionato supera la dimensione massima consentita di 20 MB per singolo allegato.", "File troppo grande", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
+                    var attachment = await Task.Run(() => AttachmentFileService.ReadAsync(ofd.FileName, _lifetime.Token));
+                    if (_closed) { System.Security.Cryptography.CryptographicOperations.ZeroMemory(attachment.Data); return; }
+                    attachment.EntryId = _entry.Id; _entry.Attachments.Add(attachment);
                 }
-
-                byte[] data = File.ReadAllBytes(ofd.FileName);
-                _entry.Attachments.Add(new PwAttachment
-                {
-                    FileName = Path.GetFileName(ofd.FileName),
-                    FileSize = data.Length,
-                    Data = data,
-                    CreatedAt = DateTime.UtcNow
-                });
+                catch (OperationCanceledException) { }
+                catch (Exception ex) { if (!_closed) MessageBox.Show(this, SQLitePass.UI.Services.UiErrorMessages.GetText(ex), SQLitePass.UI.Services.LocalizationManager.GetString("AttachmentFailed"), MessageBoxButton.OK, MessageBoxImage.Error); }
+                finally { SetFileOperationBusy(false); }
             }
         }
 
-        private void BtnSaveAttachment_Click(object sender, RoutedEventArgs e)
+        private async void BtnSaveAttachment_Click(object sender, RoutedEventArgs e)
         {
+            if (_closed || _fileOperationBusy) return;
             if (LstAttachments.SelectedItem is PwAttachment attach)
             {
                 var sfd = new SaveFileDialog
                 {
                     FileName = attach.FileName,
-                    Title = "Save Attachment"
+                    Title = SQLitePass.UI.Services.LocalizationManager.GetString("AttachmentSave")
                 };
-                if (sfd.ShowDialog() == true)
+                if (sfd.ShowDialog(this) == true && !_closed)
                 {
-                    File.WriteAllBytes(sfd.FileName, attach.Data);
-                    MessageBox.Show("Attachment saved successfully.", "Saved", MessageBoxButton.OK, MessageBoxImage.Information);
+                    SetFileOperationBusy(true);
+                    byte[] bytes = attach.Data.ToArray();
+                    try { await Task.Run(() => AttachmentFileService.WriteAsync(sfd.FileName, bytes, _lifetime.Token)); }
+                    catch (OperationCanceledException) { }
+                    catch (Exception ex) { if (!_closed) MessageBox.Show(this, SQLitePass.UI.Services.UiErrorMessages.GetText(ex), SQLitePass.UI.Services.LocalizationManager.GetString("AttachmentFailed"), MessageBoxButton.OK, MessageBoxImage.Error); }
+                    finally { System.Security.Cryptography.CryptographicOperations.ZeroMemory(bytes); SetFileOperationBusy(false); }
                 }
             }
             else
             {
-                MessageBox.Show("Please select an attachment to save.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(this, SQLitePass.UI.Services.LocalizationManager.GetString("AttachmentSelectFirst"));
             }
         }
 
@@ -191,34 +231,58 @@ namespace SQLitePass.UI.Dialogs
         {
             if (LstAttachments.SelectedItem is PwAttachment attach)
             {
+                System.Security.Cryptography.CryptographicOperations.ZeroMemory(attach.Data);
                 _entry.Attachments.Remove(attach);
             }
         }
 
-        private void BtnRestoreHistory_Click(object sender, RoutedEventArgs e)
+        private async void BtnRestoreHistory_Click(object sender, RoutedEventArgs e)
         {
+            if (_closed || _fileOperationBusy) return;
             if (DgHistory.SelectedItem is PwEntryHistory hist)
             {
-                if (MessageBox.Show($"Restore revision from {hist.SavedAt:yyyy-MM-dd HH:mm:ss}?", "Restore Confirmation", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                if (MessageBox.Show(this, SQLitePass.UI.Services.LocalizationManager.GetString("HistoryRestoreConfirm", hist.SavedAt.ToLocalTime()), SQLitePass.UI.Services.LocalizationManager.GetString("HistoryRestoreTitle"), MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes && !_closed)
                 {
-                    TxtTitle.Text = hist.Title;
-                    TxtUserName.Text = hist.UserName;
-                    SetPassword(hist.Password);
-                    TxtUrl.Text = hist.Url;
-                    TxtNotes.Text = hist.Notes;
+                    PwEntry? snapshot = null; SetFileOperationBusy(true);
+                    try
+                    {
+                        if (!string.IsNullOrEmpty(hist.SnapshotJson)) snapshot = await Task.Run(() => EntrySerialization.Deserialize(hist.SnapshotJson), _lifetime.Token);
+                        if (_closed) return;
+                        TxtTitle.Text = hist.Title;
+                        TxtUserName.Text = hist.UserName;
+                        SetPassword(hist.Password);
+                        TxtUrl.Text = hist.Url;
+                        TxtNotes.Text = hist.Notes;
+                        if (snapshot != null)
+                        {
+                            TxtTags.Text = snapshot.Tags; ChkExpires.IsChecked = snapshot.ExpiryDate.HasValue; DpExpiry.SelectedDate = snapshot.ExpiryDate;
+                            ChkAutoTypeEnabled.IsChecked = snapshot.AutoTypeEnabled; TxtAutoTypeSeq.Text = snapshot.AutoTypeSequence;
+                            _entry.CustomFields.Clear(); foreach (var field in snapshot.CustomFields) _entry.CustomFields.Add(field);
+                            foreach (var file in _entry.Attachments) System.Security.Cryptography.CryptographicOperations.ZeroMemory(file.Data);
+                            _entry.Attachments.Clear(); foreach (var file in snapshot.Attachments) _entry.Attachments.Add(file);
+                            // Transfer ownership of child objects to the active draft before cleanup.
+                            snapshot.CustomFields.Clear(); snapshot.Attachments.Clear();
+                        }
+                    }
+                    catch (OperationCanceledException) { }
+                    catch (Exception ex) { if (!_closed) MessageBox.Show(this, SQLitePass.UI.Services.UiErrorMessages.GetText(ex), SQLitePass.UI.Services.LocalizationManager.GetString("HistoryRestoreFailed"), MessageBoxButton.OK, MessageBoxImage.Error); }
+                    finally { snapshot?.ClearSecrets(); SetFileOperationBusy(false); }
                 }
             }
         }
 
-        private void BtnSave_Click(object sender, RoutedEventArgs e)
+        private async void BtnSave_Click(object sender, RoutedEventArgs e)
         {
-            // Snapshot current state to history before saving if modified
-            if (!string.IsNullOrEmpty(_entry.Title) &&
-               (_entry.Title != TxtTitle.Text || _entry.Password != CurrentPassword || _entry.UserName != TxtUserName.Text))
-            {
-                _entry.History.Add(_entry.CreateHistorySnapshot());
-            }
+            if (!await PrepareFormForSaveAsync()) return;
+            DialogResult = true; Close();
+        }
 
+        internal async Task<bool> PrepareFormForSaveAsync()
+        {
+            if (_closed) return false;
+            if (_fileOperationBusy || !UpdateEditingStatus()) return false;
+            DgCustomFields.CommitEdit(DataGridEditingUnit.Cell, true);
+            DgCustomFields.CommitEdit(DataGridEditingUnit.Row, true);
             _entry.Title = TxtTitle.Text.Trim();
             _entry.UserName = TxtUserName.Text.Trim();
             _entry.Password = CurrentPassword;
@@ -228,10 +292,7 @@ namespace SQLitePass.UI.Dialogs
             _entry.ExpiryDate = ChkExpires.IsChecked == true ? DpExpiry.SelectedDate : null;
             _entry.AutoTypeEnabled = ChkAutoTypeEnabled.IsChecked == true;
             _entry.AutoTypeSequence = TxtAutoTypeSeq.Text;
-            _entry.UpdatedAt = DateTime.UtcNow;
-
-            DialogResult = true;
-            Close();
+            return await ValidateAutoTypeAsync();
         }
 
         private void BtnCancel_Click(object sender, RoutedEventArgs e)

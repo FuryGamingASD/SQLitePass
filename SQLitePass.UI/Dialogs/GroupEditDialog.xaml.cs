@@ -1,6 +1,7 @@
 using System.Windows;
 using SQLitePass.Core.Models;
 using SQLitePass.Core.Services;
+using SQLitePass.UI.Services;
 
 namespace SQLitePass.UI.Dialogs
 {
@@ -8,12 +9,12 @@ namespace SQLitePass.UI.Dialogs
     {
         public string GroupName => TxtGroupName.Text.Trim();
 
-        public GroupEditDialog(string initialName = "New Group")
+        public GroupEditDialog(string? initialName = null)
         {
             InitializeComponent();
             var settings = AppSettingsManager.Load();
             SQLitePass.UI.Services.WindowSecurityService.ApplyProtection(this, settings.ProtectScreenCapture);
-            TxtGroupName.Text = initialName;
+            TxtGroupName.Text = initialName ?? LocalizationManager.GetString("NewGroup");
             TxtGroupName.SelectAll();
             TxtGroupName.Focus();
         }
@@ -22,7 +23,7 @@ namespace SQLitePass.UI.Dialogs
         {
             if (string.IsNullOrWhiteSpace(TxtGroupName.Text))
             {
-                MessageBox.Show("Group name cannot be empty.", "Validation Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(this, LocalizationManager.GetString("GroupNameRequired"), LocalizationManager.GetString("WarningTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 

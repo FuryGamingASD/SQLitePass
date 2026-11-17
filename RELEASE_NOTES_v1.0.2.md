@@ -1,3 +1,5 @@
+> Historical release notes. Security, memory-erasure and corruption-prevention claims in this document are superseded by the current README, SECURITY.md and the November 2026 audit.
+
 ## What's New in SQLitePass v1.0.2
 
 SQLitePass v1.0.2 introduces critical security protections, blazing-fast bulk imports, comprehensive soft-delete trash recovery, and full drag-and-drop organization for folders and accounts.

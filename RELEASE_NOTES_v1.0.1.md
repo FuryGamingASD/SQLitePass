@@ -1,3 +1,5 @@
+> Historical release notes. Security, memory-erasure and corruption-prevention claims in this document are superseded by the current README, SECURITY.md and the November 2026 audit.
+
 # SQLitePass v1.0.1 🛡️
 
 A major visual and architectural UI/UX overhaul. This release transforms SQLitePass into a modern, minimal, and elegant password manager inspired by Bitwarden and modern KeePassXC standards, featuring complete dual-theme support (Soft Light Mode & Deep Dark Mode) and an ultra-clean unlock dialog.

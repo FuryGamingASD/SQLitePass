@@ -11,6 +11,7 @@ namespace SQLitePass.Core.Models
         public string Password { get; set; } = string.Empty;
         public string Url { get; set; } = string.Empty;
         public string Notes { get; set; } = string.Empty;
+        public string SnapshotJson { get; set; } = string.Empty;
         public DateTime SavedAt { get; set; } = DateTime.UtcNow;
     }
 }

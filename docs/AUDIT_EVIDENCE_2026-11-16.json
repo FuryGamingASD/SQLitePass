@@ -1,0 +1,91 @@
+[
+  {
+    "id": "ciphertext-transplant",
+    "reproduced": true,
+    "detail": "A accepts B\u0027s authenticated ciphertext without knowing the key"
+  },
+  {
+    "id": "decryption-error-overwrite",
+    "reproduced": true,
+    "detail": {
+      "quickCheck": true,
+      "savedPlaceholder": true,
+      "backupAlsoOverwritten": true
+    }
+  },
+  {
+    "id": "enc-prefix-collision",
+    "reproduced": true,
+    "detail": "A legitimate plaintext ENC: username aborts loading the vault"
+  },
+  {
+    "id": "history-url-plaintext",
+    "reproduced": true,
+    "detail": "History URLs remain plaintext with username/URL encryption enabled"
+  },
+  {
+    "id": "trash-privacy-downgrade",
+    "reproduced": true,
+    "detail": "Actual UI service soft delete stores protected username and URL in plaintext"
+  },
+  {
+    "id": "orphan-child-groups",
+    "reproduced": true,
+    "detail": "Deleting parent leaves child groups and credentials behind"
+  },
+  {
+    "id": "batch-omits-attachments-history",
+    "reproduced": true,
+    "detail": {
+      "loadedAttachments": 0,
+      "loadedHistory": 0
+    }
+  },
+  {
+    "id": "batch-cannot-clear-fields",
+    "reproduced": true,
+    "detail": "Empty custom field collection leaves old persisted fields"
+  },
+  {
+    "id": "multiple-vault-metadata",
+    "reproduced": true,
+    "detail": "Creation on an existing file appends a second metadata row; load selects LIMIT 1"
+  },
+  {
+    "id": "stale-writer-after-key-rotation",
+    "reproduced": true,
+    "detail": "Old unlocked writer saves old-key ciphertext into a newly rekeyed vault"
+  },
+  {
+    "id": "backup-failure-not-propagated",
+    "reproduced": true,
+    "detail": "Save succeeds with no backup file when target path is a directory"
+  },
+  {
+    "id": "keyfile-change-authentication",
+    "reproduced": true,
+    "detail": "Change password dialog derives the current key without the existing key file"
+  },
+  {
+    "id": "malformed-csv-accepted",
+    "reproduced": true,
+    "detail": "Unclosed CSV quote is accepted as a successful import"
+  },
+  {
+    "id": "misleading-entropy",
+    "reproduced": true,
+    "detail": {
+      "repeatedCharacterCount": 28,
+      "estimatedBits": 131.6
+    }
+  },
+  {
+    "id": "restore-with-stale-wal",
+    "reproduced": true,
+    "detail": {
+      "leftoverWal": true,
+      "expectedRestoredValue": "before",
+      "actualValue": "after"
+    }
+  }
+]

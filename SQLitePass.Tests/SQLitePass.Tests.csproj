@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>SQLitePass.Tests</RootNamespace>
@@ -10,10 +10,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="coverlet.collector" Version="6.0.0" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
-    <PackageReference Include="xunit" Version="2.5.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
+    <PackageReference Include="coverlet.collector" Version="10.1.1" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.12.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="4.0.1" />
   </ItemGroup>
 
   <ItemGroup>
@@ -22,6 +22,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SQLitePass.Core\SQLitePass.Core.csproj" />
+    <ProjectReference Include="..\SQLitePass.TestHost\SQLitePass.TestHost.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Fixtures/legacy-schema.sql" />
+    <Compile Include="..\SQLitePass.UI\Services\TranslationCatalog.cs" Link="Localization\TranslationCatalog.cs" />
+    <EmbeddedResource Include="..\SQLitePass.UI\Localization\*.json" LogicalName="SQLitePass.Localization.%(Filename)%(Extension)" WithCulture="false" />
+    <EmbeddedResource Include="..\SQLitePass.UI\**\*.xaml" Exclude="..\SQLitePass.UI\obj\**;..\SQLitePass.UI\bin\**" LogicalName="SQLitePass.UiSource.%(Filename)%(Extension)" WithCulture="false" />
+    <EmbeddedResource Include="..\SQLitePass.UI\**\*.cs" Exclude="..\SQLitePass.UI\obj\**;..\SQLitePass.UI\bin\**;..\SQLitePass.UI\Properties\AssemblyInfo.cs" LogicalName="SQLitePass.UiSource.%(Filename)%(Extension)" WithCulture="false" />
+  </ItemGroup>
 </Project>

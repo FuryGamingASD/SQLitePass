@@ -15,6 +15,15 @@ namespace SQLitePass.Core.Models
 
         public Guid Id { get; set; } = Guid.NewGuid();
         public Guid? ParentId { get; set; }
+        public long Revision { get; set; }
+        public bool IsRecycleBin { get; set; }
+        public bool IsRoot { get; set; }
+        public PwGroup DeepClone() => new()
+        {
+            Id = Id, ParentId = ParentId, Revision = Revision, IsRecycleBin = IsRecycleBin, IsRoot = IsRoot,
+            Name = Name, IconIndex = IconIndex, IsExpanded = IsExpanded, IsSelected = IsSelected, SortOrder = SortOrder,
+            CreatedAt = CreatedAt, UpdatedAt = UpdatedAt
+        };
 
         public string Name
         {
@@ -40,6 +49,7 @@ namespace SQLitePass.Core.Models
             set { if (_isExpanded != value) { _isExpanded = value; OnPropertyChanged(); } }
         }
 
+        [System.Text.Json.Serialization.JsonIgnore]
         public bool IsSelected
         {
             get => _isSelected;
@@ -50,6 +60,7 @@ namespace SQLitePass.Core.Models
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
         // Tree navigation
+        [System.Text.Json.Serialization.JsonIgnore]
         public ObservableCollection<PwGroup> Children { get; } = new();
 
         public event PropertyChangedEventHandler? PropertyChanged;

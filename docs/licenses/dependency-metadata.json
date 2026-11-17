@@ -1,0 +1,102 @@
+[
+  {
+    "Package": "Hardcodet.NotifyIcon.Wpf",
+    "Version": "2.0.1",
+    "Authors": "Philipp Sumi, Robin Krom, Jan Karger",
+    "Copyright": "Copyright (c) 2009 - 2019 Philipp Sumi, 2019 - 2024 Philipp Sumi, Robin Krom, Jan Karger",
+    "License": "MIT",
+    "LicenseUrl": "https://licenses.nuget.org/MIT",
+    "Repository": "https://github.com/hardcodet/wpf-notifyicon",
+    "Commit": "0a9d1a92914db8fb6b1cca1f073469644cd9bf3b"
+  },
+  {
+    "Package": "Konscious.Security.Cryptography.Argon2",
+    "Version": "1.3.1",
+    "Authors": "Keef Aragon",
+    "Copyright": "(c) 2024 Keef Aragon",
+    "License": "MIT",
+    "LicenseUrl": "https://licenses.nuget.org/MIT",
+    "Repository": "https://github.com/kmaragon/Konscious.Security.Cryptography.git",
+    "Commit": "4ed95a5377e411506ca6868409b5c7d7ecaa859b"
+  },
+  {
+    "Package": "Konscious.Security.Cryptography.Blake2",
+    "Version": "1.1.1",
+    "Authors": "Keef Aragon",
+    "Copyright": "(c) 2024 Keef Aragon",
+    "License": "MIT",
+    "LicenseUrl": "https://licenses.nuget.org/MIT",
+    "Repository": "https://github.com/kmaragon/Konscious.Security.Cryptography.git",
+    "Commit": "4ed95a5377e411506ca6868409b5c7d7ecaa859b"
+  },
+  {
+    "Package": "Microsoft.Data.Sqlite",
+    "Version": "10.0.14",
+    "Authors": "Microsoft",
+    "Copyright": "© Microsoft Corporation. All rights reserved.",
+    "License": "MIT",
+    "LicenseUrl": "https://licenses.nuget.org/MIT",
+    "Repository": "https://github.com/dotnet/dotnet",
+    "Commit": "0427b9abbead3fa64c6655eb4290c537397131fa"
+  },
+  {
+    "Package": "Microsoft.Data.Sqlite.Core",
+    "Version": "10.0.14",
+    "Authors": "Microsoft",
+    "Copyright": "© Microsoft Corporation. All rights reserved.",
+    "License": "MIT",
+    "LicenseUrl": "https://licenses.nuget.org/MIT",
+    "Repository": "https://github.com/dotnet/dotnet",
+    "Commit": "0427b9abbead3fa64c6655eb4290c537397131fa"
+  },
+  {
+    "Package": "SQLitePCLRaw.bundle_e_sqlite3",
+    "Version": "2.1.13",
+    "Authors": "Eric Sink",
+    "Copyright": "Copyright 2014-2024 SourceGear, LLC",
+    "License": "Apache-2.0",
+    "LicenseUrl": "https://licenses.nuget.org/Apache-2.0",
+    "Repository": "https://github.com/ericsink/SQLitePCL.raw",
+    "Commit": ""
+  },
+  {
+    "Package": "SQLitePCLRaw.core",
+    "Version": "2.1.13",
+    "Authors": "Eric Sink",
+    "Copyright": "Copyright 2014-2024 SourceGear, LLC",
+    "License": "Apache-2.0",
+    "LicenseUrl": "https://licenses.nuget.org/Apache-2.0",
+    "Repository": "https://github.com/ericsink/SQLitePCL.raw",
+    "Commit": ""
+  },
+  {
+    "Package": "SQLitePCLRaw.lib.e_sqlite3",
+    "Version": "2.1.13",
+    "Authors": "Eric Sink",
+    "Copyright": "Copyright 2014-2024 SourceGear, LLC",
+    "License": "Apache-2.0",
+    "LicenseUrl": "https://licenses.nuget.org/Apache-2.0",
+    "Repository": "https://github.com/ericsink/SQLitePCL.raw",
+    "Commit": ""
+  },
+  {
+    "Package": "SQLitePCLRaw.provider.e_sqlite3",
+    "Version": "2.1.13",
+    "Authors": "Eric Sink",
+    "Copyright": "Copyright 2014-2024 SourceGear, LLC",
+    "License": "Apache-2.0",
+    "LicenseUrl": "https://licenses.nuget.org/Apache-2.0",
+    "Repository": "https://github.com/ericsink/SQLitePCL.raw",
+    "Commit": ""
+  },
+  {
+    "Package": "Velopack",
+    "Version": "1.2.161",
+    "Authors": "Velopack Ltd,Caelan Sayler,Kevin Bost",
+    "Copyright": "Copyright © Velopack Ltd. All rights reserved.",
+    "License": "MIT",
+    "LicenseUrl": "https://licenses.nuget.org/MIT",
+    "Repository": "https://github.com/velopack/velopack",
+    "Commit": "92d6a1c91716729d449034df5c50307dcce39493"
+  }
+]

@@ -12,14 +12,23 @@ namespace SQLitePass.Tests
 {
     public class CoreCryptoTests
     {
+        private static async Task StartSession(SqliteStorageProvider provider, CryptoEngine crypto)
+        {
+            await provider.SaveVaultMetadataAsync(new SQLitePass.Core.Models.VaultMetadata
+            {
+                SaltBase64 = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16)),
+                VerificationCanary = crypto.GenerateCanaryToken()
+            });
+            await provider.AuthenticateAsync(crypto);
+        }
         [Fact]
         public void TestMasterKeyAndArgon2KeyDerivation()
         {
             using var masterKey = new MasterKey("SuperSecretPassword123!");
             byte[] salt = new byte[16] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
 
-            byte[] key1 = CryptoEngine.DeriveKeyArgon2(masterKey, salt, iterations: 2, memoryKb: 1024, parallelism: 1);
-            byte[] key2 = CryptoEngine.DeriveKeyArgon2(masterKey, salt, iterations: 2, memoryKb: 1024, parallelism: 1);
+            byte[] key1 = CryptoEngine.DeriveKeyArgon2(masterKey, salt, iterations: 2, memoryKb: 8192, parallelism: 1);
+            byte[] key2 = CryptoEngine.DeriveKeyArgon2(masterKey, salt, iterations: 2, memoryKb: 8192, parallelism: 1);
 
             Assert.NotNull(key1);
             Assert.Equal(32, key1.Length);
@@ -42,18 +51,6 @@ namespace SQLitePass.Tests
 
             string decrypted = engine.DecryptString(encrypted);
             Assert.Equal(originalText, decrypted);
-        }
-
-        [Fact]
-        public async Task TestAutoTypeServiceExecution()
-        {
-            var entry = new PwEntry
-            {
-                Title = "Test",
-                UserName = "user",
-                Password = "pwd"
-            };
-            await AutoTypeService.ExecuteAutoTypeAsync(entry, IntPtr.Zero, 0);
         }
 
         [Fact]
@@ -123,12 +120,13 @@ namespace SQLitePass.Tests
 
             try
             {
-                var provider = new SqliteStorageProvider(testDbPath);
+                using var provider = new SqliteStorageProvider(testDbPath);
                 await provider.InitializeDatabaseAndSchemaAsync();
 
                 byte[] dummyKey = new byte[32];
                 for (int i = 0; i < 32; i++) dummyKey[i] = (byte)i;
                 using var crypto = new CryptoEngine(dummyKey);
+                await StartSession(provider, crypto);
 
                 // Add a group
                 var group = new PwGroup { Id = Guid.NewGuid(), Name = "Personal" };
@@ -228,10 +226,10 @@ namespace SQLitePass.Tests
             Assert.Equal("https://github.com/login", item.Url);
             Assert.Contains("Development credentials", item.Notes);
             Assert.Contains("TOTP: JBSWY3DPEHPK3PXP", item.Notes);
-            Assert.Single(item.CustomFields);
-            Assert.Equal("RecoveryCode", item.CustomFields[0].Key);
-            Assert.Equal("1234-5678", item.CustomFields[0].Value);
-            Assert.True(item.CustomFields[0].IsProtected);
+            var recovery = Assert.Single(item.CustomFields, field => field.Key == "RecoveryCode");
+            Assert.Equal("1234-5678", recovery.Value);
+            Assert.True(recovery.IsProtected);
+            Assert.Contains(item.CustomFields, field => field.Key == "BitwardenOriginalJson" && field.IsProtected);
         }
 
         [Fact]
@@ -268,7 +266,7 @@ namespace SQLitePass.Tests
 
             try
             {
-                var provider = new SqliteStorageProvider(testDbPath);
+                using var provider = new SqliteStorageProvider(testDbPath);
                 await provider.InitializeDatabaseAndSchemaAsync();
 
                 // Check integrity on new DB
@@ -278,6 +276,7 @@ namespace SQLitePass.Tests
                 byte[] key = new byte[32];
                 for (int i = 0; i < 32; i++) key[i] = (byte)i;
                 using var crypto = new CryptoEngine(key);
+                await StartSession(provider, crypto);
 
                 var group = new PwGroup { Id = Guid.NewGuid(), Name = "Batch Test Group" };
                 await provider.SaveGroupAsync(group, crypto);
@@ -320,18 +319,15 @@ namespace SQLitePass.Tests
             AppLogger.LogWarning("Unit test warning");
             AppLogger.LogError("Unit test error", new InvalidOperationException("Test exception"));
 
-            string logDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "SQLitePass",
-                "logs"
-            );
+            string logDir = TestEnvironment.LogDirectory;
             string logFile = Path.Combine(logDir, "sqlitepass.log");
 
             Assert.True(File.Exists(logFile));
             string content = File.ReadAllText(logFile);
             Assert.Contains("Unit test log info entry", content);
             Assert.Contains("Unit test warning", content);
-            Assert.Contains("Test exception", content);
+            Assert.Contains("[Exception] System.InvalidOperationException", content);
+            Assert.DoesNotContain("Test exception", content);
         }
 
         [Fact]
@@ -340,12 +336,13 @@ namespace SQLitePass.Tests
             string testDbPath = Path.Combine(Path.GetTempPath(), $"group_test_{Guid.NewGuid():N}.kpd");
             try
             {
-                var provider = new SqliteStorageProvider(testDbPath);
+                using var provider = new SqliteStorageProvider(testDbPath);
                 await provider.InitializeDatabaseAndSchemaAsync();
 
                 byte[] key = new byte[32];
                 for (int i = 0; i < 32; i++) key[i] = (byte)i;
                 using var crypto = new CryptoEngine(key);
+                await StartSession(provider, crypto);
 
                 var root = new PwGroup { Id = Guid.NewGuid(), Name = "Root Vault", SortOrder = 0 };
                 var groupA = new PwGroup { Id = Guid.NewGuid(), ParentId = root.Id, Name = "Folder A", SortOrder = 0 };
@@ -415,12 +412,13 @@ namespace SQLitePass.Tests
             string testDbPath = Path.Combine(Path.GetTempPath(), $"reencrypt_test_{Guid.NewGuid():N}.kpd");
             try
             {
-                var provider = new SqliteStorageProvider(testDbPath);
+                using var provider = new SqliteStorageProvider(testDbPath);
                 await provider.InitializeDatabaseAndSchemaAsync();
 
                 byte[] oldKey = new byte[32];
                 for (int i = 0; i < 32; i++) oldKey[i] = (byte)(i + 1);
                 using var oldCrypto = new CryptoEngine(oldKey);
+                await StartSession(provider, oldCrypto);
 
                 byte[] newKey = new byte[32];
                 for (int i = 0; i < 32; i++) newKey[i] = (byte)(i + 50);
