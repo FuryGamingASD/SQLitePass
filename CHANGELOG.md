@@ -5,6 +5,7 @@
 ### Fixed
 - Restore and activate the existing unlock or vault window when SQLitePass is launched again while already running, including instances minimized to the notification area.
 - Keep a hidden tray instance responsive to a new launch request by opening its unlock window.
+- Ask a running instance to close and wait for it before Velopack updates or uninstalls, so the process and tray icon do not linger.
 
 Vault format and user data are unchanged. Authenticode remains waived as previously agreed.
 

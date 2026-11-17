@@ -1232,6 +1232,9 @@ namespace SQLitePass.UI
             System.Windows.Application.Current.Shutdown();
         }
 
+        internal void ExitForUpdateOrUninstall() =>
+            MenuExit_Click(this, new RoutedEventArgs());
+
         #endregion
     }
 }

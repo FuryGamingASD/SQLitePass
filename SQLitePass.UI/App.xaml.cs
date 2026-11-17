@@ -50,6 +50,7 @@ namespace SQLitePass.UI
             SQLitePass.UI.Services.LocalizationManager.ApplyLanguage(settings.Language);
             SQLitePass.UI.Services.ThemeManager.ApplyTheme(settings.DarkMode);
             InstanceCoordinator?.RegisterActivationHandler(RequestWindowActivation);
+            InstanceCoordinator?.RegisterShutdownHandler(RequestApplicationShutdown);
 
             if (Environment.GetCommandLineArgs().Contains("--minimized", StringComparer.OrdinalIgnoreCase))
             {
@@ -111,6 +112,18 @@ namespace SQLitePass.UI
                 }
 
                 if (!_openingVault) OpenVaultWindow();
+            }));
+        }
+
+        private void RequestApplicationShutdown()
+        {
+            if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished) return;
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (MainWindow is MainWindow main)
+                    main.ExitForUpdateOrUninstall();
+                else
+                    Shutdown();
             }));
         }
 
