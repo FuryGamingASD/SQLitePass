@@ -8,6 +8,8 @@ La versione 1.1.2, il changelog e le note sono integrati in `main` dalla PR [#6]
 
 L’utente conferma che la 1.1.1 si apre e funziona correttamente. Ritiene probabile che anche la 1.1.0 funzionasse: il problema osservato era la finestra non visibile durante una sessione remota senza essere davanti al PC. La diagnosi precedente di un difetto applicativo non è quindi confermata. Restano da svolgere o classificare le altre verifiche native e i residui tecnici dell’audit.
 
+**Gate di sicurezza residuo:** A07 (Auto-Type) è ancora classificato **P1 mitigato**, non corretto, nella remediation. Il controllo del foreground prima di ogni input riduce il rischio ma non elimina la race tra verifica e invio; il titolo finestra resta un’euristica e non autentica l’origine. La CI usa input finti e non verifica i flussi nativi. Il rilascio non può essere descritto come chiusura dell’audit: prima della pubblicazione occorre chiudere A07 con prove adeguate oppure accettare esplicitamente questo rischio residuo.
+
 ## Stato verificato dopo i merge
 
 - Le PR Dependabot #1–#5 e la PR release-prep #6 sono integrate; non risultano altre PR aperte.
