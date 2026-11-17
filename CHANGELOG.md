@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.2] - 2026-11-17
+
+### Changed
+- Update Microsoft.Data.Sqlite to 11.0.0 and refresh locked transitive dependencies and their license notices.
+- Refresh the SHA-pinned GitHub Actions used by the Windows verification and release workflow.
+
+Vault format and user data are unchanged. The package remains unsigned as previously agreed. The audit's native workflow, accessibility, durability and independent-review limitations remain documented in the 1.1.2 readiness report.
+
 ## [1.1.1] - 2026-11-17
 
 ### Fixed

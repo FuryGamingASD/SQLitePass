@@ -27,3 +27,7 @@ Verifica del 17 novembre 2026. La release 1.1.1 corregge l’attivazione della f
 - Firma app e installer: `NotSigned`, esclusione precedentemente concordata. Revisione di sicurezza indipendente e verifiche native DPI/Narrator restano aperte.
 
 Per riprovare, installare il nuovo [SQLitePass-win-Setup.exe](https://github.com/FuryGamingASD/SQLitePass/releases/download/v1.1.1/SQLitePass-win-Setup.exe) e avviare SQLitePass dal menu Start. Alla prima apertura deve comparire la schermata di sblocco. Se rimane soltanto l’icona nell’area notifiche, la correzione non è confermata sul sistema interessato e serve raccogliere nuovi dettagli diagnostici prima di dichiarare il problema risolto.
+
+## Aggiornamento dell’utente
+
+Successivamente alla pubblicazione, l’utente ha confermato che SQLitePass 1.1.1 si apre e funziona correttamente. Ritiene probabile che anche la 1.1.0 funzionasse: durante la diagnosi non era davanti al PC e non riusciva a vedere la finestra nella sessione remota. La mancata visibilità remota non è quindi una regressione applicativa confermata. Questa conferma chiude il dubbio sull’apertura della finestra; non certifica i restanti flussi nativi elencati nell’audit.

@@ -1,4 +1,4 @@
-param([ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version='1.1.1')
+param([ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version='1.1.2')
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 $root=(Resolve-Path (Join-Path $PSScriptRoot '..')).ProviderPath

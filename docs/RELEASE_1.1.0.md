@@ -2,7 +2,7 @@
 
 La release 1.1.0 è stata pubblicata il 17 novembre 2026 dopo lʼautorizzazione dellʼutente, mantenendo la firma Authenticode esclusa. Job CI, asset e feed pubblico sono verificati nel [report di esito](RELEASE_OUTCOME_2026-11-17.md). Restano aperti i collaudi nativi e la revisione indipendente dellʼaudit.
 
-Il successivo hotfix [SQLitePass 1.1.1](RELEASE_OUTCOME_2026-11-17_1.1.1.md) corregge lʼattivazione della finestra Windows e risulta pubblicato con feed verificato; la prova interattiva di apertura sul desktop resta ancora da eseguire.
+Il successivo hotfix [SQLitePass 1.1.1](RELEASE_OUTCOME_2026-11-17_1.1.1.md) corregge lʼattivazione della finestra Windows ed è stato pubblicato con feed verificato. In seguito, l’utente ha confermato che la 1.1.1 si apre e funziona correttamente; ritiene probabile che la 1.1.0 fosse già funzionante e che la difficoltà precedente dipendesse dalla visibilità del desktop remoto.
 
 Il workflow [Verify](https://github.com/FuryGamingASD/SQLitePass/actions/workflows/verify.yml) esegue restore locked, build con warning bloccanti, regressioni con copertura, verifiche WPF isolate, scansione NuGet, packaging, controlli di runtime/licenze/hash e installazione/aggiornamento/disinstallazione silenziosi. I risultati sono conservati come artefatti del run.
 
