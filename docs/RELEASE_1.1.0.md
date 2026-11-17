@@ -1,6 +1,6 @@
 # Pubblicazione SQLitePass 1.1.0
 
-La pubblicazione è stata autorizzata dallʼutente il 17 novembre 2026, mantenendo la firma Authenticode esclusa. Questo processo non attesta i collaudi nativi o la revisione indipendente ancora aperti nel rapporto di audit.
+La release 1.1.0 è stata pubblicata il 17 novembre 2026 dopo lʼautorizzazione dellʼutente, mantenendo la firma Authenticode esclusa. Job CI, asset e feed pubblico sono verificati nel [report di esito](RELEASE_OUTCOME_2026-11-17.md). Restano aperti i collaudi nativi e la revisione indipendente dellʼaudit.
 
 Il workflow [Verify](https://github.com/FuryGamingASD/SQLitePass/actions/workflows/verify.yml) esegue restore locked, build con warning bloccanti, regressioni con copertura, verifiche WPF isolate, scansione NuGet, packaging, controlli di runtime/licenze/hash e installazione/aggiornamento/disinstallazione silenziosi. I risultati sono conservati come artefatti del run.
 

@@ -1,10 +1,10 @@
 # Verifica della candidata SQLitePass 1.1.0
 
-> Questo documento conserva la verifica locale precedente alla pubblicazione. La pubblicazione 1.1.0 è ora autorizzata dopo CI; [procedura, provenienza e limiti](RELEASE_1.1.0.md) restano distinti dai collaudi nativi ancora aperti.
+> Questo documento descrive la candidata locale prima della pubblicazione ed è storico. La release 1.1.0 è stata pubblicata: vedere lʼ[esito definitivo](RELEASE_OUTCOME_2026-11-17.md). La pubblicazione non chiude lʼaudit; restano aperti i limiti riportati sotto.
 
 Data: 17 novembre 2026. Prosecuzione della richiesta di completare AUDIT_2026-11-16.md; **la firma Authenticode è lʼunica esclusione concordata**. Le precedenti regressioni di compilazione e Auto-Type sono corrette. [STATUS_2026-11-17.md](STATUS_2026-11-17.md) conserva la verifica storica delle 02:19 e non descrive lʼultimo stato.
 
-**Lʼintero audit non è ancora chiuso.** Questa candidata locale comprende le modifiche e le verifiche seguenti. Rimangono i collaudi Windows nativi, parte del rework e le raccomandazioni elencate sotto. Nessun commit, push, tag o pubblicazione eseguito; nessun vault reale aperto o modificato.
+**Lʼintero audit non è ancora chiuso.** I risultati qui sotto descrivono una candidata locale pre-pubblicazione e restano utili come evidenze tecniche. La release pubblicata è tracciata nel report di esito. Rimangono i collaudi Windows nativi, parte del rework e le raccomandazioni elencate sotto. Nessun vault reale è stato aperto o modificato.
 
 ## Modifiche completate
 
@@ -43,7 +43,7 @@ Data: 17 novembre 2026. Prosecuzione della richiesta di completare AUDIT_2026-11
 | Preferenze utente durante le prove installer | Hash invariato; app mai avviata, nessun vault aperto |
 | Firma applicazione/setup | NotSigned/NotSigned, esclusione concordata |
 
-Le finestre del verificatore non vengono mostrate, attivate o comandate tramite input desktop. Il verificatore esegue ora un dispatcher STA senza Application.Run: carica davvero dal provider in modo asincrono e controlla filtri combinati, percorso selezionato, editor modificato con reveal e pulizia al blocco. Non mostra finestre, non avvia il login del prodotto e non verifica Win+L o un flusso desktop completo. Un clock finto prova il limite del reveal senza attendere 15 secondi; le verifiche native restano distinte. Le scale raster non equivalgono al cambio DPI nativo. Le 105 coppie non certificano ogni stato e ogni controllo dellʼinterfaccia. La pipeline GitHub è predisposta ma non è stata eseguita da questa sessione.
+Le finestre del verificatore non vengono mostrate, attivate o comandate tramite input desktop. Il verificatore esegue ora un dispatcher STA senza Application.Run: carica davvero dal provider in modo asincrono e controlla filtri combinati, percorso selezionato, editor modificato con reveal e pulizia al blocco. Non mostra finestre, non avvia il login del prodotto e non verifica Win+L o un flusso desktop completo. Un clock finto prova il limite del reveal senza attendere 15 secondi; le verifiche native restano distinte. Le scale raster non equivalgono al cambio DPI nativo. Le 105 coppie non certificano ogni stato e ogni controllo dellʼinterfaccia. In seguito, il workflow GitHub sul commit/tag definitivo è terminato con successo; i dettagli sono nel report di esito.
 
 ## Memoria e tempi osservati
 
@@ -67,7 +67,7 @@ Build **1.1.0-25a2ca09f51e45f8a9a981328b6790ea**, Windows x64 self-contained, ap
 - [Test TRX](../artifacts/verification/editing-tests.trx), [scansione NuGet](../artifacts/verification/editing-nuget-vulnerabilities.json), [WPF](../artifacts/verification/ui-editing/)
 - [Benchmark 96 voci](../artifacts/verification/editing-memory-benchmark.json) e [10.000 voci](../artifacts/verification/editing-volume-benchmark.json)
 
-Questi output sono locali e ignorati da Git. Le candidate precedenti sono conservate. La prova updater usa un pacchetto locale verificato e non attesta il feed GitHub, la sua disponibilità o una catena di autenticità per binari non firmati.
+Questi output sono candidati locali pre-pubblicazione, ignorati da Git e distinti dagli asset pubblicati. Il feed GitHub anonimo e il pacchetto pubblico sono stati verificati dal workflow finale; i digest e la provenienza sono nel [report di esito](RELEASE_OUTCOME_2026-11-17.md). I binari restano non firmati.
 
 ## Requisiti ancora aperti
 
@@ -75,7 +75,7 @@ Questi output sono locali e ignorati da Git. Le candidate precedenti sono conser
 2. Tastiera/Narrator, high contrast e testo ingrandito nativi, monitor al 100–200% DPI e display piccoli. Le immagini generate coprono solo layout e palette del verificatore.
 3. Parte del rework: autorità unica della sessione, separazione completa di modelli/servizi/comandi e adattatori Windows, errori di dominio tipizzati; segreti scalari della pagina su richiesta, scritture e backup differenziali. Il formato 2 non è stato sostituito con un formato non verificato per eliminare il controllo O(N).
 4. Restyle e comandi: percorso, filtri, validazione inline, stato della bozza, reveal temporizzato, dimensioni allegati e separazione dei feedback sono implementati. Restano lʼuniformazione completa dei componenti, lʼorganizzazione sistematica dei comandi/overflow e i collaudi assistivi nativi. Passphrase/TOTP/controllo riuso erano miglioramenti successivi e restano non implementati.
-5. Avvio interattivo portable/installer, percorso completo del feed GitHub, CI dalla revisione definitiva e tracciabilità da commit/tag. La candidata è locale e non pubblicata.
+5. La CI sulla revisione definitiva, la tracciabilità commit/tag e il feed pubblico sono verificati. Rimangono lʼavvio interattivo portable/installer e il percorso manuale completo dei flussi applicativi.
 6. Guasti fisici a dischi/USB/alimentazione e revisione indipendente del formato/migrazione/recovery: non attestati. Fault injection software e WAL reale non equivalgono a queste prove.
 
 Il problema iniziale del sandbox è stato superato per i comandi locali. Il collaudo UI esterno resta escluso dallʼautomazione in questa sessione dalla skill [computer-use](C:/Users/vboxuser/.codex/plugins/cache/openai-bundled/computer-use/26.1111.21308/skills/computer-use/SKILL.md), la cui [guidance, riga 239](C:/Users/vboxuser/.codex/plugins/cache/openai-bundled/computer-use/26.1111.21308/docs/guidance.md) prescrive: «Do not automate password manager apps or password manager websites.» Questo limite è distinto dagli interventi di codice ancora aperti; non è stato trasformato in un esito positivo dei collaudi nativi.

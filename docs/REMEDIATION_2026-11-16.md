@@ -1,12 +1,12 @@
 # Interventi successivi all'audit SQLitePass
 
-> Questo documento conserva la verifica locale precedente alla pubblicazione. La pubblicazione 1.1.0 è ora autorizzata dopo CI; [procedura, provenienza e limiti](RELEASE_1.1.0.md) restano distinti dai collaudi nativi ancora aperti.
+> Mappa i 49 rilievi e conserva le tranche di lavoro. La release 1.1.0 è pubblicata: consultare lʼ[esito definitivo](RELEASE_OUTCOME_2026-11-17.md). La classificazione dei rilievi resta valida; collaudi nativi e parte del rework sono ancora aperti.
 
-> Stato aggiornato: [RELEASE_READINESS_2026-11-17.md](RELEASE_READINESS_2026-11-17.md). La build e la regressione Auto-Type descritte nel confronto storico sono state corrette. I 32 punti classificati corretti non equivalgono al completamento di tutte le raccomandazioni narrative o dei collaudi Windows nativi.
+> Dettagli tecnici: [RELEASE_READINESS_2026-11-17.md](RELEASE_READINESS_2026-11-17.md). Esito remoto: [RELEASE_OUTCOME_2026-11-17.md](RELEASE_OUTCOME_2026-11-17.md). I 32 punti classificati corretti non equivalgono al completamento di tutte le raccomandazioni narrative o dei collaudi Windows nativi.
 
-Data audit: **16 novembre 2026**. Aggiornamento: **17 novembre 2026**. Baseline dell'audit: `55fc41a044ad77042c7b6c1733fe7b863deae795`, versione 1.0.2. Interventi locali sul branch `codex/audit-remediation`, linea di sviluppo **1.1.0**, formato vault **2**. Nessun commit, push o pubblicazione è stato eseguito. Il 17 novembre sono state collaudate e rimosse copie installate in directory temporanee, senza avviare lʼapp o aprire vault reali.
+Data audit: **16 novembre 2026**. Aggiornamento: **17 novembre 2026**. Baseline dell'audit: `55fc41a044ad77042c7b6c1733fe7b863deae795`, versione 1.0.2. Interventi avviati sul branch `codex/audit-remediation`, linea di sviluppo **1.1.0**, formato vault **2**; questa era la fotografia prima della pubblicazione del 17 novembre. Il 17 novembre sono state collaudate e rimosse copie installate in directory temporanee, senza avviare lʼapp o aprire vault reali.
 
-Il progetto ha ricevuto correzioni sostanziali nei percorsi di integrità, recovery, concorrenza e sessione. **Non è corretto considerare chiusi tutti i 49 punti o dichiarare il prodotto pronto alla distribuzione pubblica.** La firma è esclusa su indicazione dellʼutente. Build, suite, pacchetti e installazione/aggiornamento/disinstallazione locale sono verificati; restano i collaudi interattivi Windows e parte del rework. Lo stato più recente è nel rapporto RELEASE_READINESS_2026-11-17.md.
+Il progetto ha ricevuto correzioni sostanziali nei percorsi di integrità, recovery, concorrenza e sessione. La release è pubblicata, ma **non è corretto considerare chiusi tutti i 49 punti**. La firma è esclusa su indicazione dellʼutente. CI, pacchetti, feed e installazione/aggiornamento/disinstallazione silenziosi sono verificati; restano i collaudi interattivi Windows e parte del rework. Lo stato finale è in RELEASE_OUTCOME_2026-11-17.md.
 
 L'[audit originale](AUDIT_2026-11-16.md) e le [15 riproduzioni iniziali](AUDIT_EVIDENCE_2026-11-16.json) restano conservati come evidenza della baseline. Questa tabella descrive il codice successivo, senza riscrivere retroattivamente i risultati dell'audit.
 
@@ -61,12 +61,12 @@ L'[audit originale](AUDIT_2026-11-16.md) e le [15 riproduzioni iniziali](AUDIT_E
 | D06 | Mitigato | Misurate 105 coppie testo/sfondo nei due temi e nella palette ad alto contrasto simulata, tutte almeno 4,5:1; corretto il colore hover scuro e mantenuti override high contrast. Non sono state verificate tutte le combinazioni reali dei controlli o le impostazioni high contrast native. |
 | D07 | Mitigato | AppIcon vettoriale anche nei converter di albero/elenco, nomi accessibili, focus e live region. Corrette le combinazioni della riga e cartella selezionate anche con palette ad alto contrasto simulata; etichetta visibile Nuova voce. Restano verifiche con tastiera/Narrator e high contrast nativo: il rendering in memoria non le sostituisce. |
 | E01 | Corretto | Aggiornati SDK, runner e dipendenze dei test; i due pacchetti legacy vulnerabili non sono più nel grafo. Scansione NuGet finale senza segnalazioni sui cinque progetti, incluse dipendenze transitive. Non copre tutte le vulnerabilità possibili del runtime o dei binari nativi. |
-| E02 | Corretto | SDK e tool fissati, lock file, restore locked, workflow Windows, Dependabot, script ancorato al repository senza cancellazione delle vecchie release, test prima del pack e checksum. Workflow definito e comandi eseguiti localmente; nessuna esecuzione GitHub Actions attestata. |
-| E03 | Mitigato | Firma esclusa su indicazione esplicita dellʼutente: app e setup NotSigned. Superate installazione silenziosa pulita, aggiornamento locale 1.0.2→1.1.0 e disinstallazioni su questa macchina, senza avvio app. Restano avvio interattivo, percorso completo del feed GitHub e accettazione dei binari unsigned da parte delle protezioni Windows. |
+| E02 | Corretto | SDK e tool fissati, lock file, restore locked, workflow Windows, Dependabot, script ancorato al repository senza cancellazione delle vecchie release, test prima del pack e checksum. Workflow GitHub sulla revisione definitiva concluso con successo; job Windows, pubblicazione e feed verificati. Restano gli avvisi di manutenzione dei pin Actions per il passaggio Node.js 20→24. |
+| E03 | Mitigato | Firma esclusa su indicazione esplicita dellʼutente: app e setup NotSigned. Superate installazione silenziosa pulita, aggiornamento locale 1.0.2→1.1.0 e disinstallazioni su questa macchina, senza avvio app. Restano avvio interattivo e accettazione dei binari unsigned da parte delle protezioni Windows; il feed pubblico è stato verificato. |
 | E04 | Mitigato | Aggiunti GPL-3.0, SECURITY, inventario delle dieci dipendenze applicative e testi di licenza/copyright, verificati nel pacchetto. Restano i limiti di provenienza documentati in LICENSE-SOURCES.md; non è una certificazione legale. La firma è esclusa dall'utente. |
 | E05 | Corretto | README, About e changelog riscritti con proprietà/limiti reali; release notes 1.0 marcate storiche. Versione About letta dall'assembly. Rimosse garanzie assolute di recupero/privacy/purge. |
 
-Totale aggiornato: **32 corretti, 16 mitigati, 1 parziale**. Un punto mitigato di priorità P1 richiede comunque attenzione prima di una release pubblica.
+Classificazione dei 49 rilievi: **32 corretti, 16 mitigati, 1 parziale**. Un rilievo mitigato di priorità P1 resta da trattare; la pubblicazione non chiude lʼaudit.
 
 ## Seconda tranche di interventi
 
@@ -121,12 +121,12 @@ Il formato 2 cifra l'intero contenuto dei record e autentica schema e righe. **R
 Priorità residue:
 
 1. Su Windows isolato e con credenziali sintetiche, completare i flussi di creazione/sblocco/rekey/key file, Win+L durante operazioni e dialoghi, copia da ogni controllo, Win+V/cloud e Auto-Type con cambi di focus, modificatori premuti e applicazioni elevate. Verificare anche la protezione cattura senza considerarla una difesa da malware.
-2. Firma esclusa su indicazione esplicita dellʼutente. Installazione, aggiornamento locale da 1.0.2 e disinstallazione sono verificati; completare avvio interattivo del portable/installer e percorso completo del feed GitHub.
+2. Firma esclusa su indicazione esplicita dellʼutente. Installazione, aggiornamento locale da 1.0.2, disinstallazione e feed pubblico sono verificati; avvio interattivo del portable/installer e flussi nativi restano aperti.
 3. Completare localizzazione, layout a DPI elevati e tastiera/Narrator/high contrast. La persistenza dell'espansione è implementata; il restyle resta mirato e non verificato visivamente in modo completo.
 4. Completare separazione di comandi/servizi, errori di dominio, segreti scalari su richiesta e scritture differenziali; ampliare progressi/cancellazione e benchmark su grandi volumi. Dettagli pesanti su richiesta e importazione atomica sono implementati; valgono i limiti descritti nel report prestazioni.
 5. Valutare una revisione indipendente del nuovo formato e del protocollo di migrazione/recovery, con fault injection. La suite locale non sostituisce un audit crittografico o un penetration test esterno.
 
-Il completamento di questa sessione riguarda le correzioni e le verifiche locali documentate. La disponibilità di un installer non equivale all'approvazione di una release pubblica o all'idoneità come unica copia di segreti importanti.
+La release 1.1.0 è pubblicata; la disponibilità dellʼinstaller non sostituisce i collaudi nativi ancora aperti né rende prudente usare il prodotto come unica copia di segreti importanti.
 
 ## Prosecuzione del 17 novembre 2026
 
