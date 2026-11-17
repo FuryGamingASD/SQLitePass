@@ -11,7 +11,10 @@ namespace SQLitePass.UI
             // Initialize Velopack: handles install, uninstall, update hooks before UI starts
             VelopackApp.Build().Run();
 
-            var app = new App();
+            using var singleInstance = Services.SingleInstanceCoordinator.StartOrSignalExisting(out bool shouldStart);
+            if (!shouldStart) return;
+
+            var app = new App { InstanceCoordinator = singleInstance };
             app.InitializeComponent();
             app.Run();
         }

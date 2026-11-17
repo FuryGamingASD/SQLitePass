@@ -86,13 +86,13 @@ The Windows [Verify workflow](https://github.com/FuryGamingASD/SQLitePass/action
 
 ```powershell
 # Local QA only: explicitly unsigned, without installing or publishing anything
-.\build-installer.ps1 -Version 1.1.0 -AllowUnsigned
+.\build-installer.ps1 -Version 1.1.1 -AllowUnsigned
 
 # Signed release, using an authorized certificate from the Windows store
-.\build-installer.ps1 -Version 1.1.0 -CertificateThumbprint YOUR_CERTIFICATE_SHA1_THUMBPRINT
+.\build-installer.ps1 -Version 1.1.1 -CertificateThumbprint YOUR_CERTIFICATE_SHA1_THUMBPRINT
 ```
 
-The signing thumbprint can also be supplied through `SQLITEPASS_SIGN_CERT`. Packaging runs tests first, uses the pinned local Velopack tool, preserves existing releases, writes versioned output under `artifacts/releases/`, and produces SHA-256 checksums. Signing is explicitly waived for this verification candidate. Public release preparation still requires the outstanding Windows, distribution and independent review checks documented in the release verification report. Building packages does not publish them.
+The signing thumbprint can also be supplied through `SQLITEPASS_SIGN_CERT`. Packaging runs tests first, uses the pinned local Velopack tool, preserves existing releases, writes versioned output under `artifacts/releases/`, and produces SHA-256 checksums. Authenticode remains waived as agreed. Release 1.1.0 is public; source changes for the 1.1.1 launch hotfix are being prepared and require CI verification before publication. Native interactive UI checks and independent security review remain open. Building packages does not publish them.
 
 ## License and security reporting
 

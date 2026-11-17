@@ -9,6 +9,8 @@ namespace SQLitePass.UI
     public partial class App : System.Windows.Application
     {
         private SQLitePass.UI.Services.SystemTrayCoordinator? _startupTray;
+        private LoginWindow? _loginWindow;
+        internal SQLitePass.UI.Services.SingleInstanceCoordinator? InstanceCoordinator { get; set; }
         private bool _openingVault;
         protected override void OnStartup(StartupEventArgs e)
         {
@@ -47,6 +49,7 @@ namespace SQLitePass.UI
             SQLitePass.UI.Services.WindowPresentationService.Register();
             SQLitePass.UI.Services.LocalizationManager.ApplyLanguage(settings.Language);
             SQLitePass.UI.Services.ThemeManager.ApplyTheme(settings.DarkMode);
+            InstanceCoordinator?.RegisterActivationHandler(RequestWindowActivation);
 
             if (Environment.GetCommandLineArgs().Contains("--minimized", StringComparer.OrdinalIgnoreCase))
             {
@@ -68,7 +71,10 @@ namespace SQLitePass.UI
             {
 
             var login = new LoginWindow();
-            bool? result = login.ShowDialog();
+            _loginWindow = login;
+            bool? result;
+            try { result = login.ShowDialog(); }
+            finally { _loginWindow = null; }
 
             if (result == true && login.StorageProvider != null && login.AuthenticatedCrypto != null && login.Metadata != null)
             {
@@ -84,6 +90,38 @@ namespace SQLitePass.UI
             }
             }
             finally { _openingVault = false; }
+        }
+
+        private void RequestWindowActivation()
+        {
+            if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished) return;
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                var login = Windows.OfType<LoginWindow>().FirstOrDefault(window => window.IsVisible);
+                if (login != null)
+                {
+                    RestoreAndActivate(login);
+                    return;
+                }
+
+                if (MainWindow is MainWindow main)
+                {
+                    main.ShowAndRestoreWindow();
+                    return;
+                }
+
+                if (!_openingVault) OpenVaultWindow();
+            }));
+        }
+
+        private static void RestoreAndActivate(Window window)
+        {
+            if (!window.IsVisible) window.Show();
+            if (window.WindowState == WindowState.Minimized)
+                window.WindowState = WindowState.Normal;
+            window.ShowInTaskbar = true;
+            window.Activate();
+            window.Focus();
         }
 
         protected override void OnExit(ExitEventArgs e)

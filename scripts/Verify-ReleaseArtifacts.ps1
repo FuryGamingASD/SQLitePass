@@ -42,7 +42,9 @@ try {
     $entryCount = $archive.Entries.Count
 } finally { $archive.Dispose() }
 $version = [Reflection.AssemblyName]::GetAssemblyName((Join-Path $publish 'SQLitePass.dll')).Version.ToString()
-if ($version -ne '1.1.0.0') { throw 'Unexpected application assembly version.' }
+$releaseVersion = ($BuildId -split '-', 2)[0]
+$expectedAssemblyVersion = "$releaseVersion.0"
+if ($version -ne $expectedAssemblyVersion) { throw 'Unexpected application assembly version.' }
 $scan = Get-Content (Join-Path $output $VulnerabilityResults) -Raw | ConvertFrom-Json -AsHashtable
 if ($scan.ContainsKey('problems') -and $scan.problems.Count -gt 0) { throw 'Vulnerability scan failed.' }
 $vulnerabilities = 0

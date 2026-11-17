@@ -81,7 +81,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Verifier build failed.' }
           $passed = $false
           for ($attempt = 1; $attempt -le 3; $attempt++) {
-            dotnet run --project SQLitePass.UI.Verification -c Release --no-build --no-restore -- --verify-feed https://github.com/FuryGamingASD/SQLitePass 1.1.0 artifacts/feed-verification
+            $releaseVersion = (Get-Content artifacts/release/release-provenance.json -Raw | ConvertFrom-Json).Version
+            dotnet run --project SQLitePass.UI.Verification -c Release --no-build --no-restore -- --verify-feed https://github.com/FuryGamingASD/SQLitePass $releaseVersion artifacts/feed-verification
             if ($LASTEXITCODE -eq 0) { $passed = $true; break }
             if ($attempt -lt 3) { Start-Sleep -Seconds 15 }
           }

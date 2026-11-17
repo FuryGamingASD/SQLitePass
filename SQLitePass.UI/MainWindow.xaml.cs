@@ -112,7 +112,7 @@ namespace SQLitePass.UI
             Closing += MainWindow_Closing;
         }
 
-        private void ShowAndRestoreWindow()
+        internal void ShowAndRestoreWindow()
         {
             if (_isLocked)
             {

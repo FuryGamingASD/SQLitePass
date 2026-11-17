@@ -8,8 +8,10 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).ProviderPath
 $output = Join-Path $projectRoot 'artifacts\verification'
 $release = Join-Path $projectRoot "artifacts\releases\$BuildId"
+$applicationVersion = $BuildId.Substring(0, $BuildId.LastIndexOf('-'))
+$assemblyVersion = "$applicationVersion.0"
 $setup = Join-Path $release 'SQLitePass-win-Setup.exe'
-$package = Join-Path $release 'SQLitePass-1.1.0-full.nupkg'
+$package = Join-Path $release "SQLitePass-$applicationVersion-full.nupkg"
 $legacySetup = Join-Path $projectRoot 'releases\SQLitePass-win-Setup.exe'
 $uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\SQLitePass'
 $shortcuts = @(
@@ -62,17 +64,17 @@ try {
         try {
             $inputSetup = if ($scenario -eq 'fresh') { $setup } else { $legacySetup }
             Invoke-Native $inputSetup @('--silent', '--installto', $resolved, '--log', (Join-Path $output ($scenario + '-install.log')))
-            Assert-Version $resolved $(if ($scenario -eq 'fresh') { '1.1.0.0' } else { '1.0.2.0' })
+            Assert-Version $resolved $(if ($scenario -eq 'fresh') { $assemblyVersion } else { '1.0.2.0' })
             if ($scenario -eq 'upgrade') {
                 Invoke-Native (Join-Path $resolved 'Update.exe') @('--silent', '--log', (Join-Path $output 'upgrade-apply.log'), 'apply', '--package', $package, '--norestart')
-                Assert-Version $resolved '1.1.0.0'
+                Assert-Version $resolved $assemblyVersion
             }
             foreach ($required in @('LICENSE', 'SECURITY.md', 'THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_LICENSES\dependency-metadata.json')) {
                 if (-not (Test-Path -LiteralPath (Join-Path (Join-Path $resolved 'current') $required))) { throw 'An installed license/policy file is missing.' }
             }
             $runtime = Get-Content -LiteralPath (Join-Path $resolved 'current\SQLitePass.runtimeconfig.json') -Raw | ConvertFrom-Json
             foreach ($framework in $runtime.runtimeOptions.includedFrameworks) { if ($framework.version -ne '10.0.15') { throw 'Unexpected installed runtime.' } }
-            $results.Add([ordered]@{ Scenario=$scenario; Passed=$true; InstalledVersion='1.1.0.0'; Runtime='10.0.15'; AppStarted=$false; RealVaultOpened=$false; LocalPackageApplied=($scenario -eq 'upgrade') })
+            $results.Add([ordered]@{ Scenario=$scenario; Passed=$true; InstalledVersion=$assemblyVersion; Runtime='10.0.15'; AppStarted=$false; RealVaultOpened=$false; LocalPackageApplied=($scenario -eq 'upgrade') })
         } finally { Uninstall-TestCopy $resolved $scenario }
     }
     $afterHash = if (Test-Path -LiteralPath $settings) { (Get-FileHash -LiteralPath $settings -Algorithm SHA256).Hash } else { $null }

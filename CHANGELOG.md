@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.1] - 2026-11-17
+
+### Fixed
+- Restore and activate the existing unlock or vault window when SQLitePass is launched again while already running, including instances minimized to the notification area.
+- Keep a hidden tray instance responsive to a new launch request by opening its unlock window.
+
+Vault format and user data are unchanged. Authenticode remains waived as previously agreed.
+
 ## [1.1.0] - 2026-11-17
 
 - Add a pinned Windows CI pipeline with coverage, WPF evidence, package/license/runtime/hash verification and silent installer/update/uninstall checks. Publish verified assets through a draft release, record source provenance and verify the anonymous public update feed with Velopack.
