@@ -4,7 +4,7 @@ Verifica aggiornata al 17 novembre 2026 sul commit `72edb5f80269fa6246c653183b4a
 
 ## Esito
 
-La candidata 1.1.2 è preparata sul ramo locale `codex/release-readiness-1.1.2`; il versionamento, changelog e note sono aggiornati. Non esiste ancora un tag, un pacchetto o una release 1.1.2. Il workflow verificato citato sotto riguarda il commit base `main`; la candidata deve ancora passare la propria CI.
+La candidata 1.1.2 è preparata sul ramo remoto `codex/release-readiness-1.1.2`; versionamento, changelog e note sono aggiornati. Il workflow [Verify 44184108761](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44184108761) sul commit candidato `3ea588b` è riuscito. Non esiste ancora un tag, un pacchetto pubblico o una release 1.1.2.
 
 L’utente conferma che la 1.1.1 si apre e funziona correttamente. Ritiene probabile che anche la 1.1.0 funzionasse: il problema osservato era la finestra non visibile durante una sessione remota senza essere davanti al PC. La diagnosi precedente di un difetto applicativo non è quindi confermata. Restano da svolgere o classificare le altre verifiche native e i residui tecnici dell’audit.
 
@@ -16,6 +16,8 @@ L’utente conferma che la 1.1.1 si apre e funziona correttamente. Ritiene proba
 - Gli aggiornamenti Actions sono ora integrati e fissati a SHA: checkout 7.0.1, setup-dotnet 6.1.0, upload-artifact 7.0.2, download-artifact 8.0.2. La vecchia nota di manutenzione dei pin Node 20→24 nel report di remediation è superata da questi merge.
 - Microsoft.Data.Sqlite è 11.0.0; i lock file dei cinque progetti e l’inventario/licenze sono stati aggiornati, compresa la nuova dipendenza SQLite.
 - La release più recente pubblicata resta [1.1.1](https://github.com/FuryGamingASD/SQLitePass/releases/tag/v1.1.1). Il commit base dichiara versione 1.1.1; la candidata in questo ramo dichiara 1.1.2 e non è stata pubblicata.
+- La CI della candidata ha prodotto assembly `1.1.2.0`, build senza warning/errori, 152 test superati in ciascuna delle due esecuzioni, zero vulnerabilità NuGet note, packaging e verifica degli artefatti riusciti; installazione pulita, aggiornamento locale da 1.0.2 e disinstallazione silenziosi superati. Il test non avvia l’applicazione.
+- Il primo run candidato [44183263335](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44183263335) ha intercettato un `AssemblyVersion` UI rimasto a 1.1.1. Corretto nel commit `3ea588b`; il run successivo è riuscito. Nessuna release è stata pubblicata durante questi run.
 
 Questi risultati chiudono la validazione CI delle PR. La conferma dell’utente chiude il dubbio sull’avvio della 1.1.1; la pipeline stessa resta non interattiva e non prova i flussi desktop elencati sotto.
 
@@ -52,5 +54,5 @@ La tabella originale dei 49 rilievi e i limiti dettagliati restano in [remediati
 1. Registrare gli esiti delle verifiche Windows ancora aperte sopra.
 2. Per ogni residuo, scegliere tra implementazione/verifica prima della release oppure accettazione esplicita come limite noto; non descrivere come completato ciò che non è stato provato.
 3. Versioni, changelog e note 1.1.2 sono aggiornati nella candidata; verificare che contengano solo cambiamenti inclusi.
-4. Far passare la CI sul commit candidato; verificare test, audit, pacchetto, installazione/aggiornamento/disinstallazione e checksum.
-5. Dopo revisione dei residui e successo dei gate, pubblicare con il workflow di release e verificare provenienza, digest e feed pubblico; quindi aggiornare il report finale.
+4. La CI sul commit candidato è riuscita; far rieseguire i controlli sul merge commit di `main`.
+5. Dopo revisione dei residui e successo dei gate, creare il commit di release e verificare provenienza, digest e feed pubblico; quindi aggiornare il report finale.
