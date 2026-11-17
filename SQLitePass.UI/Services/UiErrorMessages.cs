@@ -2,6 +2,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
+using SQLitePass.Core.Models;
 using SQLitePass.Core.Services;
 
 namespace SQLitePass.UI.Services;
@@ -25,7 +26,9 @@ internal static class UiErrorMessages
             FileNotFoundException or DirectoryNotFoundException => "ErrorMissingFile",
             CryptographicException => "ErrorCredential",
             InvalidDataException or FormatException or JsonException => "ErrorIntegrity",
-            SettingsConflictException or InvalidOperationException => "ErrorConflict",
+            SettingsConflictException => "ErrorConflict",
+            VaultConflictException => "ErrorConflict",
+            InvalidOperationException => "ErrorConflict",
             SqliteException or IOException => "ErrorStorage",
             ArgumentException => "ErrorInvalidInput",
             _ => "ErrorUnexpected"

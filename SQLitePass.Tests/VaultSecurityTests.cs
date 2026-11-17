@@ -182,7 +182,7 @@ public partial class VaultSecurityTests
     {
         using var v = await TestVault.Create(); var entry = await v.Add(); var stale = entry.DeepClone();
         entry.Password = "newer"; await v.Storage.SaveEntryAsync(entry, v.Crypto);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => v.Storage.SaveEntryAsync(stale, v.Crypto));
+        await Assert.ThrowsAsync<VaultConflictException>(() => v.Storage.SaveEntryAsync(stale, v.Crypto));
         Assert.Equal("newer", Assert.Single(await v.Storage.LoadEntriesAsync(null, v.Crypto)).Password);
     }
 

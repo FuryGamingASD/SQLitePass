@@ -23,5 +23,7 @@ public sealed record VaultEntryPage(VaultMetadata Metadata, List<PwGroup> Groups
     int MatchedCount, int TotalCount, int FirstIndex, EntryPageCursor? CurrentCursor, EntryPageCursor? NextCursor,
     EntryPageCursor? PreviousCursor = null);
 
-public sealed class VaultPageChangedException() : InvalidOperationException(
+public class VaultConflictException(string message) : InvalidOperationException(message);
+
+public sealed class VaultPageChangedException() : VaultConflictException(
     "The vault changed between pages. Restart the query from the first page.");

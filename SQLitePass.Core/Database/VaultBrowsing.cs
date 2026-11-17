@@ -183,7 +183,7 @@ public sealed partial class SqliteStorageProvider
                         !string.IsNullOrWhiteSpace(entry.Title) && windowTitle.Contains(entry.Title, StringComparison.OrdinalIgnoreCase) ||
                         Uri.TryCreate(entry.Url, UriKind.Absolute, out var uri) && !string.IsNullOrWhiteSpace(uri.Host) && windowTitle.Contains(uri.Host, StringComparison.OrdinalIgnoreCase));
                     if (selectedEntryId.HasValue && expectedRevision.HasValue && entry.Revision != expectedRevision)
-                    { entry.ClearSecrets(); throw new InvalidOperationException("Entry changed before Auto-Type."); }
+                    { entry.ClearSecrets(); throw new VaultConflictException("Entry changed before Auto-Type."); }
                     if (matches) result.Add(entry); else entry.ClearSecrets();
                     // Two candidates are sufficient to reject an ambiguous match.
                     if (result.Count == 2) break;
@@ -202,9 +202,9 @@ public sealed partial class SqliteStorageProvider
         {
             var entry = ReadEntries(connection, transaction, key, metadata, entryId: entryId,
                 cancellationToken: cancellationToken).SingleOrDefault()
-                ?? throw new InvalidOperationException("The Auto-Type entry no longer exists.");
+                ?? throw new VaultConflictException("The Auto-Type entry no longer exists.");
             if (entry.Revision != expectedRevision || !entry.AutoTypeEnabled || entry.GroupId == metadata.RecycleBinGroupId)
-            { entry.ClearSecrets(); throw new InvalidOperationException("The confirmed Auto-Type entry changed or is unavailable."); }
+            { entry.ClearSecrets(); throw new VaultConflictException("The confirmed Auto-Type entry changed or is unavailable."); }
             return entry;
         }, cancellationToken);
     }

@@ -5,6 +5,7 @@
 ### Changed
 - Update Microsoft.Data.Sqlite to 11.0.0 and refresh locked transitive dependencies and their license notices.
 - Refresh the SHA-pinned GitHub Actions used by the Windows verification and release workflow.
+- Give stale revision/session conflicts a specific `VaultConflictException` so callers can distinguish concurrent changes from other invalid operations.
 
 Vault format and user data are unchanged. The package remains unsigned as previously agreed. The audit's native workflow, accessibility, durability and independent-review limitations remain documented in the 1.1.2 readiness report.
 

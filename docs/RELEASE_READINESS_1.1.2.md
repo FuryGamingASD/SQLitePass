@@ -18,6 +18,7 @@ L’utente conferma che la 1.1.1 si apre e funziona correttamente. Ritiene proba
 - La release più recente pubblicata resta [1.1.1](https://github.com/FuryGamingASD/SQLitePass/releases/tag/v1.1.1). `main` dichiara versione 1.1.2; non è stata pubblicata.
 - La CI della candidata ha prodotto assembly `1.1.2.0`, build senza warning/errori, 152 test superati in ciascuna delle due esecuzioni, zero vulnerabilità NuGet note, packaging e verifica degli artefatti riusciti; installazione pulita, aggiornamento locale da 1.0.2 e disinstallazione silenziosi superati. Il test non avvia l’applicazione.
 - Il primo run candidato [44183263335](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44183263335) ha intercettato un `AssemblyVersion` UI rimasto a 1.1.1. Corretto nel commit `3ea588b`; il run successivo è riuscito. Nessuna release è stata pubblicata durante questi run.
+- Nel lavoro successivo su C14, i conflitti di revisione/sessione sono stati tipizzati come `VaultConflictException` e mappati esplicitamente dalla UI. Restore locked, build locale della solution (zero warning/errori) e 152 test sono riusciti; la CI Windows per questa modifica deve ancora essere eseguita.
 
 Questi risultati chiudono la validazione CI delle PR. La conferma dell’utente chiude il dubbio sull’avvio della 1.1.1; la pipeline stessa resta non interattiva e non prova i flussi desktop elencati sotto.
 
@@ -40,7 +41,7 @@ I test automatici usano vault sintetici e adattatori finti. La conferma di avvio
 | Segreti in memoria | B02 | Copie gestite, GC e librerie native impediscono una promessa di purge completa della RAM. |
 | Cattura schermo | B07 | `SetWindowDisplayAffinity` è best-effort; servono prove native e non è una protezione da malware. |
 | Esportazione/importazione | B04, C06 | CSV resta parziale e in chiaro; l’import Bitwarden conserva dati originali non supportati, ma carte/passkey e allegati non diventano funzioni native. |
-| Coerenza sessione e architettura | C12, C14 | Restano limiti sulle date di ultimo accesso, catch generici e rework incompleto verso errori tipizzati e separazione completa di comandi/servizi. |
+| Coerenza sessione e architettura | C12, C14 | Con questa candidata, i conflitti di revisione/sessione espongono `VaultConflictException` e sono mappati esplicitamente dalla UI. Restano limiti sulle date di ultimo accesso, altri catch generici e il rework verso una separazione completa di comandi/servizi. |
 | Scalabilità | C13 | La paginazione riduce i dati trattenuti, ma ogni query autentica/decifra e scansiona O(N); scalari segreti restano in memoria e scritture/backup sono completi. Mancano segreti su richiesta, scritture differenziali e benchmark su dispositivi lenti/record grandi. |
 | Restyle e accessibilità Windows | D03, D05–D07 | Rendering e contrasto sono stati simulati; mancano prove native di DPI 100–200%, schermi piccoli, testo ingrandito, tastiera, Narrator e high contrast. Il restyle e l’overflow comandi non sono uniformati completamente. |
 | Revisione indipendente e resistenza ai guasti | A04, A11, E04 | Il formato 2 e migrazione/recovery non hanno revisione crittografica/penetration test indipendente; guasti fisici non attestati; provenienza licenze non equivale a certificazione legale. |

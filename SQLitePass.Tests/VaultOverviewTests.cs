@@ -85,8 +85,8 @@ public partial class VaultSecurityTests
         using var vault = await TestVault.Create(); var original = await DetailedEntry(vault);
         var overview = Assert.Single((await vault.Storage.LoadSnapshotAsync(vault.Crypto, false)).Entries);
         original.Password = "new value"; await vault.Storage.SaveEntryAsync(original, vault.Crypto);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => vault.Storage.MoveEntryAsync(overview.Id, overview.Revision, vault.Trash.Id, vault.Crypto));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => vault.Storage.LoadEntryAsync(overview.Id, vault.Crypto, overview.Revision));
+        await Assert.ThrowsAsync<VaultConflictException>(() => vault.Storage.MoveEntryAsync(overview.Id, overview.Revision, vault.Trash.Id, vault.Crypto));
+        await Assert.ThrowsAsync<VaultConflictException>(() => vault.Storage.LoadEntryAsync(overview.Id, vault.Crypto, overview.Revision));
         var full = await vault.Storage.LoadEntryAsync(original.Id, vault.Crypto);
         Assert.Equal("new value", full.Password); Assert.Equal(vault.Root.Id, full.GroupId); Assert.Single(full.Attachments);
     }

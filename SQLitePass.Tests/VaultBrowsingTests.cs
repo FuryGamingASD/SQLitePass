@@ -203,7 +203,7 @@ public partial class VaultSecurityTests
         var candidates = await vault.Storage.FindAutoTypeCandidatesAsync(vault.Crypto, "Z controlled target - synthetic application");
         Assert.Equal(target.Id, Assert.Single(candidates).Id);
         long previous = target.Revision; target.Password = "changed"; await vault.Storage.SaveEntryAsync(target, vault.Crypto);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => vault.Storage.FindAutoTypeCandidatesAsync(vault.Crypto, "controlled target", target.Id, previous));
+        await Assert.ThrowsAsync<VaultConflictException>(() => vault.Storage.FindAutoTypeCandidatesAsync(vault.Crypto, "controlled target", target.Id, previous));
     }
 
     [Fact]
@@ -234,9 +234,9 @@ public partial class VaultSecurityTests
         Assert.Equal("synthetic token", Assert.Single(AutoTypeService.Parse(confirmed)).Text);
         confirmed.ClearSecrets();
         entry.AutoTypeEnabled = false; await vault.Storage.SaveEntryAsync(entry, vault.Crypto);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => vault.Storage.LoadAutoTypeEntryAsync(entry.Id, entry.Revision, vault.Crypto));
+        await Assert.ThrowsAsync<VaultConflictException>(() => vault.Storage.LoadAutoTypeEntryAsync(entry.Id, entry.Revision, vault.Crypto));
         entry.AutoTypeEnabled = true; await vault.Storage.SaveEntryAsync(entry, vault.Crypto);
         long revision = await vault.Storage.MoveEntryAsync(entry.Id, entry.Revision, vault.Trash.Id, vault.Crypto);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => vault.Storage.LoadAutoTypeEntryAsync(entry.Id, revision, vault.Crypto));
+        await Assert.ThrowsAsync<VaultConflictException>(() => vault.Storage.LoadAutoTypeEntryAsync(entry.Id, revision, vault.Crypto));
     }
 }

@@ -11,7 +11,7 @@ public partial class VaultSecurityTests
         long confirmedRevision = entry.Revision;
         entry.Password = "updated after confirmation"; await vault.Storage.SaveEntryAsync(entry, vault.Crypto);
         byte[] backup = File.ReadAllBytes(vault.Storage.BackupFilePath);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => vault.Storage.DeleteEntryAsync(entry.Id, confirmedRevision));
+        await Assert.ThrowsAsync<VaultConflictException>(() => vault.Storage.DeleteEntryAsync(entry.Id, confirmedRevision));
         Assert.Equal(entry.Password, (await vault.Storage.LoadEntryAsync(entry.Id, vault.Crypto)).Password);
         Assert.Equal(backup, File.ReadAllBytes(vault.Storage.BackupFilePath));
         Assert.False(vault.Storage.IsReadOnly);
@@ -23,7 +23,7 @@ public partial class VaultSecurityTests
         using var vault = await TestVault.Create(); var first = await vault.Add("one"); var second = await vault.Add("two");
         var confirmed = new Dictionary<Guid, long> { [first.Id] = first.Revision, [second.Id] = second.Revision };
         second.Password = "updated"; await vault.Storage.SaveEntryAsync(second, vault.Crypto);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => vault.Storage.DeleteEntriesBatchAsync(confirmed));
+        await Assert.ThrowsAsync<VaultConflictException>(() => vault.Storage.DeleteEntriesBatchAsync(confirmed));
         Assert.Equal(2, (await vault.Storage.LoadEntriesAsync(null, vault.Crypto)).Count);
         confirmed[second.Id] = second.Revision;
         await vault.Storage.DeleteEntriesBatchAsync(confirmed);
@@ -43,7 +43,7 @@ public partial class VaultSecurityTests
         Assert.Equal(vault.Root.Id, restored.GroupId); Assert.Equal(restoredRevision, restored.Revision);
         Assert.Equal("retained", Assert.Single(restored.CustomFields).Value);
         Assert.Equal(new byte[] { 1, 2, 3 }, Assert.Single(restored.Attachments).Data);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => vault.Storage.RestoreEntryAsync(entry.Id, restored.Revision, vault.Root.Id, vault.Crypto));
+        await Assert.ThrowsAsync<VaultConflictException>(() => vault.Storage.RestoreEntryAsync(entry.Id, restored.Revision, vault.Root.Id, vault.Crypto));
     }
 
     [Fact]
@@ -52,8 +52,8 @@ public partial class VaultSecurityTests
         using var vault = await TestVault.Create(); var entry = await vault.Add();
         long revision = await vault.Storage.MoveEntryAsync(entry.Id, entry.Revision, vault.Trash.Id, vault.Crypto);
         await Assert.ThrowsAsync<InvalidOperationException>(() => vault.Storage.RestoreEntryAsync(entry.Id, revision, vault.Trash.Id, vault.Crypto));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => vault.Storage.RestoreEntryAsync(entry.Id, revision, Guid.NewGuid(), vault.Crypto));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => vault.Storage.RestoreEntryAsync(entry.Id, revision - 1, vault.Root.Id, vault.Crypto));
+        await Assert.ThrowsAsync<VaultConflictException>(() => vault.Storage.RestoreEntryAsync(entry.Id, revision, Guid.NewGuid(), vault.Crypto));
+        await Assert.ThrowsAsync<VaultConflictException>(() => vault.Storage.RestoreEntryAsync(entry.Id, revision - 1, vault.Root.Id, vault.Crypto));
         Assert.Equal(vault.Trash.Id, (await vault.Storage.LoadEntryAsync(entry.Id, vault.Crypto)).GroupId);
     }
 }

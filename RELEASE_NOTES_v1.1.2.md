@@ -3,6 +3,7 @@
 Maintenance release.
 
 - Update Microsoft.Data.Sqlite to 11.0.0 and refresh locked transitive dependencies and their license notices.
+- Report stale vault revisions and concurrent changes through a specific conflict error.
 - No vault format change or migration is introduced; existing vaults and user preferences are unchanged.
 - Authenticode signing remains waived as previously agreed. The application and installer are unsigned.
 
