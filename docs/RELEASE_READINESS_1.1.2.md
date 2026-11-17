@@ -1,21 +1,21 @@
 # Release readiness SQLitePass 1.1.2
 
-Verifica aggiornata al 17 novembre 2026 sul commit `72edb5f80269fa6246c653183b4a3e5884b9c66e` di `main`.
+Verifica aggiornata al 17 novembre 2026 sul commit `acca23bd0c114ca6343a2732feb4b7017ec6e41d` di `main`.
 
 ## Esito
 
-La candidata 1.1.2 è preparata sul ramo remoto `codex/release-readiness-1.1.2`; versionamento, changelog e note sono aggiornati. Il workflow [Verify 44184108761](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44184108761) sul commit candidato `3ea588b` è riuscito. Non esiste ancora un tag, un pacchetto pubblico o una release 1.1.2.
+La versione 1.1.2, il changelog e le note sono integrati in `main` dalla PR [#6](https://github.com/FuryGamingASD/SQLitePass/pull/6), merge commit `acca23b`. La CI sul merge commit, [Verify 44187232756](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44187232756), è riuscita. Non esiste ancora un tag, un pacchetto pubblico o una release 1.1.2.
 
 L’utente conferma che la 1.1.1 si apre e funziona correttamente. Ritiene probabile che anche la 1.1.0 funzionasse: il problema osservato era la finestra non visibile durante una sessione remota senza essere davanti al PC. La diagnosi precedente di un difetto applicativo non è quindi confermata. Restano da svolgere o classificare le altre verifiche native e i residui tecnici dell’audit.
 
 ## Stato verificato dopo i merge
 
-- Le PR Dependabot #1–#5 sono tutte integrate; non risultano PR aperte.
-- Il commit finale è `72edb5f` e il workflow [Verify 44178968940](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44178968940) è riuscito il 17 novembre.
-- Il job Windows ha completato build senza warning/errori, due esecuzioni della suite da 152 test, audit NuGet con `KnownNugetVulnerabilities: 0`, packaging, verifica artefatti e smoke test installer. Il job `release` è stato saltato perché il commit non era una pubblicazione.
+- Le PR Dependabot #1–#5 e la PR release-prep #6 sono integrate; non risultano altre PR aperte.
+- Il commit base prima della preparazione era `72edb5f`, verificato da [44178968940](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44178968940). La versione 1.1.2 è ora su `main` al commit `acca23b`.
+- La CI sul merge commit [44187232756](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44187232756) ha completato build senza warning/errori, due esecuzioni della suite da 152 test, audit NuGet con `KnownNugetVulnerabilities: 0`, packaging, verifica artefatti e smoke test installer. Installazione pulita, aggiornamento locale da 1.0.2 e disinstallazione sono riusciti senza avviare l’applicazione. Il job `release` è stato saltato perché il commit non era una pubblicazione.
 - Gli aggiornamenti Actions sono ora integrati e fissati a SHA: checkout 7.0.1, setup-dotnet 6.1.0, upload-artifact 7.0.2, download-artifact 8.0.2. La vecchia nota di manutenzione dei pin Node 20→24 nel report di remediation è superata da questi merge.
 - Microsoft.Data.Sqlite è 11.0.0; i lock file dei cinque progetti e l’inventario/licenze sono stati aggiornati, compresa la nuova dipendenza SQLite.
-- La release più recente pubblicata resta [1.1.1](https://github.com/FuryGamingASD/SQLitePass/releases/tag/v1.1.1). Il commit base dichiara versione 1.1.1; la candidata in questo ramo dichiara 1.1.2 e non è stata pubblicata.
+- La release più recente pubblicata resta [1.1.1](https://github.com/FuryGamingASD/SQLitePass/releases/tag/v1.1.1). `main` dichiara versione 1.1.2; non è stata pubblicata.
 - La CI della candidata ha prodotto assembly `1.1.2.0`, build senza warning/errori, 152 test superati in ciascuna delle due esecuzioni, zero vulnerabilità NuGet note, packaging e verifica degli artefatti riusciti; installazione pulita, aggiornamento locale da 1.0.2 e disinstallazione silenziosi superati. Il test non avvia l’applicazione.
 - Il primo run candidato [44183263335](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44183263335) ha intercettato un `AssemblyVersion` UI rimasto a 1.1.1. Corretto nel commit `3ea588b`; il run successivo è riuscito. Nessuna release è stata pubblicata durante questi run.
 
@@ -54,5 +54,5 @@ La tabella originale dei 49 rilievi e i limiti dettagliati restano in [remediati
 1. Registrare gli esiti delle verifiche Windows ancora aperte sopra.
 2. Per ogni residuo, scegliere tra implementazione/verifica prima della release oppure accettazione esplicita come limite noto; non descrivere come completato ciò che non è stato provato.
 3. Versioni, changelog e note 1.1.2 sono aggiornati nella candidata; verificare che contengano solo cambiamenti inclusi.
-4. La CI sul commit candidato è riuscita; far rieseguire i controlli sul merge commit di `main`.
-5. Dopo revisione dei residui e successo dei gate, creare il commit di release e verificare provenienza, digest e feed pubblico; quindi aggiornare il report finale.
+4. CI candidata e CI sul merge commit di `main` sono riuscite.
+5. Dopo la revisione dei residui e l’approvazione esplicita alla pubblicazione, integrare il commit `[release] Publish SQLitePass 1.1.2` con squash. Quel push su `main` avvierà la pubblicazione; verificare poi provenienza, digest e feed pubblico e aggiornare il report finale.
