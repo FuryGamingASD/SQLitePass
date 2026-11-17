@@ -80,19 +80,19 @@ Settings and diagnostics are stored under `%APPDATA%\SQLitePass`. Preferences in
 
 ## CI and release
 
-The Windows [Verify workflow](https://github.com/FuryGamingASD/SQLitePass/actions/workflows/verify.yml) runs the complete verification and packaging sequence, preserves evidence and verifies silent installation/update/uninstall. Run the same sequence locally with `./scripts/Invoke-Ci.ps1`. A main-branch commit marked `[release]` publishes only after those checks pass, with asset digest verification and commit provenance. The published update feed is then downloaded and verified through the application’s Velopack library. See [release procedure and remaining validation](docs/RELEASE_1.1.0.md).
+The Windows [Verify workflow](https://github.com/FuryGamingASD/SQLitePass/actions/workflows/verify.yml) runs the complete verification and packaging sequence, preserves evidence and verifies silent installation/update/uninstall. Run the same sequence locally with `./scripts/Invoke-Ci.ps1`. A main-branch commit marked `[release]` publishes only after those checks pass, with asset digest verification and commit provenance. The published update feed is then downloaded and verified through the application’s Velopack library. See the [1.1.2 release readiness report](docs/RELEASE_READINESS_1.1.2.md).
 
 ## Packaging
 
 ```powershell
 # Local QA only: explicitly unsigned, without installing or publishing anything
-.\build-installer.ps1 -Version 1.1.1 -AllowUnsigned
+.\build-installer.ps1 -Version 1.1.2 -AllowUnsigned
 
 # Signed release, using an authorized certificate from the Windows store
-.\build-installer.ps1 -Version 1.1.1 -CertificateThumbprint YOUR_CERTIFICATE_SHA1_THUMBPRINT
+.\build-installer.ps1 -Version 1.1.2 -CertificateThumbprint YOUR_CERTIFICATE_SHA1_THUMBPRINT
 ```
 
-The signing thumbprint can also be supplied through `SQLITEPASS_SIGN_CERT`. Packaging runs tests first, uses the pinned local Velopack tool, preserves existing releases, writes versioned output under `artifacts/releases/`, and produces SHA-256 checksums. Authenticode remains waived as agreed. Releases 1.1.0 and 1.1.1 are public. The 1.1.1 launch hotfix passed CI and public feed verification; native interactive UI checks and independent security review remain open. See the [1.1.1 publication report](docs/RELEASE_OUTCOME_2026-11-17_1.1.1.md). Building packages does not publish them.
+The signing thumbprint can also be supplied through `SQLITEPASS_SIGN_CERT`. Packaging runs tests first, uses the pinned local Velopack tool, preserves existing releases, writes versioned output under `artifacts/releases/`, and produces SHA-256 checksums. Authenticode remains waived as agreed. The user confirmed that the 1.1.1 window opens and the application works correctly. The current release status and remaining native workflow checks are tracked in the [1.1.2 readiness report](docs/RELEASE_READINESS_1.1.2.md). Building packages does not publish them.
 
 ## License and security reporting
 
