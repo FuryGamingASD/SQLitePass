@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -56,6 +57,20 @@ public static class AutoTypeService
 
     public static IntPtr CaptureForegroundWindow() => NativeInput.GetForegroundWindow();
     public static uint GetWindowProcessId(IntPtr window) => NativeInput.GetWindowProcessId(window);
+    public static string GetWindowProcessName(uint processId)
+    {
+        if (processId == 0 || processId > int.MaxValue) throw new ArgumentOutOfRangeException(nameof(processId));
+        using var process = Process.GetProcessById((int)processId);
+        return process.ProcessName;
+    }
+
+    public static bool IsForegroundTarget(IntPtr targetWindow, string expectedTitle, uint expectedProcessId)
+    {
+        if (targetWindow == IntPtr.Zero || expectedProcessId == 0) return false;
+        var input = new NativeInput();
+        return input.ForegroundWindow == targetWindow && input.ProcessId(targetWindow) == expectedProcessId &&
+            input.WindowTitle(targetWindow) == expectedTitle;
+    }
 
     public static async Task ExecuteAutoTypeAsync(PwEntry? entry, IntPtr targetWindow, int initialDelayMs = 500,
         CancellationToken cancellationToken = default, IAutoTypeInput? input = null, string? expectedTitle = null,

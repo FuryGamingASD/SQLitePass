@@ -221,7 +221,7 @@
   "RepeatNewMasterPassword": "Répétez le mot de passe principal du nouveau coffre :",
   "CreateVault": "Créer un coffre",
   "AutoTypeConfirmTitle": "Confirmer la destination de saisie",
-  "AutoTypeConfirmText": "Saisir l'entrée « {0} » dans la fenêtre :\n\n{1}\n\nVérifiez la destination : le titre ne garantit pas l'identité du site.",
+  "AutoTypeConfirmText": "Saisir l'entrée « {0} » dans la fenêtre :\n\n{1}\nProcessus de l’application : {2}\n\nVérifiez la destination : ni le titre ni le nom de l’application ne garantit l’identité du site.",
   "AutoTypeConfirmAction": "Confirmer et saisir",
   "AutoTypePrepare": "Sélectionnez la fenêtre cible et appuyez sur Ctrl+Alt+A. Vous devrez confirmer la destination avant la saisie.",
   "AutoTypeStopped": "Saisie automatique interrompue.",

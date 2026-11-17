@@ -221,7 +221,7 @@
   "RepeatNewMasterPassword": "Wiederholen Sie das Hauptpasswort des neuen Tresors:",
   "CreateVault": "Tresor erstellen",
   "AutoTypeConfirmTitle": "Auto-Type-Ziel bestätigen",
-  "AutoTypeConfirmText": "Eintrag „{0}“ in dieses Fenster eingeben:\n\n{1}\n\nPrüfen Sie das Ziel: Der Fenstertitel bestätigt nicht die Identität einer Website.",
+  "AutoTypeConfirmText": "Eintrag „{0}“ in dieses Fenster eingeben:\n\n{1}\nAnwendungsprozess: {2}\n\nPrüfen Sie das Ziel: Weder Fenstertitel noch Anwendungsname bestätigen die Identität einer Website.",
   "AutoTypeConfirmAction": "Bestätigen und eingeben",
   "AutoTypePrepare": "Wählen Sie das Zielfenster und drücken Sie Strg+Alt+A. Vor der Eingabe müssen Sie das Ziel bestätigen.",
   "AutoTypeStopped": "Auto-Type gestoppt.",

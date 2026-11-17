@@ -197,15 +197,21 @@ namespace SQLitePass.UI
             List<PwEntry>? candidates = null;
             try
             {
+                string targetProcessName = AutoTypeService.GetWindowProcessName(foregroundProcessId);
                 candidates = await storage.FindAutoTypeCandidatesAsync(crypto, winTitle, pending?.Id, pending?.Revision, cancellation.Token);
                 if (_isLocked || generation != _sessionGeneration) return;
+                if (!AutoTypeService.IsForegroundTarget(foregroundWin, winTitle, foregroundProcessId))
+                {
+                    TxtOperationStatus.Text = LocalizationManager.GetString("AutoTypeStopped");
+                    return;
+                }
                 if (candidates.Count != 1)
                 {
                     MessageBox.Show(this, LocalizationManager.GetString("AutoTypeNoUniqueMatch"), LocalizationManager.GetString("MenuAutoType"), MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
                 var selected = candidates[0];
-                if (new AutoTypeConfirmDialog(selected.Title, winTitle) { Owner = this }.ShowDialog() != true || _isLocked || generation != _sessionGeneration) return;
+                if (new AutoTypeConfirmDialog(selected.Title, winTitle, targetProcessName) { Owner = this }.ShowDialog() != true || _isLocked || generation != _sessionGeneration) return;
                 // A confirmation must not authorize credentials from a revision changed meanwhile.
                 var confirmed = await storage.LoadAutoTypeEntryAsync(selected.Id, selected.Revision, crypto, cancellation.Token);
                 foreach (var entry in candidates) entry.ClearSecrets();

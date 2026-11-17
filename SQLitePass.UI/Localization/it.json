@@ -221,7 +221,7 @@
   "RepeatNewMasterPassword": "Ripeti la master password del nuovo vault:",
   "CreateVault": "Crea vault",
   "AutoTypeConfirmTitle": "Conferma destinatario Auto-Type",
-  "AutoTypeConfirmText": "Digitare la voce «{0}» nella finestra:\n\n{1}\n\nControlla il destinatario: il titolo della finestra non verifica l'identità del sito.",
+  "AutoTypeConfirmText": "Digitare la voce «{0}» nella finestra:\n\n{1}\nApplicazione: {2}\n\nControlla il destinatario: il titolo della finestra e il nome dell'app non verificano l'identità del sito.",
   "AutoTypeConfirmAction": "Conferma e digita",
   "AutoTypePrepare": "Seleziona la finestra destinataria e premi Ctrl+Alt+A. Ti sarà chiesto di confermare il destinatario prima della digitazione.",
   "AutoTypeStopped": "Auto-Type interrotto.",

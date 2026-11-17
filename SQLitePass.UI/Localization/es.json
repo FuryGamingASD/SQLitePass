@@ -221,7 +221,7 @@
   "RepeatNewMasterPassword": "Repite la contraseña maestra de la nueva bóveda:",
   "CreateVault": "Crear bóveda",
   "AutoTypeConfirmTitle": "Confirmar destino de Auto-Type",
-  "AutoTypeConfirmText": "Escribir la entrada «{0}» en la ventana:\n\n{1}\n\nComprueba el destino: el título de la ventana no verifica la identidad del sitio.",
+  "AutoTypeConfirmText": "Escribir la entrada «{0}» en la ventana:\n\n{1}\nProceso de la aplicación: {2}\n\nComprueba el destino: ni el título ni el nombre de la aplicación verifican la identidad del sitio.",
   "AutoTypeConfirmAction": "Confirmar y escribir",
   "AutoTypePrepare": "Selecciona la ventana de destino y pulsa Ctrl+Alt+A. Se pedirá confirmar el destino antes de escribir.",
   "AutoTypeStopped": "Auto-Type interrumpido.",

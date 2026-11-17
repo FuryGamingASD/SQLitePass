@@ -7,6 +7,7 @@
 - Refresh the SHA-pinned GitHub Actions used by the Windows verification and release workflow.
 - Give stale revision/session conflicts a specific `VaultConflictException` so callers can distinguish concurrent changes from other invalid operations.
 - Recheck the Auto-Type target window and owning process after each injected event, and stop when the target identity changes.
+- Show the receiving process name in the Auto-Type confirmation and recheck the foreground target after async lookup.
 - Let unexpected drag-and-drop errors reach the safe-lock handler and log expected tray-icon fallback failures.
 - Treat only malformed or unauthentic canary data as an invalid credential; propagate unexpected engine errors.
 
