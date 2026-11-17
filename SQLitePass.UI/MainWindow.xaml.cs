@@ -182,6 +182,12 @@ namespace SQLitePass.UI
         private async void HandleGlobalAutoType(IntPtr foregroundWin, string winTitle)
         {
             if (_isLocked || _isLocking || _isPerformingAutoType || foregroundWin == new WindowInteropHelper(this).Handle) return;
+            uint foregroundProcessId = AutoTypeService.GetWindowProcessId(foregroundWin);
+            if (foregroundProcessId == 0)
+            {
+                TxtOperationStatus.Text = LocalizationManager.GetString("AutoTypeStopped");
+                return;
+            }
             int generation = _sessionGeneration;
             var storage = _storage; var crypto = _crypto; var pending = _pendingAutoTypeEntry;
             _pendingAutoTypeEntry = null;
@@ -205,7 +211,8 @@ namespace SQLitePass.UI
                 foreach (var entry in candidates) entry.ClearSecrets();
                 candidates = [confirmed];
                 if (_isLocked || generation != _sessionGeneration || candidates.Count != 1) return;
-                await AutoTypeService.ExecuteAutoTypeAsync(candidates[0], foregroundWin, 250, cancellation.Token, expectedTitle: winTitle);
+                await AutoTypeService.ExecuteAutoTypeAsync(candidates[0], foregroundWin, 250, cancellation.Token,
+                    expectedTitle: winTitle, expectedProcessId: foregroundProcessId);
             }
             catch (OperationCanceledException)
             {
@@ -431,7 +438,6 @@ namespace SQLitePass.UI
                     {
                         DragDrop.DoDragDrop(DgEntries, new DataObject("SQLitePass.EntryId", _selectedEntry.Id.ToString()), DragDropEffects.Move);
                     }
-                    catch { }
                     finally
                     {
                         ClearDropAdorner();
@@ -466,7 +472,6 @@ namespace SQLitePass.UI
                     {
                         DragDrop.DoDragDrop(TvGroups, new DataObject("SQLitePass.GroupId", _dragCandidateGroup.Id.ToString()), DragDropEffects.Move);
                     }
-                    catch { }
                     finally
                     {
                         _dragCandidateGroup = null;

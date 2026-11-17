@@ -1,8 +1,11 @@
 using System;
 using System.Drawing;
+using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using Hardcodet.Wpf.TaskbarNotification;
+using SQLitePass.Core.Services;
 
 namespace SQLitePass.UI.Services
 {
@@ -30,7 +33,10 @@ namespace SQLitePass.UI.Services
                     trayIconImage = new Icon(s);
                 }
             }
-            catch { }
+            catch (Exception exception) when (exception is IOException or ArgumentException or InvalidOperationException or ExternalException)
+            {
+                AppLogger.LogWarning("Tray icon could not be loaded; the system fallback icon is active (" + exception.GetType().Name + ").");
+            }
 
             _trayIcon = new TaskbarIcon
             {

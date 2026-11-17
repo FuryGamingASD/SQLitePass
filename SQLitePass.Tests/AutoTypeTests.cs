@@ -9,14 +9,30 @@ public class AutoTypeTests
     {
         public IntPtr ForegroundWindow { get; set; } = new(123);
         public string Title { get; set; } = "Controlled test target";
+        public uint CurrentProcessId { get; set; } = 1234;
         public string WindowTitle(IntPtr window) => Title;
         public bool ActivationSucceeds { get; set; } = true;
         public bool LoseFocusAfterCharacter { get; set; }
+        public bool LoseFocusAfterKey { get; set; }
+        public bool ChangeProcessAfterCharacter { get; set; }
+        public bool ChangeTitleOnActivate { get; set; }
+        public int ActivationCount { get; private set; }
         public List<char> Characters { get; } = [];
         public List<ushort> Keys { get; } = [];
-        public bool Activate(IntPtr window) => ActivationSucceeds;
-        public void Character(char character) { Characters.Add(character); if (LoseFocusAfterCharacter) ForegroundWindow = new(456); }
-        public void Key(ushort key) => Keys.Add(key);
+        public uint ProcessId(IntPtr window) => CurrentProcessId;
+        public bool Activate(IntPtr window)
+        {
+            ActivationCount++;
+            if (ChangeTitleOnActivate) Title = "Reused target title";
+            return ActivationSucceeds;
+        }
+        public void Character(char character)
+        {
+            Characters.Add(character);
+            if (LoseFocusAfterCharacter) ForegroundWindow = new(456);
+            if (ChangeProcessAfterCharacter) CurrentProcessId++;
+        }
+        public void Key(ushort key) { Keys.Add(key); if (LoseFocusAfterKey) ForegroundWindow = new(456); }
     }
 
     [Fact]
@@ -39,6 +55,54 @@ public class AutoTypeTests
         var input = new FakeInput { LoseFocusAfterCharacter = true };
         await Assert.ThrowsAsync<OperationCanceledException>(() => AutoTypeService.ExecuteAutoTypeAsync(new PwEntry { UserName = "alice", Password = "synthetic" }, new(123), 0, input: input));
         Assert.Equal(new[] { 'a' }, input.Characters); Assert.Empty(input.Keys);
+    }
+    [Fact]
+    public async Task ProcessChangeAfterInputStopsImmediately()
+    {
+        var input = new FakeInput { ChangeProcessAfterCharacter = true };
+        await Assert.ThrowsAsync<OperationCanceledException>(() => AutoTypeService.ExecuteAutoTypeAsync(
+            new PwEntry { UserName = "alice", Password = "synthetic" }, new(123), 0, input: input));
+        Assert.Equal(new[] { 'a' }, input.Characters); Assert.Empty(input.Keys);
+    }
+    [Fact]
+    public async Task ReusedWindowHandleWithDifferentProcessIsRejectedBeforeActivation()
+    {
+        var input = new FakeInput { CurrentProcessId = 5678 };
+        await Assert.ThrowsAsync<OperationCanceledException>(() => AutoTypeService.ExecuteAutoTypeAsync(
+            new PwEntry { Password = "synthetic" }, new(123), 0, input: input, expectedProcessId: 1234));
+        Assert.Equal(0, input.ActivationCount); Assert.Empty(input.Characters);
+    }
+    [Fact]
+    public async Task FocusLossAfterFinalCharacterStillCancels()
+    {
+        var input = new FakeInput { LoseFocusAfterCharacter = true };
+        await Assert.ThrowsAsync<OperationCanceledException>(() => AutoTypeService.ExecuteAutoTypeAsync(
+            new PwEntry { AutoTypeSequence = "x" }, new(123), 0, input: input));
+        Assert.Equal(new[] { 'x' }, input.Characters);
+    }
+    [Fact]
+    public async Task FocusLossAfterKeyStopsBeforeFollowingText()
+    {
+        var input = new FakeInput { LoseFocusAfterKey = true };
+        await Assert.ThrowsAsync<OperationCanceledException>(() => AutoTypeService.ExecuteAutoTypeAsync(
+            new PwEntry { AutoTypeSequence = "{TAB}x" }, new(123), 0, input: input));
+        Assert.Equal(new ushort[] { 9 }, input.Keys); Assert.Empty(input.Characters);
+    }
+    [Fact]
+    public async Task FocusLossAfterFinalKeyStillCancels()
+    {
+        var input = new FakeInput { LoseFocusAfterKey = true };
+        await Assert.ThrowsAsync<OperationCanceledException>(() => AutoTypeService.ExecuteAutoTypeAsync(
+            new PwEntry { AutoTypeSequence = "{TAB}" }, new(123), 0, input: input));
+        Assert.Equal(new ushort[] { 9 }, input.Keys);
+    }
+    [Fact]
+    public async Task TitleChangeDuringActivationIsRejected()
+    {
+        var input = new FakeInput { ChangeTitleOnActivate = true };
+        await Assert.ThrowsAsync<OperationCanceledException>(() => AutoTypeService.ExecuteAutoTypeAsync(
+            new PwEntry { Password = "synthetic" }, new(123), 0, input: input));
+        Assert.Empty(input.Characters);
     }
     [Fact]
     public async Task PasswordBracesAreLiteralCharacters()

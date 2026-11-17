@@ -1,11 +1,14 @@
 # Changelog
 
-## [1.1.2] - 2026-11-17
+## [1.1.2] - 2026-11-18
 
 ### Changed
 - Update Microsoft.Data.Sqlite to 11.0.0 and refresh locked transitive dependencies and their license notices.
 - Refresh the SHA-pinned GitHub Actions used by the Windows verification and release workflow.
 - Give stale revision/session conflicts a specific `VaultConflictException` so callers can distinguish concurrent changes from other invalid operations.
+- Recheck the Auto-Type target window and owning process after each injected event, and stop when the target identity changes.
+- Let unexpected drag-and-drop errors reach the safe-lock handler and log expected tray-icon fallback failures.
+- Treat only malformed or unauthentic canary data as an invalid credential; propagate unexpected engine errors.
 
 Vault format and user data are unchanged. The package remains unsigned as previously agreed. The audit's native workflow, accessibility, durability and independent-review limitations remain documented in the 1.1.2 readiness report.
 

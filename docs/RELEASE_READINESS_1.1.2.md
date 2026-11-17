@@ -1,6 +1,6 @@
 # Release readiness SQLitePass 1.1.2
 
-Verifica aggiornata al 17 novembre 2026 sul commit `acca23bd0c114ca6343a2732feb4b7017ec6e41d` di `main`.
+Verifica aggiornata al 18 novembre 2026 sul commit base `acca23bd0c114ca6343a2732feb4b7017ec6e41d` di `main`; gli interventi successivi sono sulla candidata PR #7.
 
 ## Esito
 
@@ -8,7 +8,7 @@ La versione 1.1.2, il changelog e le note sono integrati in `main` dalla PR [#6]
 
 L’utente conferma che la 1.1.1 si apre e funziona correttamente. Ritiene probabile che anche la 1.1.0 funzionasse: il problema osservato era la finestra non visibile durante una sessione remota senza essere davanti al PC. La diagnosi precedente di un difetto applicativo non è quindi confermata. Restano da svolgere o classificare le altre verifiche native e i residui tecnici dell’audit.
 
-**Gate di sicurezza residuo:** A07 (Auto-Type) è ancora classificato **P1 mitigato**, non corretto, nella remediation. Il controllo del foreground prima di ogni input riduce il rischio ma non elimina la race tra verifica e invio; il titolo finestra resta un’euristica e non autentica l’origine. La CI usa input finti e non verifica i flussi nativi. Il rilascio non può essere descritto come chiusura dell’audit: prima della pubblicazione occorre chiudere A07 con prove adeguate oppure accettare esplicitamente questo rischio residuo.
+**Gate di sicurezza residuo:** A07 (Auto-Type) è ancora classificato **P1 mitigato**, non corretto, nella remediation. La candidata ora conserva il PID del processo dall'hotkey iniziale e controlla HWND, PID e titolo prima e dopo ciascun input, arrestando subito la sequenza se l'identità cambia; i test sintetici coprono cambi focus/processo/titolo anche sull'ultimo tasto o carattere. Questo riduce la durata di un eventuale errore e rifiuta HWND riciclati, ma non elimina la race tra verifica e `SendInput`; il titolo finestra resta un’euristica e non autentica l’origine. `SendInput` immette eventi nello stream globale di tastiera, non in un HWND specifico. La CI usa input finti e non verifica i flussi nativi. Il rilascio non può essere descritto come chiusura dell’audit: prima della pubblicazione occorre chiudere A07 con prove adeguate oppure accettare esplicitamente questo rischio residuo.
 
 ## Stato verificato dopo i merge
 
@@ -21,6 +21,7 @@ L’utente conferma che la 1.1.1 si apre e funziona correttamente. Ritiene proba
 - La CI della candidata ha prodotto assembly `1.1.2.0`, build senza warning/errori, 152 test superati in ciascuna delle due esecuzioni, zero vulnerabilità NuGet note, packaging e verifica degli artefatti riusciti; installazione pulita, aggiornamento locale da 1.0.2 e disinstallazione silenziosi superati. Il test non avvia l’applicazione.
 - Il primo run candidato [44183263335](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44183263335) ha intercettato un `AssemblyVersion` UI rimasto a 1.1.1. Corretto nel commit `3ea588b`; il run successivo è riuscito. Nessuna release è stata pubblicata durante questi run.
 - Nel lavoro successivo su C14, i conflitti di revisione/sessione sono stati tipizzati come `VaultConflictException` e mappati esplicitamente dalla UI. Restore locked, build locale della solution (zero warning/errori) e 152 test sono riusciti. La CI Windows sul candidato `583e3bb` è riuscita nei run [44193383263](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44193383263) e [44193373481](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44193373481); il job di pubblicazione è stato saltato perché la PR è draft.
+- Ulteriore mitigazione A07: PID della finestra catturato prima delle operazioni async, confronto insieme a HWND/titolo prima e dopo ogni input; il parsing delle credenziali avviene dopo la verifica iniziale del destinatario. Le regressioni coprono cambio focus/processo/titolo anche sull'ultimo evento e rifiuto di HWND riutilizzato. C14: la verifica canary non converte più eccezioni inattese del motore in credenziale errata; gli errori imprevisti di drag-and-drop raggiungono il safe-lock. `dotnet test SQLitePass.slnx -c Release --no-restore`: 159/159; build Release: zero warning/errori. La CI Windows di queste modifiche è da eseguire.
 
 Questi risultati chiudono la validazione CI delle PR. La conferma dell’utente chiude il dubbio sull’avvio della 1.1.1; la pipeline stessa resta non interattiva e non prova i flussi desktop elencati sotto.
 
@@ -38,12 +39,12 @@ I test automatici usano vault sintetici e adattatori finti. La conferma di avvio
 
 | Area | Riferimenti | Stato residuo |
 | --- | --- | --- |
-| Auto-Type, blocco sessione e clipboard Windows | A07–A09, B06 | Race foreground e titolo euristico; dialoghi/Win+L; cronologia e clipboard cloud non verificati nativamente. |
+| Auto-Type, blocco sessione e clipboard Windows | A07–A09, B06 | HWND/PID/titolo ricontrollati prima e dopo ogni input; resta la race tra controllo e `SendInput` globale e il titolo euristico. Dialoghi/Win+L, finestre elevate, cronologia e clipboard cloud non verificati nativamente. |
 | Durabilità e backup | A11 | Mancano fault injection su filesystem, alimentazione e dispositivi reali. I fault test software non provano ogni comportamento hardware. |
 | Segreti in memoria | B02 | Copie gestite, GC e librerie native impediscono una promessa di purge completa della RAM. |
 | Cattura schermo | B07 | `SetWindowDisplayAffinity` è best-effort; servono prove native e non è una protezione da malware. |
 | Esportazione/importazione | B04, C06 | CSV resta parziale e in chiaro; l’import Bitwarden conserva dati originali non supportati, ma carte/passkey e allegati non diventano funzioni native. |
-| Coerenza sessione e architettura | C12, C14 | Con questa candidata, i conflitti di revisione/sessione espongono `VaultConflictException` e sono mappati esplicitamente dalla UI. Restano limiti sulle date di ultimo accesso, altri catch generici e il rework verso una separazione completa di comandi/servizi. |
+| Coerenza sessione e architettura | C12, C14 | Con questa candidata, i conflitti espongono `VaultConflictException`; la verifica canary intercetta solo mismatch crittografici/di formato; errori imprevisti di drag-and-drop propagano al safe-lock e gli errori attesi di caricamento icona sono registrati. Restano limiti sulle date di ultimo accesso, altri catch generici, task non osservate e il rework verso una separazione completa di comandi/servizi. |
 | Scalabilità | C13 | La paginazione riduce i dati trattenuti, ma ogni query autentica/decifra e scansiona O(N); scalari segreti restano in memoria e scritture/backup sono completi. Mancano segreti su richiesta, scritture differenziali e benchmark su dispositivi lenti/record grandi. |
 | Restyle e accessibilità Windows | D03, D05–D07 | Rendering e contrasto sono stati simulati; mancano prove native di DPI 100–200%, schermi piccoli, testo ingrandito, tastiera, Narrator e high contrast. Il restyle e l’overflow comandi non sono uniformati completamente. |
 | Revisione indipendente e resistenza ai guasti | A04, A11, E04 | Il formato 2 e migrazione/recovery non hanno revisione crittografica/penetration test indipendente; guasti fisici non attestati; provenienza licenze non equivale a certificazione legale. |
