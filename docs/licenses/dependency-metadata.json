@@ -2,8 +2,8 @@
   {
     "Package": "Hardcodet.NotifyIcon.Wpf",
     "Version": "2.0.1",
-    "Authors": "Philipp Sumi, Robin Krom, Jan Karger",
-    "Copyright": "Copyright (c) 2009 - 2019 Philipp Sumi, 2019 - 2024 Philipp Sumi, Robin Krom, Jan Karger",
+    "Authors": "Philipp Sumi, Robin Karger",
+    "Copyright": "Copyright (c) 2009 - 2019 Philipp Sumi, 2019 - 2024 Philipp Sumi, Robin Karger",
     "License": "MIT",
     "LicenseUrl": "https://licenses.nuget.org/MIT",
     "Repository": "https://github.com/hardcodet/wpf-notifyicon",
@@ -31,63 +31,73 @@
   },
   {
     "Package": "Microsoft.Data.Sqlite",
-    "Version": "10.0.14",
+    "Version": "11.0.0",
     "Authors": "Microsoft",
     "Copyright": "© Microsoft Corporation. All rights reserved.",
     "License": "MIT",
     "LicenseUrl": "https://licenses.nuget.org/MIT",
     "Repository": "https://github.com/dotnet/dotnet",
-    "Commit": "0427b9abbead3fa64c6655eb4290c537397131fa"
+    "Commit": "297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f"
   },
   {
     "Package": "Microsoft.Data.Sqlite.Core",
-    "Version": "10.0.14",
+    "Version": "11.0.0",
     "Authors": "Microsoft",
     "Copyright": "© Microsoft Corporation. All rights reserved.",
     "License": "MIT",
     "LicenseUrl": "https://licenses.nuget.org/MIT",
     "Repository": "https://github.com/dotnet/dotnet",
-    "Commit": "0427b9abbead3fa64c6655eb4290c537397131fa"
+    "Commit": "297acf930fb0f5c07fd4e51d78e521b4ad2e5d1f"
+  },
+  {
+    "Package": "SQLite",
+    "Version": "3.53.4",
+    "Authors": "Eric Sink",
+    "Copyright": "Copyright 2014-2026 SourceGear, LLC",
+    "License": "Public Domain",
+    "LicenseUrl": "https://sqlite.org/copyright.html",
+    "Repository": "",
+    "Commit": ""
   },
   {
     "Package": "SQLitePCLRaw.bundle_e_sqlite3",
-    "Version": "2.1.13",
+    "Version": "3.0.5",
     "Authors": "Eric Sink",
-    "Copyright": "Copyright 2014-2024 SourceGear, LLC",
+    "Copyright": "Copyright 2014-2026 SourceGear, LLC",
     "License": "Apache-2.0",
     "LicenseUrl": "https://licenses.nuget.org/Apache-2.0",
     "Repository": "https://github.com/ericsink/SQLitePCL.raw",
     "Commit": ""
+  },
+  {
+    "Package": "SQLitePCLRaw.config.e_sqlite3",
+    "Version": "3.0.5",
+    "Authors": "Eric Sink",
+    "Copyright": "Copyright 2014-2026 SourceGear, LLC",
+    "License": "Apache-2.0",
+    "LicenseUrl": "https://licenses.nuget.org/Apache-2.0",
+    "Repository": "https://github.com/ericsink/SQLitePCL.raw",
+    "Commit": "96043b8cff323f21919df86a431c136655d81b4a"
   },
   {
     "Package": "SQLitePCLRaw.core",
-    "Version": "2.1.13",
+    "Version": "3.0.5",
     "Authors": "Eric Sink",
-    "Copyright": "Copyright 2014-2024 SourceGear, LLC",
+    "Copyright": "Copyright 2014-2025 SourceGear, LLC",
     "License": "Apache-2.0",
     "LicenseUrl": "https://licenses.nuget.org/Apache-2.0",
     "Repository": "https://github.com/ericsink/SQLitePCL.raw",
-    "Commit": ""
-  },
-  {
-    "Package": "SQLitePCLRaw.lib.e_sqlite3",
-    "Version": "2.1.13",
-    "Authors": "Eric Sink",
-    "Copyright": "Copyright 2014-2024 SourceGear, LLC",
-    "License": "Apache-2.0",
-    "LicenseUrl": "https://licenses.nuget.org/Apache-2.0",
-    "Repository": "https://github.com/ericsink/SQLitePCL.raw",
-    "Commit": ""
+    "Commit": "ed046114d5a30534e13294d94d78eb73de896ad4"
   },
   {
     "Package": "SQLitePCLRaw.provider.e_sqlite3",
-    "Version": "2.1.13",
+    "Version": "3.0.5",
     "Authors": "Eric Sink",
-    "Copyright": "Copyright 2014-2024 SourceGear, LLC",
+    "Copyright": "Copyright 2014-2025 SourceGear, LLC",
     "License": "Apache-2.0",
     "LicenseUrl": "https://licenses.nuget.org/Apache-2.0",
     "Repository": "https://github.com/ericsink/SQLitePCL.raw",
-    "Commit": ""
+    "Commit": "ed046114d5a30534e13294d94d78eb73de896ad4"
   },
   {
     "Package": "Velopack",
