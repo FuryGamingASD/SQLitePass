@@ -8,6 +8,7 @@ Maintenance release.
 - Show the receiving process name in the Auto-Type confirmation and recheck the target after asynchronous lookup.
 - Surface unexpected drag-and-drop failures through the safe-lock handler instead of silently ignoring them.
 - Distinguish invalid canary data from unexpected cryptographic engine errors.
+- Preserve the last verified backup when the operating system rejects backup rotation.
 - No vault format change or migration is introduced; existing vaults and user preferences are unchanged.
 - Authenticode signing remains waived as previously agreed. The application and installer are unsigned.
 

@@ -10,6 +10,7 @@
 - Show the receiving process name in the Auto-Type confirmation and recheck the foreground target after async lookup.
 - Let unexpected drag-and-drop errors reach the safe-lock handler and log expected tray-icon fallback failures.
 - Treat only malformed or unauthentic canary data as an invalid credential; propagate unexpected engine errors.
+- Verify that a real backup file-replacement failure preserves the previously verified backup and committed vault data.
 
 Vault format and user data are unchanged. The package remains unsigned as previously agreed. The audit's native workflow, accessibility, durability and independent-review limitations remain documented in the 1.1.2 readiness report.
 
