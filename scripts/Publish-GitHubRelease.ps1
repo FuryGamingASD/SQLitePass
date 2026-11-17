@@ -12,9 +12,11 @@ foreach($entry in $checksums){
 }
 $existingText=& gh release view $tag --repo $env:GITHUB_REPOSITORY --json apiUrl,isDraft,targetCommitish 2>$null
 $existing=$null
+$alreadyPublished=$false
 if($LASTEXITCODE -eq 0){$existing=$existingText | ConvertFrom-Json}
 if($existing){
-    if(-not $existing.isDraft -or $existing.targetCommitish -ne $env:GITHUB_SHA){throw 'An existing release must not be overwritten.'}
+    if($existing.targetCommitish -ne $env:GITHUB_SHA){throw 'An existing release from a different commit must not be overwritten.'}
+    $alreadyPublished=-not $existing.isDraft
 } else {
     & gh release create $tag --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "SQLitePass $($provenance.Version)" --notes-file "RELEASE_NOTES_v$($provenance.Version).md" --draft
     if($LASTEXITCODE -ne 0){throw 'Draft release creation failed.'}
@@ -28,6 +30,7 @@ $release=$releaseText | ConvertFrom-Json
 foreach($file in (Get-ChildItem -LiteralPath $ArtifactDirectory -File)){
     $uploaded=@($release.assets | Where-Object name -eq $file.Name)
     if($uploaded.Count -eq 0){
+        if($alreadyPublished){throw 'An existing published release has missing assets; it will not be modified.'}
         & gh release upload $tag $file.FullName --repo $env:GITHUB_REPOSITORY
         if($LASTEXITCODE -ne 0){throw "Asset upload failed: $($file.Name)"}
     }
@@ -35,13 +38,16 @@ foreach($file in (Get-ChildItem -LiteralPath $ArtifactDirectory -File)){
 $releaseText=& gh api $releaseApi
 if($LASTEXITCODE -ne 0){throw 'Cannot inspect uploaded assets.'}
 $release=$releaseText | ConvertFrom-Json
+if(@($release.assets).Count -ne @(Get-ChildItem -LiteralPath $ArtifactDirectory -File).Count){throw 'Unexpected remote asset set.'}
 foreach($file in (Get-ChildItem -LiteralPath $ArtifactDirectory -File)){
     $uploaded=@($release.assets | Where-Object name -eq $file.Name)
     $expected='sha256:'+((Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant())
     if($uploaded.Count -ne 1 -or $uploaded[0].size -ne $file.Length -or $uploaded[0].digest -ne $expected){throw "Remote asset digest mismatch: $($file.Name)"}
 }
-& gh release edit $tag --repo $env:GITHUB_REPOSITORY --draft=false --latest
-if($LASTEXITCODE -ne 0){throw 'Release publication failed.'}
+if(-not $alreadyPublished){
+    & gh release edit $tag --repo $env:GITHUB_REPOSITORY --draft=false --latest
+    if($LASTEXITCODE -ne 0){throw 'Release publication failed.'}
+}
 $refText=& gh api "repos/$env:GITHUB_REPOSITORY/git/ref/tags/$tag"
 if($LASTEXITCODE -ne 0 -or ($refText | ConvertFrom-Json).object.sha -ne $env:GITHUB_SHA){throw 'Published tag does not match the verified commit.'}
 Write-Output "Published https://github.com/$env:GITHUB_REPOSITORY/releases/tag/$tag"

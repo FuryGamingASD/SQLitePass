@@ -4,6 +4,7 @@ $ErrorActionPreference='Stop'
 $root=(Resolve-Path (Join-Path $PSScriptRoot '..')).ProviderPath
 Push-Location -LiteralPath $root
 try {
+    & (Join-Path $PSScriptRoot 'Test-ReleasePublication.ps1')
     New-Item -ItemType Directory -Path 'artifacts/verification' -Force | Out-Null
     dotnet restore SQLitePass.slnx --locked-mode
     if($LASTEXITCODE -ne 0){throw 'Locked restore failed.'}
