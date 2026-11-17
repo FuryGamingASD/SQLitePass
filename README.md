@@ -92,7 +92,7 @@ The Windows [Verify workflow](https://github.com/FuryGamingASD/SQLitePass/action
 .\build-installer.ps1 -Version 1.1.1 -CertificateThumbprint YOUR_CERTIFICATE_SHA1_THUMBPRINT
 ```
 
-The signing thumbprint can also be supplied through `SQLITEPASS_SIGN_CERT`. Packaging runs tests first, uses the pinned local Velopack tool, preserves existing releases, writes versioned output under `artifacts/releases/`, and produces SHA-256 checksums. Authenticode remains waived as agreed. Release 1.1.0 is public; source changes for the 1.1.1 launch hotfix are being prepared and require CI verification before publication. Native interactive UI checks and independent security review remain open. Building packages does not publish them.
+The signing thumbprint can also be supplied through `SQLITEPASS_SIGN_CERT`. Packaging runs tests first, uses the pinned local Velopack tool, preserves existing releases, writes versioned output under `artifacts/releases/`, and produces SHA-256 checksums. Authenticode remains waived as agreed. Releases 1.1.0 and 1.1.1 are public. The 1.1.1 launch hotfix passed CI and public feed verification; native interactive UI checks and independent security review remain open. See the [1.1.1 publication report](docs/RELEASE_OUTCOME_2026-11-17_1.1.1.md). Building packages does not publish them.
 
 ## License and security reporting
 
