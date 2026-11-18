@@ -271,3 +271,357 @@ This provides:
 - crash recovery
 - reduced corruption risk
 - durable transaction persistence
+
+---
+
+## Atomic Operations
+
+Modifications are committed atomically.
+
+Vault updates either:
+
+- complete successfully, or
+- leave the previous valid state intact.
+
+Partial commits are intentionally avoided.
+
+---
+
+## Revision Control
+
+Each protected record contains:
+
+- Revision number
+- Identity
+- Ownership information
+
+Updates require matching revision information.
+
+Concurrent write conflicts therefore result in rejection rather than silent overwrite.
+
+---
+
+# Backup Architecture
+
+## Online Snapshots
+
+Backups are created using SQLite's native online backup mechanism.
+
+This allows:
+
+- consistent snapshots
+- active database backup
+- validated copy generation
+
+without depending on direct file duplication.
+
+---
+
+## Backup Verification
+
+Backup candidates are verified before publication.
+
+Verification includes:
+
+1. SQLite integrity validation
+2. Metadata validation
+3. Cryptographic verification
+
+Invalid backups are discarded.
+
+---
+
+## Backup Retention
+
+SQLitePass maintains:
+
+```text
+vault.kpd.backup
+vault.kpd.backup.1
+vault.kpd.backup.2
+vault.kpd.backup.3
+```
+
+Older generations provide rollback options when corruption, user error or migration issues are discovered after the fact.
+
+---
+
+## Secondary Backup Targets
+
+An optional secondary backup destination may be configured.
+
+The secondary backup:
+
+- receives the already validated backup
+- is published atomically
+- uses vault-ID derived naming
+
+to avoid accidental collisions.
+
+---
+
+# Recovery Architecture
+
+## Verified Recovery
+
+Recovery requires:
+
+- a backup file
+- the correct password
+- the correct key file (if enabled)
+
+The backup is validated before replacement.
+
+Invalid recovery candidates are rejected.
+
+---
+
+## Recovery Preservation
+
+Before installation of a recovered vault:
+
+- the previous vault is preserved
+- existing WAL files are preserved
+- existing SHM files are preserved
+
+This approach avoids destructive recovery behavior.
+
+---
+
+## Migration Recovery
+
+Additional safety snapshots are generated before:
+
+- format migrations
+- key changes
+
+allowing rollback if required.
+
+---
+
+# Session Security
+
+## Locking System
+
+Vaults may be locked:
+
+- manually
+- through inactivity timeout
+- through Windows session lock
+
+When locking occurs:
+
+- keys are disposed
+- dialogs are closed
+- drafts are cleared
+- Auto-Type is cancelled
+
+---
+
+## Session Invalidation
+
+Credential-related operations use generation tracking.
+
+A session lock invalidates in-flight operations that may still hold credential context.
+
+This prevents stale operations from continuing after a lock event.
+
+---
+
+# Clipboard Architecture
+
+## Managed Clipboard Operations
+
+Sensitive clipboard operations are centralized through a dedicated coordinator.
+
+Features include:
+
+- automatic timeout
+- ownership tracking
+- safe clearing
+- retry logic
+- centralized copy handling
+
+---
+
+## Clipboard History Controls
+
+SQLitePass attempts to prevent copied secrets from entering:
+
+- Windows Clipboard History
+- Cloud Clipboard synchronization
+
+where supported by the operating system.
+
+---
+
+## Limitations
+
+Clipboard content remains visible to:
+
+- the operating system
+- privileged software
+- malware with sufficient access
+
+Clipboard protection is intended to reduce accidental exposure, not defeat system compromise.
+
+---
+
+# Auto-Type Architecture
+
+## Target Validation
+
+Auto-Type requires:
+
+- explicit user invocation
+- explicit destination selection
+- confirmation by the user
+
+---
+
+## Continuous Verification
+
+During typing SQLitePass continuously verifies:
+
+- foreground window
+- process identity
+- window title
+
+Typing stops immediately if validation fails.
+
+---
+
+## Security Assumptions
+
+Auto-Type assumes the endpoint is trusted.
+
+The mechanism cannot provide protection against:
+
+- keyloggers
+- accessibility hooks
+- malicious kernel drivers
+- compromised operating systems
+
+---
+
+# User Interface Hardening
+
+## Screen Capture Protection
+
+Protected windows may use:
+
+```text
+WDA_EXCLUDEFROMCAPTURE
+```
+
+with fallback to:
+
+```text
+WDA_MONITOR
+```
+
+on supported Windows versions.
+
+This reduces accidental exposure through many screen recording and screen sharing mechanisms.
+
+---
+
+## Sensitive Window Cleanup
+
+When sensitive windows close or the vault locks:
+
+- PasswordBox content is cleared
+- TextBox content is cleared
+- TextBlock content is cleared
+- Undo history is disabled before clearing
+
+This reduces secret retention inside the active user interface.
+
+---
+
+# Memory Handling
+
+## Secret Cleanup
+
+SQLitePass actively attempts to remove secrets when they are no longer required.
+
+Cleanup includes:
+
+- Entry passwords
+- Usernames
+- Notes
+- URLs
+- Custom-field values
+- Entry history data
+- Attachment buffers
+- Encryption keys
+
+Attachment buffers are explicitly overwritten before disposal.
+
+---
+
+## Managed Runtime Limitation
+
+SQLitePass runs on .NET.
+
+Because immutable strings are controlled by the runtime:
+
+- string contents cannot be forcibly erased,
+- garbage collection timing cannot be controlled.
+
+Users operating in environments where privileged memory acquisition is expected should consider this limitation part of the threat model.
+
+---
+
+# Threat Boundaries
+
+SQLitePass is designed to protect against:
+
+- Vault theft
+- Offline database analysis
+- Accidental corruption
+- Interrupted writes
+- Power failures
+- Application crashes
+- User recovery mistakes
+- Basic tampering of vault contents
+
+SQLitePass is not designed to protect against:
+
+- Administrative compromise
+- Kernel compromise
+- Malware running with full local privileges
+- Memory dumping attacks
+- Hardware keyloggers
+- Physical observation attacks
+- Compromised operating systems
+
+These threats require additional endpoint security controls beyond the scope of a password manager.
+
+---
+
+# Security Review Status
+
+Current status:
+
+| Item | Status |
+|--------|----------|
+| Public Source Code | ✅ |
+| Source Review Performed | ✅ |
+| Independent Cryptographic Audit | ❌ |
+| External Security Audit | ❌ |
+| Independent Penetration Test | ❌ |
+| Formal Certification | ❌ |
+| Bug Bounty Program | ❌ |
+
+Future third-party review is strongly encouraged.
+
+---
+
+# Conclusion
+
+SQLitePass combines authenticated encryption, authenticated integrity verification, validated recovery workflows, defensive clipboard handling, secure session management and resilient SQLite storage to create a recovery-focused local password manager architecture.
+
+The architecture deliberately favors data preservation and integrity verification over silent continuation after faults.
+
+No software can eliminate all risk; however, SQLitePass is designed to ensure that failures become visible, recoverable and verifiable whenever possible.
