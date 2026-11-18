@@ -23,11 +23,15 @@ The [verification summary](../evidence/release-readiness-1.1.3.json) combines lo
 
 I also ran an isolated native startup smoke on 18 November using SDK 10.0.404. A temporary WPF host invoked the actual `SQLitePass.UI.Program.Main()` entry point from the current source project, with temporary settings and log directories. It observed the real `LoginWindow` visible at 480×540 with a native HWND and WPF presentation source, then shut the app down after five seconds. No user settings, vault or desktop input were used. This confirms that the current source bootstrap can show its unlock window; it does not exercise the installed package or reproduce/explain the user's earlier crash. The retained JSON is in the ignored `artifacts/verification/1.1.3-startup-smoke-20261118/` folder.
 
-Hosted GitHub Actions [Verify run #112](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44401931309) on Windows Server 2025 passed for current PR #8 head `e3630a6bc20a68bf5b285cc22f308c79edd0b0f3`. It reports the full build/test, hidden WPF verification (**1,080 layout cases**), **105 contrast pairs**, dependency scan and package/install smoke checks. Fresh install, upgrade from 1.0.2, and uninstall passed in a temporary test directory. The product application was not started and no real vault was opened. The run tested synthetic PR merge commit `a3715e8a3de344fd61deb6cfef19e631171303ee`. The workflow artifacts and their digests are recorded in the evidence JSON, expire on 2 December 2026 at 21:33 UTC, and are not a public release. Detailed BuildId/package-inspection metadata is also retained from Verify run #110 and explicitly labeled with that run in the evidence JSON. The eventual main-branch candidate still requires its own CI and release workflow.
+The historical [Verify run #112](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44401931309) on Windows Server 2025 passed for PR #8 head `e3630a6bc20a68bf5b285cc22f308c79edd0b0f3`. It reports the build and tests, **1,080 hidden WPF layout cases**, **105 contrast pairs**, a dependency scan, and silent fresh install, upgrade from 1.0.2 and uninstall in a temporary directory. It tested PR merge commit `a3715e8a3de344fd61deb6cfef19e631171303ee`. The evidence JSON preserves artifact digests from #112 and separately labeled package details from #110.
 
 The earlier completed local WPF run, before the idempotent editor-close fix, failed during cleanup of a synthetic dirty `EntryEditDialog`. A later local attempt left 233 screenshots ending at `CustomFieldDialog-fr-light-100`, but no final manifest or exception trace; the retained files do not establish why it stopped. I reran the exact full hidden WPF command at 23:08 on the pinned SDK 10.0.404: it completed all 1,080 cases, wrote 540 screenshots, exited 0, showed no windows and sent no desktop input. No matching application crash, .NET Runtime or graphics-system event was recorded during that reproduction. This does **not** launch the product application or use a real vault, so it neither reproduces nor explains the user's separate application crash. The supplied WER `LiveKernelEvent 193` refers to a `WATCHDOG` dump dated 14 November and is not evidence of a crash during this 18 November rerun. Four release-publisher safety scenarios pass using a fake CLI without network calls.
 
-Hosted Verify runs [#119](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44411772629) and [#120](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44411783294) both passed on PR head `2528e4becbc0477b098f58f53af7539d64b59760`; #120 is the pull-request run. The earlier [run #112](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44401931309) records detailed build, test, dependency, package and installer checks. The [draft PR #8](https://github.com/FuryGamingASD/SQLitePass/pull/8) remains unmerged and the release is unpublished. These results do not complete the installed-package launch, tray behavior, Win+L, Clipboard History, DPI, Narrator, high contrast or controlled-target Auto-Type checks, close the retained A07 Auto-Type race, or substitute for a final-main release build. The original crash is still unexplained: neither the hidden WPF verifier nor the isolated source-entrypoint smoke reproduced it. Detailed local TRX/render output is ignored by Git.
+The 19 November package and clipboard checks run in a disposable GitHub-hosted Windows profile. The verifier records results in `windows-package-smoke.json` and `ui-ci/native-clipboard-results.json` in the Actions evidence artifact. The [PR verification history](https://github.com/FuryGamingASD/SQLitePass/pull/8/checks) links each run to its tested revision. The first installed-package run reached the tray and second-instance checks. Its uninstall log confirmed that Velopack stops the process before invoking the uninstall callback. An additional run confirmed removal of the owned startup value and passed the clipboard checks. That run stopped because the test treated a missing registry value as an error. The test now reads that value through the registry API, which returns null for missing values.
+
+The clipboard check uses synthetic values to confirm timeout, preservation of newer clipboard content, and presence of Windows history and cloud exclusion formats. Win+V, account sync and screen capture behavior still need desktop checks. The reported crash remains unreproduced. The Windows Application log showed no SQLitePass crash or hang entry for the reported time window.
+
+[Verify #127](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44424241882) passed all four package scenarios for commit `0f452b7d77a003811b126fefb7841c9f1e472e3c`. The installed unlock window responded on screen and a second instance reopened it after tray startup. The running 1.1.2 exited with code zero during update and the 1.1.3 unlock window opened afterward. Uninstall removed the app and its shortcuts, stopped the running process, verified ownership of the startup registry entry and preserved the synthetic user data marker.
 
 ## Security and reliability release gates
 
@@ -49,11 +53,13 @@ Use a synthetic vault and an isolated Windows profile for the desktop checks. Re
 
 ### Launch, tray and package lifecycle
 
-- [ ] Install the candidate from a clean profile and confirm the unlock window is visible and responsive.
-- [ ] Launch a second instance; confirm the existing unlock/vault window restores from tray and minimization.
+- [x] Install the candidate from a clean profile and confirm the unlock window is visible and responsive (Verify #127).
+- [x] Launch a second instance after startup in the tray and confirm the existing process opens the unlock window (Verify #127).
+- [ ] Verify restoration of an authenticated vault window from tray and minimization.
 - [ ] Lock/unlock, close-to-tray and minimize-to-tray behavior match settings.
-- [ ] Upgrade from 1.1.2 with the app running; confirm clean shutdown, update completion and next launch.
-- [ ] Uninstall and verify application-owned shortcuts/processes are removed without deleting the user's vault or backups.
+- [x] Upgrade from 1.1.2 with its unlock window open, confirm clean shutdown, update completion and next launch (Verify #127).
+- [x] Uninstall with the unlock window open and verify process, shortcut and startup registration cleanup. Verify that a synthetic profile file remains intact (Verify #127).
+- [ ] With a disposable vault and backup outside the installation directory, confirm both remain intact after uninstall.
 
 ### Synthetic vault, credentials and recovery
 
@@ -74,7 +80,8 @@ Use a synthetic vault and an isolated Windows profile for the desktop checks. Re
 ### Clipboard and screen capture
 
 - [ ] Copy username, password, custom field and generated password; verify configured timeout clears only SQLitePass-owned content.
-- [ ] Replace clipboard content from another application before expiry; confirm SQLitePass does not erase the replacement.
+- [x] Verify that synthetic clipboard content expires and that a newer clipboard value survives, using the Windows clipboard on the disposable runner (Verify #127).
+- [ ] Replace clipboard content from another application before expiry and confirm SQLitePass preserves the replacement.
 - [ ] Inspect `Win+V`, Clipboard History and Cloud Clipboard on the test Windows profile; record the Windows configuration and observed result.
 - [ ] Test screen capture with protection enabled and disabled using synthetic values. Record API fallback/unsupported behavior; treat the control as best-effort.
 
@@ -88,11 +95,11 @@ Use a synthetic vault and an isolated Windows profile for the desktop checks. Re
 
 ## Automated release evidence required
 
-- [x] Locked restore, Release build with zero warnings/errors, full test suite and 1,080-case WPF verification pass on the current PR merge commit in hosted CI run #112. Repeat on the final candidate commit after merge.
-- [x] NuGet vulnerability scan reports no known advisories for the PR build's shipped dependency graph in run #112. Repeat on the final candidate commit after merge.
-- [x] Self-contained package verification and temporary-directory fresh install/upgrade/uninstall smoke checks pass on the PR merge commit in run #112. Final-main checksums, provenance and release assets are still pending.
+- [x] Locked restore, Release build with zero warnings/errors, full test suite and 1,080 WPF cases passed in Verify #127. Repeat on the final candidate after merge.
+- [x] The NuGet scan found no known advisories for the candidate dependency graph in Verify #127. Repeat on the final candidate after merge.
+- [x] Package verification, fresh install, startup, local upgrade and uninstall passed in Verify #127. Repeat on the final candidate after merge.
 - [ ] The tag workflow publishes the expected assets and verifies the public update feed/package.
 - [ ] The native checklist has a dated result record, with failures fixed and retested or remaining risks explicitly accepted.
 - [ ] `RELEASE_OUTCOME_1.1.3.md` records the final tag, workflow, asset digests, native checklist result and remaining limitations.
 
-The native checklist must remain open until a person has run the installed candidate on Windows. The isolated source-entrypoint smoke is limited evidence and does not exercise the installed package, open a vault or cover the remaining native behaviors. The prior signature waiver continues to apply and is not a native test result. Do not publish 1.1.3 until the original crash is either diagnosed or explicitly recorded as unreproduced, the required native checklist is recorded, final-main CI passes, and the release workflow produces verified assets.
+Before publishing, record the remaining checks from an interactive Windows profile running the installed candidate with a synthetic vault. Run CI on `main` and verify the public feed and build provenance through the release workflow. The original crash remains recorded as unreproduced. The existing signature waiver applies.

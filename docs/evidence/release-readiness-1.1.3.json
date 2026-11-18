@@ -168,12 +168,12 @@
     "networkCalls": 0,
     "result": "passed"
   },
-  "nativeWindowsChecklist": "not performed",
+  "nativeWindowsChecklist": "partial; interactive Windows checks remain open",
   "releasePublished": false,
   "knownReleaseBlockers": [
     "Auto-Type is retained per user direction; the P1 check-to-global-SendInput race remains documented and native target checks are pending.",
-    "The hosted PR CI passes on the current head, but final-main CI, release workflow, public assets, checksums and provenance are pending.",
-    "A source-entrypoint smoke showed the isolated unlock window, but the installed candidate and remaining native checklist have not been exercised. The reported crash was not reproduced and its original cause remains unknown."
+    "The verified package must come from main. The public release workflow and feed verification are pending.",
+    "Interactive Windows checks remain open, including session locking, vault workflows, accessibility, clipboard history and account sync. The reported crash remains unreproduced."
   ],
   "detailedLocalArtifacts": "artifacts/verification/1.1.3-readiness/ (ignored by Git)",
   "localNativeStartupSmoke": {
@@ -207,6 +207,35 @@
     "originalCrashReproduced": false,
     "limitation": "The source entry point visibly rendered its unlock window in an isolated host. This did not launch the packaged executable, exercise install/update integration or explain the user-reported crash.",
     "evidence": "artifacts/verification/1.1.3-startup-smoke-20261118/startup-smoke.json (ignored by Git)"
+  },
+  "hostedNativeClipboard": {
+    "result": "passed",
+    "verifiedAtLocalDate": "2026-11-19",
+    "runUrl": "https://github.com/FuryGamingASD/SQLitePass/actions/runs/44423443055",
+    "runNumber": 126,
+    "testedMergeCommit": "71626e6d8af823d9ab957cfb591d6652aaf93c11",
+    "evidenceFile": "ui-ci/native-clipboard-results.json",
+    "syntheticOnly": true,
+    "ownedContentExpired": true,
+    "replacementPreserved": true,
+    "exclusionFormatsPresent": true,
+    "windowsClipboardHistoryAndAccountSyncVerified": false
+  },
+  "hostedInstalledAppSmoke": {
+    "result": "passed",
+    "verifiedAtLocalDate": "2026-11-19",
+    "runUrl": "https://github.com/FuryGamingASD/SQLitePass/actions/runs/44424241882",
+    "runNumber": 127,
+    "sourceCommit": "0f452b7d77a003811b126fefb7841c9f1e472e3c",
+    "buildId": "1.1.3-da73aaf16ba34d91a676f5cd4731cb93",
+    "evidenceFile": "windows-package-smoke.json",
+    "freshInstallAndLaunch": true,
+    "trayStartupAndSecondInstanceActivation": true,
+    "upgradeFromRunning1.1.2AndRelaunch": true,
+    "uninstallRunningApp": true,
+    "ownedStartupValueRemovedOtherValuePreserved": true,
+    "syntheticProfileMarkerPreserved": true,
+    "realVaultOpened": false
   },
   "latestHostedCiRuns": [
     {
