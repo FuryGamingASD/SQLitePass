@@ -93,7 +93,7 @@ namespace SQLitePass.Core.Services
                     string? exePath = Environment.ProcessPath;
                     if (!string.IsNullOrEmpty(exePath))
                     {
-                        key.SetValue(AppRegistryName, $"\"{exePath}\" --minimized");
+                        key.SetValue(AppRegistryName, StartupCommand(exePath));
                     }
                 }
                 else
@@ -103,5 +103,26 @@ namespace SQLitePass.Core.Services
             }
             catch (Exception ex) { throw new IOException("Impossibile aggiornare l’avvio automatico di Windows.", ex); }
         }
+
+        public static void RemoveStartupRegistrationForUninstall()
+        {
+            if (!OperatingSystem.IsWindows() || Environment.ProcessPath is not { } executable) return;
+
+            try
+            {
+                using var key = Registry.CurrentUser.OpenSubKey(RunRegistryKey, writable: true);
+                if (key?.GetValue(AppRegistryName) is string command &&
+                    string.Equals(command, StartupCommand(executable), StringComparison.OrdinalIgnoreCase))
+                {
+                    key.DeleteValue(AppRegistryName, throwOnMissingValue: false);
+                }
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+            {
+                AppLogger.LogWarning("Could not remove the Windows startup registration: " + exception.GetType().Name);
+            }
+        }
+
+        private static string StartupCommand(string executable) => $"\"{executable}\" --minimized";
     }
 }

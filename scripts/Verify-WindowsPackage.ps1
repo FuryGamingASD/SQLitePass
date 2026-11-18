@@ -16,9 +16,11 @@ $package = Join-Path $release "SQLitePass-$applicationVersion-full.nupkg"
 $legacySetup = Join-Path $projectRoot 'releases\SQLitePass-win-Setup.exe'
 $previousSetup = Join-Path $projectRoot 'releases\SQLitePass-1.1.2-Setup.exe'
 $settingsDirectory = Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'SQLitePass'
+$startupKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
 $inputPaths = @($setup, $package, $legacySetup)
 if ($CheckRunningApp) {
-    if ($env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or (Test-Path -LiteralPath $settingsDirectory)) {
+    if ($env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or (Test-Path -LiteralPath $settingsDirectory) -or
+        (Get-ItemProperty -LiteralPath $startupKey -Name SQLitePass -ErrorAction SilentlyContinue)) {
         throw 'The live application smoke requires a clean GitHub-hosted Windows profile.'
     }
     $inputPaths += $previousSetup
@@ -117,11 +119,14 @@ function Wait-ForLoginWindow([Diagnostics.Process]$Process) {
     throw 'The installed SQLitePass unlock window did not become visible and responsive.'
 }
 function Assert-CleanAppExit([Diagnostics.Process]$Process, [string]$Operation) {
-    if (-not $Process.WaitForExit(10000) -or $Process.ExitCode -ne 0) {
-        throw "SQLitePass did not exit cleanly during $Operation."
-    }
+    if (-not $Process.WaitForExit(10000)) { throw "SQLitePass did not exit during $Operation." }
+    if ($Process.ExitCode -ne 0) { throw "SQLitePass exited with code $($Process.ExitCode) during $Operation." }
 }
 function Invoke-RunningAppScenarios {
+    New-Item -ItemType Directory -Path $settingsDirectory -Force | Out-Null
+    $preservedFile = Join-Path $settingsDirectory "package-smoke-$runId.txt"
+    Set-Content -LiteralPath $preservedFile -Value 'Synthetic user data marker' -Encoding utf8
+    $preservedHash = (Get-FileHash -LiteralPath $preservedFile -Algorithm SHA256).Hash
     foreach ($scenario in @('running-fresh', 'running-upgrade')) {
         Write-Output "Testing the installed application in scenario $scenario."
         $resolved = New-TestInstallPath $scenario
@@ -156,8 +161,21 @@ function Invoke-RunningAppScenarios {
                 Assert-CleanAppExit $secondary 'second-instance activation'
                 Wait-ForLoginWindow $primary
             }
+            # Verify ownership in both directions using the disposable runner's registry.
+            $startupExe = if ($isUpgrade) { Join-Path ([IO.Path]::GetTempPath()) 'OtherInstallation\SQLitePass.exe' } else { Join-Path $resolved 'current\SQLitePass.exe' }
+            $startupValue = '"' + $startupExe + '" --minimized'
+            if (-not (Test-Path -LiteralPath $startupKey)) { New-Item -Path $startupKey | Out-Null }
+            Set-ItemProperty -LiteralPath $startupKey -Name SQLitePass -Value $startupValue
             Uninstall-TestCopy $resolved $scenario
-            Assert-CleanAppExit $primary 'uninstall'
+            # Velopack stops running processes before invoking the uninstall hook.
+            if (-not $primary.WaitForExit(10000)) { throw 'Uninstall left SQLitePass running.' }
+            $observedStartup = Get-ItemPropertyValue -LiteralPath $startupKey -Name SQLitePass -ErrorAction SilentlyContinue
+            $expectedStartup = if ($isUpgrade) { $startupValue } else { $null }
+            if ($observedStartup -ne $expectedStartup) { throw 'Uninstall did not preserve startup registration ownership.' }
+            if ($isUpgrade) { Remove-ItemProperty -LiteralPath $startupKey -Name SQLitePass }
+            if ((Get-FileHash -LiteralPath $preservedFile -Algorithm SHA256).Hash -ne $preservedHash) {
+                throw 'The app lifecycle changed the synthetic user data marker.'
+            }
             $results.Add([ordered]@{
                 Scenario = $scenario
                 Passed = $true
@@ -166,7 +184,9 @@ function Invoke-RunningAppScenarios {
                 WakeFromTrayViaSecondInstance = -not $isUpgrade
                 UpgradeFrom = $(if ($isUpgrade) { '1.1.2' } else { $null })
                 CleanExitWhileUpdating = $isUpgrade
-                CleanExitWhileUninstalling = $true
+                AppStoppedByUninstall = $true
+                StartupRegistryOwnershipVerified = $true
+                SyntheticUserDataPreserved = $true
                 AppStarted = $true
                 RealVaultOpened = $false
             })

@@ -54,6 +54,8 @@ internal static class Program
             File.WriteAllText(Path.Combine(output, "session-lock-results.json"), JsonSerializer.Serialize(await SessionVerification.VerifyAsync(temporary), new JsonSerializerOptions { WriteIndented = true }));
             File.WriteAllText(Path.Combine(output, "editor-results.json"), JsonSerializer.Serialize(await EditingVerification.VerifyAsync(), new JsonSerializerOptions { WriteIndented = true }));
             if (args.Length == 2) return 0;
+            if (Environment.GetEnvironmentVariable("RUNNER_ENVIRONMENT") == "github-hosted")
+                File.WriteAllText(Path.Combine(output, "native-clipboard-results.json"), JsonSerializer.Serialize(await ClipboardVerification.VerifyAsync(), new JsonSerializerOptions { WriteIndented = true }));
             using var master = new MasterKey("synthetic-ui-verification-only"); byte[] salt = RandomNumberGenerator.GetBytes(16);
             using var crypto = CryptoEngine.FromMasterKey(master, salt, 1, 8192, 1);
             var metadata = new VaultMetadata { SaltBase64 = Convert.ToBase64String(salt), VerificationCanary = crypto.GenerateCanaryToken(), KdfIterations = 1, KdfMemoryKb = 8192, KdfParallelism = 1 };

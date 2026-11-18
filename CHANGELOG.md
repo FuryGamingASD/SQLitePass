@@ -7,6 +7,8 @@
 - Add a synthetic WPF regression for minimize cancellation without displaying a window or sending desktop input.
 - Fail closed on unhandled dispatcher errors: lock the active vault before marking the exception handled, and shut down if a vault cannot be locked or no vault window is active. Unobserved task failures now schedule the same lock-or-shutdown response before being marked observed.
 - Prevent reentrant editor closing when a vault lock arrives while an entry discard prompt is already closing the window.
+- Preserve activation and updater shutdown requests that arrive before the app finishes starting.
+- Remove the uninstalled copy's Windows startup entry when it belongs to that installation.
 - Correct release claims and repair incomplete recovery and incident-response documentation.
 
 ## [1.1.2] - 2026-11-18

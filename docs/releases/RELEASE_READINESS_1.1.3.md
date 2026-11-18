@@ -1,6 +1,6 @@
 # SQLitePass 1.1.3 readiness
 
-Status: **work in progress; not ready to publish**. Updated 18 November 2026.
+Status **candidate verification in progress**. Updated 19 November 2026.
 
 The source baseline is the published [v1.1.2 release](RELEASE_OUTCOME_1.1.2.md), tag commit `f8c378386a43ba4886b17d6b5341bd28881c367d`. The current remediation branch adds a minimize-during-Auto-Type cancellation fix and documentation corrections. The vault format is intended to remain unchanged. Do not create the release tag until the verification and manual checklist below have been recorded against the final candidate.
 
@@ -9,6 +9,8 @@ The source baseline is the published [v1.1.2 release](RELEASE_OUTCOME_1.1.2.md),
 - Minimizing the vault cancels active Auto-Type even when lock-on-minimize is disabled; an isolated WPF verification exercises this behavior without displaying a window or sending desktop input.
 - Unhandled dispatcher errors now lock the authenticated vault before being marked handled; if the vault cannot be locked or no vault window is active, the application shuts down. The isolated verifier exercises the lock entry point and awaits its cleanup. An unobserved task failure schedules the same lock-or-shutdown response.
 - Editor lock cleanup is now idempotent during an in-progress WPF close: a lock arriving during the discard prompt completes the existing close instead of calling `Close()` reentrantly.
+- The startup coordinator now records early activation and shutdown requests under the same lock it uses to register handlers. CI exercises the installed executable, second-instance activation from tray startup, and an update from the published 1.1.2 while it is running.
+- The uninstall callback removes the Windows startup entry when it points to the copy being removed. Velopack 1.2.161 stops processes before calling this callback, so the uninstall smoke verifies process removal and registry ownership. The update smoke separately checks for a clean exit.
 - Added a 1.1.2 publication outcome with tag, workflow, asset digests and explicit verification limits.
 - Prepared the 1.1.3 application, assembly and package version metadata, release notes and CI defaults; publication remains disabled until the final gates pass.
 - Retained Auto-Type at the user's direction. KeePass documents that window titles are not unique and that users must verify the target window. That is a comparable target-trust limit; KeePass's documentation does not establish that it has SQLitePass's specific check-to-`SendInput` race, and it does not eliminate SQLitePass's race ([Auto-Type](https://keepass.info/help/base/autotype.html), [security analysis](https://keepass.info/help/kb/sec_issues.html)).
@@ -43,7 +45,7 @@ Hosted Verify runs [#119](https://github.com/FuryGamingASD/SQLitePass/actions/ru
 
 ## Native Windows checklist
 
-**Execution status: not performed in this work.** Run manually with a synthetic vault and disposable test accounts on an isolated Windows profile. Never use production credentials or a user's only vault. Record Windows build, display scaling, candidate build, date, tester and result for each item. CI, hidden WPF rendering and fake input adapters do not count as native completion.
+Use a synthetic vault and an isolated Windows profile for the desktop checks. Record the Windows build, display scaling, candidate build, date and result. The hosted Windows runner can verify the installed process, native window and clipboard with synthetic values. The checks that depend on desktop interaction, accessibility settings or Windows account policy require a separate result.
 
 ### Launch, tray and package lifecycle
 
