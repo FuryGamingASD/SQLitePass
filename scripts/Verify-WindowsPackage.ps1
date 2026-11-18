@@ -139,6 +139,7 @@ function Invoke-RunningAppScenarios {
         $resolved = New-TestInstallPath $scenario
         $started = [Collections.Generic.List[Diagnostics.Process]]::new()
         $isUpgrade = $scenario -eq 'running-upgrade'
+        $previousAppExit = $null
         try {
             $inputSetup = if ($isUpgrade) { $previousSetup } else { $setup }
             Invoke-Native $inputSetup @('--silent', '--installto', $resolved, '--log', (Join-Path $output "$scenario-install.log"))
@@ -147,8 +148,16 @@ function Invoke-RunningAppScenarios {
             $started.Add($primary)
             Wait-ForLoginWindow $primary
             if ($isUpgrade) {
-                Invoke-Native (Join-Path $resolved 'Update.exe') @('--silent', '--log', (Join-Path $output "$scenario-apply.log"), 'apply', '--package', $package, '--norestart')
-                Assert-CleanAppExit $primary 'update'
+                $updateLog = Join-Path $output "$scenario-apply.log"
+                Invoke-Native (Join-Path $resolved 'Update.exe') @('--silent', '--log', $updateLog, 'apply', '--package', $package, '--norestart')
+                if (-not $primary.WaitForExit(10000)) { throw 'The previous app is still running after the update.' }
+                if ($primary.ExitCode -eq 0) {
+                    $previousAppExit = 'graceful'
+                } elseif (Select-String -LiteralPath $updateLog -Pattern ('Killing process: .+ \(' + $primary.Id + '\)') -Quiet) {
+                    $previousAppExit = 'stopped by Velopack'
+                } else {
+                    throw "The previous app exited unexpectedly with code $($primary.ExitCode) during update."
+                }
                 Assert-Version $resolved $assemblyVersion
                 $primary = Start-TestApp $resolved
                 $started.Add($primary)
@@ -166,6 +175,12 @@ function Invoke-RunningAppScenarios {
                 $secondary = Start-TestApp $resolved
                 $started.Add($secondary)
                 Assert-CleanAppExit $secondary 'second-instance activation'
+                Wait-ForLoginWindow $primary
+                # Exercise the candidate's pre-update hook separately from the behavior of older builds.
+                Invoke-Native (Join-Path $resolved 'current\SQLitePass.exe') @('--veloapp-obsolete', $applicationVersion)
+                Assert-CleanAppExit $primary 'the candidate update hook'
+                $primary = Start-TestApp $resolved
+                $started.Add($primary)
                 Wait-ForLoginWindow $primary
             }
             # Verify ownership in both directions using the disposable runner's registry.
@@ -190,7 +205,8 @@ function Invoke-RunningAppScenarios {
                 ResponsiveOnScreenUnlockWindow = $true
                 WakeFromTrayViaSecondInstance = -not $isUpgrade
                 UpgradeFrom = $(if ($isUpgrade) { '1.1.2' } else { $null })
-                CleanExitWhileUpdating = $isUpgrade
+                PreviousAppExitDuringUpgrade = $previousAppExit
+                CandidateUpdateHookClosedAppCleanly = -not $isUpgrade
                 AppStoppedByUninstall = $true
                 StartupRegistryOwnershipVerified = $true
                 SyntheticUserDataPreserved = $true

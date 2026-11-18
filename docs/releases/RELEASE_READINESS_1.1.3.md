@@ -10,7 +10,7 @@ The source baseline is the published [v1.1.2 release](RELEASE_OUTCOME_1.1.2.md),
 - Unhandled dispatcher errors now lock the authenticated vault before being marked handled; if the vault cannot be locked or no vault window is active, the application shuts down. The isolated verifier exercises the lock entry point and awaits its cleanup. An unobserved task failure schedules the same lock-or-shutdown response.
 - Editor lock cleanup is now idempotent during an in-progress WPF close: a lock arriving during the discard prompt completes the existing close instead of calling `Close()` reentrantly.
 - The startup coordinator now records early activation and shutdown requests under the same lock it uses to register handlers. CI exercises the installed executable, second-instance activation from tray startup, and an update from the published 1.1.2 while it is running.
-- The uninstall callback removes the Windows startup entry when it points to the copy being removed. Velopack 1.2.161 stops processes before calling this callback, so the uninstall smoke verifies process removal and registry ownership. The update smoke separately checks for a clean exit.
+- The uninstall callback removes the Windows startup entry when it points to the copy being removed. Velopack 1.2.161 stops processes before calling this callback, so the uninstall smoke verifies process removal and registry ownership. The package smoke checks the candidate's update callback separately and reports how the old installation stops during an external update.
 - Added a 1.1.2 publication outcome with tag, workflow, asset digests and explicit verification limits.
 - Prepared the 1.1.3 application, assembly and package version metadata, release notes and CI defaults; publication remains disabled until the final gates pass.
 - Retained Auto-Type at the user's direction. KeePass documents that window titles are not unique and that users must verify the target window. That is a comparable target-trust limit; KeePass's documentation does not establish that it has SQLitePass's specific check-to-`SendInput` race, and it does not eliminate SQLitePass's race ([Auto-Type](https://keepass.info/help/base/autotype.html), [security analysis](https://keepass.info/help/kb/sec_issues.html)).
@@ -32,6 +32,8 @@ The 19 November package and clipboard checks run in a disposable GitHub-hosted W
 The clipboard check uses synthetic values to confirm timeout, preservation of newer clipboard content, and presence of Windows history and cloud exclusion formats. Win+V, account sync and screen capture behavior still need desktop checks. The reported crash remains unreproduced. The Windows Application log showed no SQLitePass crash or hang entry for the reported time window.
 
 [Verify #127](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44424241882) passed all four package scenarios for commit `0f452b7d77a003811b126fefb7841c9f1e472e3c`. The installed unlock window responded on screen and a second instance reopened it after tray startup. The running 1.1.2 exited with code zero during update and the 1.1.3 unlock window opened afterward. Uninstall removed the app and its shortcuts, stopped the running process, verified ownership of the startup registry entry and preserved the synthetic user data marker.
+
+In [Verify #128](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44424248364), the updater log recorded that Velopack stopped the running 1.1.2 and applied the package successfully. The test had required exit code zero and stopped before relaunching the updated app. The revised test accepts an exit without code zero only when the updater log identifies that process as the one it stopped. The candidate's own update hook must still close its app cleanly in a separate check.
 
 ## Security and reliability release gates
 
@@ -57,7 +59,7 @@ Use a synthetic vault and an isolated Windows profile for the desktop checks. Re
 - [x] Launch a second instance after startup in the tray and confirm the existing process opens the unlock window (Verify #127).
 - [ ] Verify restoration of an authenticated vault window from tray and minimization.
 - [ ] Lock/unlock, close-to-tray and minimize-to-tray behavior match settings.
-- [x] Upgrade from 1.1.2 with its unlock window open, confirm clean shutdown, update completion and next launch (Verify #127).
+- [x] Apply the local update with the 1.1.2 unlock window open, confirm the old process stops, and relaunch 1.1.3 (Verify #127). The older process may be stopped by Velopack, as observed in #128.
 - [x] Uninstall with the unlock window open and verify process, shortcut and startup registration cleanup. Verify that a synthetic profile file remains intact (Verify #127).
 - [ ] With a disposable vault and backup outside the installation directory, confirm both remain intact after uninstall.
 
