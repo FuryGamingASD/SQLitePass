@@ -372,3 +372,449 @@ Older generations remain recoverable.
 
 ## Recovery Validation
 
+Verify:
+
+- Backup authenticity
+- Recovery candidate validation
+- Authentication checks
+
+Expected outcome:
+
+```text
+Invalid backups are rejected.
+```
+
+---
+
+## Recovery Preservation
+
+Verify:
+
+- Existing vault preservation
+- WAL preservation
+- SHM preservation
+
+Expected outcome:
+
+```text
+Recovery never destroys the previous vault unexpectedly.
+```
+
+---
+
+# Migration Testing
+
+## Legacy Upgrade Testing
+
+Verify:
+
+- Format conversion
+- Metadata migration
+- Group migration
+- Entry migration
+- Attachment migration
+- History migration
+
+Expected outcome:
+
+```text
+Vault content remains intact after migration.
+```
+
+---
+
+## Migration Failure Testing
+
+Test:
+
+- Interrupted migration
+- Invalid migration data
+- Damaged legacy vault
+
+Expected outcome:
+
+```text
+Migration aborts safely.
+```
+
+---
+
+# Rekey Testing
+
+## Password Change
+
+Verify:
+
+- Password changes
+- Authentication canary regeneration
+- New key validation
+
+Expected outcome:
+
+```text
+Only the new credential unlocks the vault.
+```
+
+---
+
+## Key File Changes
+
+Verify:
+
+- Key file replacement
+- Missing key file
+- Invalid key file
+
+Expected behavior:
+
+- Correct validation
+- No silent fallback
+
+---
+
+# Clipboard Security Testing
+
+## Auto Clear
+
+Verify:
+
+- Clipboard timeout
+- Clipboard ownership validation
+- Clipboard clearing
+
+Expected outcome:
+
+```text
+Only SQLitePass clipboard content is removed.
+```
+
+---
+
+## Clipboard History Controls
+
+Verify on supported Windows versions:
+
+- Clipboard History exclusion
+- Cloud Clipboard exclusion
+
+Expected outcome:
+
+```text
+Sensitive content is not intentionally persisted.
+```
+
+---
+
+# Auto-Type Testing
+
+## Target Validation
+
+Verify:
+
+- Window matching
+- Process matching
+- Confirmation requirements
+
+Expected outcome:
+
+```text
+Auto-Type targets the intended window.
+```
+
+---
+
+## Focus Loss
+
+Verify:
+
+- Alt-Tab events
+- Window replacement
+- Focus theft scenarios
+
+Expected outcome:
+
+```text
+Auto-Type stops immediately.
+```
+
+---
+
+## Session Lock
+
+Verify:
+
+- Lock during Auto-Type
+
+Expected outcome:
+
+```text
+Auto-Type is cancelled.
+```
+
+---
+
+# Session Security Testing
+
+## Manual Lock
+
+Verify:
+
+- Key disposal
+- Dialog closure
+- Secret cleanup
+
+Expected outcome:
+
+```text
+Sensitive data becomes unavailable.
+```
+
+---
+
+## Inactivity Lock
+
+Verify:
+
+- Automatic timeout
+- User activity detection
+
+Expected outcome:
+
+```text
+Vault locks after configured inactivity period.
+```
+
+---
+
+## Windows Lock
+
+Verify:
+
+```text
+Win + L
+```
+
+Expected outcome:
+
+```text
+Vault lock workflow executes correctly.
+```
+
+---
+
+# Screen Capture Testing
+
+## WDA_EXCLUDEFROMCAPTURE
+
+Verify on supported operating systems:
+
+- Window capture blocking
+- Screen sharing behavior
+
+Expected outcome:
+
+```text
+Protected windows are excluded when supported.
+```
+
+---
+
+## Fallback Validation
+
+Verify:
+
+```text
+WDA_MONITOR
+```
+
+behavior on older systems.
+
+Expected outcome:
+
+```text
+Best-effort protection remains available.
+```
+
+---
+
+# Import Security Testing
+
+## CSV Testing
+
+Verify:
+
+- Malformed CSV rejection
+- Oversized file rejection
+- Invalid column handling
+
+Expected outcome:
+
+```text
+Invalid input fails safely.
+```
+
+---
+
+## JSON Testing
+
+Verify:
+
+- Invalid JSON
+- Unexpected structures
+- Excessive record counts
+
+Expected outcome:
+
+```text
+Imports fail predictably.
+```
+
+---
+
+# Memory Handling Testing
+
+## Secret Cleanup
+
+Verify:
+
+- Entry cleanup
+- History cleanup
+- Custom field cleanup
+- Attachment cleanup
+
+Expected outcome:
+
+```text
+Sensitive data is released when no longer required.
+```
+
+---
+
+## Attachment Buffer Wiping
+
+Verify:
+
+- Buffer overwrite execution
+
+Expected outcome:
+
+```text
+Attachment byte arrays are zeroed before disposal.
+```
+
+---
+
+# Dependency Security Testing
+
+## Package Review
+
+Before release verify:
+
+- Package updates
+- Known vulnerabilities
+- Breaking changes
+
+Recommended tools:
+
+- GitHub Dependabot
+- GitHub Advisory Database
+- NuGet Audit
+- Microsoft Defender Vulnerability Management
+
+---
+
+## Build Reproducibility
+
+Verify:
+
+- Locked dependencies
+- Deterministic build behavior
+
+Expected outcome:
+
+```text
+Builds are repeatable.
+```
+
+---
+
+# Release Security Validation
+
+Before release:
+
+## Required
+
+- Build succeeds
+- Tests succeed
+- Recovery tests succeed
+- Integrity tests succeed
+- Migration tests succeed
+- Rekey tests succeed
+
+---
+
+## Recommended
+
+- Manual security review
+- Dependency review
+- Vulnerability review
+- Artifact verification
+
+---
+
+# Manual Security Review Checklist
+
+Before major releases verify:
+
+- Cryptographic changes
+- Storage changes
+- Recovery changes
+- Authentication changes
+- Clipboard changes
+- Auto-Type changes
+- Dependency changes
+
+High-risk modifications should receive additional review.
+
+---
+
+# Future Testing Improvements
+
+Potential future additions:
+
+- Fuzz testing
+- Coverage reporting
+- Static Application Security Testing (SAST)
+- Dependency scanning automation
+- Dynamic Application Security Testing (DAST)
+- External penetration testing
+- Independent cryptographic review
+
+---
+
+# Limitations
+
+Security testing cannot prove:
+
+- Absence of vulnerabilities
+- Absence of future defects
+- Resistance to unknown attack techniques
+
+Testing increases confidence but does not replace security review.
+
+---
+
+# Conclusion
+
+SQLitePass security testing is designed to validate:
+
+- Cryptography
+- Integrity
+- Recovery
+- Session management
+- Clipboard controls
+- Auto-Type protections
+- Import/export workflows
+- Memory handling
+
+The objective is not merely functional correctness, but evidence that security-critical guarantees continue to hold as the project evolves.
