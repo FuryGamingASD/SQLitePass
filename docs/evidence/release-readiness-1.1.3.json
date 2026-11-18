@@ -56,12 +56,30 @@
       "windowsShown": false,
       "desktopInputUsed": false
     },
-    "latestAttempt": {
+    "previousInterruptedAttempt": {
       "result": "interrupted",
       "stage": "full synthetic WPF rendering",
-      "reason": "Stopped immediately after the user reported an application crash while the verifier was running; no final layout result was produced.",
+      "reason": "The local attempt did not write a final layout manifest or preserve an exception trace. Its output folder contains 233 screenshots and ends at CustomFieldDialog-fr-light-100; the reason it stopped cannot be established from the retained files.",
       "windowsShown": false,
       "desktopInputUsed": false
+    },
+    "latestLocalReproduction": {
+      "result": "passed; the reported crash was not reproduced",
+      "startedAtLocal": "2026-11-18T23:08:46+01:00",
+      "endedAtLocal": "2026-11-18T23:10:02+01:00",
+      "sourceCommit": "99bd9a31da2fdb4fb0a1a5f3595b6a0074a08083",
+      "command": "dotnet run --project SQLitePass.UI.Verification -c Release --no-build --no-restore -- <fresh-output-directory>",
+      "sdk": "10.0.404",
+      "exitCode": 0,
+      "layoutCases": 1080,
+      "screenshotsWritten": 540,
+      "windowsShown": false,
+      "desktopInputUsed": false,
+      "productApplicationStarted": false,
+      "realVaultOpened": false,
+      "matchingApplicationOrGraphicsEventsInRunWindow": 0,
+      "outputDirectory": "artifacts/verification/1.1.3-crash-repro-20261118-230846/ (ignored by Git)",
+      "limitation": "This reproduces hidden synthetic WPF layout verification only. It does not exercise normal SQLitePass startup, native window presentation, a real vault, or the user's original crash trigger; the original crash cause remains unknown."
     },
     "hostedCiRun": {
       "result": "passed",
@@ -103,7 +121,7 @@
       "matchingRecentApplicationEvents": 0,
       "causalityEstablished": false
     },
-    "result": "incomplete"
+    "result": "passed; the earlier local interruption and reported product crash remain unexplained"
   },
   "releasePreparation": {
     "applicationVersion": "1.1.3",
@@ -155,7 +173,7 @@
   "knownReleaseBlockers": [
     "Auto-Type is retained per user direction; the P1 check-to-global-SendInput race remains documented and native target checks are pending.",
     "The hosted CI package was built from the pull request merge commit, not a final main-branch release commit; the release workflow has not run.",
-    "Native Windows interaction, accessibility and real application launch checks have not been performed. The user reported a crash while the local hidden WPF render was running; causality is unknown."
+    "Native Windows interaction, accessibility and normal product application launch checks have not been performed. A later hidden synthetic WPF rerun passed but did not reproduce the reported product crash; the original cause remains unknown."
   ],
   "detailedLocalArtifacts": "artifacts/verification/1.1.3-readiness/ (ignored by Git)"
 }
