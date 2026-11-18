@@ -16,11 +16,18 @@ $package = Join-Path $release "SQLitePass-$applicationVersion-full.nupkg"
 $legacySetup = Join-Path $projectRoot 'releases\SQLitePass-win-Setup.exe'
 $previousSetup = Join-Path $projectRoot 'releases\SQLitePass-1.1.2-Setup.exe'
 $settingsDirectory = Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'SQLitePass'
-$startupKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+$startupRegistryPath = 'Software\Microsoft\Windows\CurrentVersion\Run'
+$startupKey = "HKCU:\$startupRegistryPath"
+function Get-StartupRegistration {
+    $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($startupRegistryPath)
+    if ($null -eq $key) { return }
+    try { return $key.GetValue('SQLitePass') }
+    finally { $key.Dispose() }
+}
 $inputPaths = @($setup, $package, $legacySetup)
 if ($CheckRunningApp) {
     if ($env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or (Test-Path -LiteralPath $settingsDirectory) -or
-        (Get-ItemProperty -LiteralPath $startupKey -Name SQLitePass -ErrorAction SilentlyContinue)) {
+        ($null -ne (Get-StartupRegistration))) {
         throw 'The live application smoke requires a clean GitHub-hosted Windows profile.'
     }
     $inputPaths += $previousSetup
@@ -169,7 +176,7 @@ function Invoke-RunningAppScenarios {
             Uninstall-TestCopy $resolved $scenario
             # Velopack stops running processes before invoking the uninstall hook.
             if (-not $primary.WaitForExit(10000)) { throw 'Uninstall left SQLitePass running.' }
-            $observedStartup = Get-ItemPropertyValue -LiteralPath $startupKey -Name SQLitePass -ErrorAction SilentlyContinue
+            $observedStartup = Get-StartupRegistration
             $expectedStartup = if ($isUpgrade) { $startupValue } else { $null }
             if ($observedStartup -ne $expectedStartup) { throw 'Uninstall did not preserve startup registration ownership.' }
             if ($isUpgrade) { Remove-ItemProperty -LiteralPath $startupKey -Name SQLitePass }
