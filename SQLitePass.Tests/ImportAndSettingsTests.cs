@@ -132,18 +132,23 @@ public class ImportAndSettingsTests
         using var heldLease = new FileStream(Path.Combine(fixture.Folder, "appsettings.json.lock"),
             FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         using var updateStarted = new ManualResetEventSlim();
-        var update = Task.Run(() =>
+        AppSettings? saved = null; Exception? failure = null;
+        var writer = new Thread(() =>
         {
             updateStarted.Set();
-            return fixture.Store.Update(settings => settings.ClipboardClearSeconds = 21);
-        });
-        Assert.True(updateStarted.Wait(TimeSpan.FromSeconds(5)));
+            try { saved = fixture.Store.Update(settings => settings.ClipboardClearSeconds = 21); }
+            catch (Exception exception) { failure = exception; }
+        }) { IsBackground = true };
+        writer.Start();
+        Assert.True(updateStarted.Wait(TimeSpan.FromSeconds(10)));
 
         await Task.Delay(TimeSpan.FromSeconds(5.5));
-        Assert.False(update.IsCompleted);
+        Assert.False(writer.Join(0));
         heldLease.Dispose();
 
-        var saved = await update.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(writer.Join(TimeSpan.FromSeconds(5)));
+        Assert.Null(failure);
+        Assert.NotNull(saved);
         Assert.Equal(21, saved.ClipboardClearSeconds);
     }
 
