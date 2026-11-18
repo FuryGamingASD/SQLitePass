@@ -20,11 +20,11 @@ public sealed partial class SqliteStorageProvider
         CryptoEngine crypto, VaultMetadata metadata, Guid? expectedGroupId = null)
     {
         var entry = ReadEntries(c, tx, crypto, metadata, entryId: id).SingleOrDefault()
-            ?? throw new InvalidOperationException("La voce non esiste più. Aggiornare il vault.");
+            ?? throw new VaultConflictException("La voce non esiste più. Aggiornare il vault.");
         try
         {
             if (entry.Revision != expectedRevision || expectedGroupId.HasValue && entry.GroupId != expectedGroupId.Value)
-                throw new InvalidOperationException("La voce è cambiata in un'altra sessione. Aggiornare e riprovare.");
+                throw new VaultConflictException("La voce è cambiata in un'altra sessione. Aggiornare e riprovare.");
             entry.GroupId = targetGroupId; WriteEntry(c, tx, entry, crypto, metadata); return checked(entry.Revision + 1);
         }
         finally { entry.ClearSecrets(); }
@@ -45,7 +45,7 @@ public sealed partial class SqliteStorageProvider
             if (!metadata.RecycleBinGroupId.HasValue || targetGroupId == metadata.RecycleBinGroupId)
                 throw new InvalidOperationException("Choose a destination outside the recycle bin.");
             if (!ReadGroups(c, tx, key, metadata).Any(group => group.Id == targetGroupId))
-                throw new InvalidOperationException("The destination no longer exists.");
+                throw new VaultConflictException("The destination no longer exists.");
             revision = MoveEntry(c, tx, entryId, expectedRevision, targetGroupId, key, metadata, metadata.RecycleBinGroupId);
         }).ConfigureAwait(false);
         return revision;

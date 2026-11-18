@@ -182,6 +182,12 @@ namespace SQLitePass.UI
         private async void HandleGlobalAutoType(IntPtr foregroundWin, string winTitle)
         {
             if (_isLocked || _isLocking || _isPerformingAutoType || foregroundWin == new WindowInteropHelper(this).Handle) return;
+            uint foregroundProcessId = AutoTypeService.GetWindowProcessId(foregroundWin);
+            if (foregroundProcessId == 0)
+            {
+                TxtOperationStatus.Text = LocalizationManager.GetString("AutoTypeStopped");
+                return;
+            }
             int generation = _sessionGeneration;
             var storage = _storage; var crypto = _crypto; var pending = _pendingAutoTypeEntry;
             _pendingAutoTypeEntry = null;
@@ -191,21 +197,28 @@ namespace SQLitePass.UI
             List<PwEntry>? candidates = null;
             try
             {
+                string targetProcessName = AutoTypeService.GetWindowProcessName(foregroundProcessId);
                 candidates = await storage.FindAutoTypeCandidatesAsync(crypto, winTitle, pending?.Id, pending?.Revision, cancellation.Token);
                 if (_isLocked || generation != _sessionGeneration) return;
+                if (!AutoTypeService.IsForegroundTarget(foregroundWin, winTitle, foregroundProcessId))
+                {
+                    TxtOperationStatus.Text = LocalizationManager.GetString("AutoTypeStopped");
+                    return;
+                }
                 if (candidates.Count != 1)
                 {
                     MessageBox.Show(this, LocalizationManager.GetString("AutoTypeNoUniqueMatch"), LocalizationManager.GetString("MenuAutoType"), MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
                 var selected = candidates[0];
-                if (new AutoTypeConfirmDialog(selected.Title, winTitle) { Owner = this }.ShowDialog() != true || _isLocked || generation != _sessionGeneration) return;
+                if (new AutoTypeConfirmDialog(selected.Title, winTitle, targetProcessName) { Owner = this }.ShowDialog() != true || _isLocked || generation != _sessionGeneration) return;
                 // A confirmation must not authorize credentials from a revision changed meanwhile.
                 var confirmed = await storage.LoadAutoTypeEntryAsync(selected.Id, selected.Revision, crypto, cancellation.Token);
                 foreach (var entry in candidates) entry.ClearSecrets();
                 candidates = [confirmed];
                 if (_isLocked || generation != _sessionGeneration || candidates.Count != 1) return;
-                await AutoTypeService.ExecuteAutoTypeAsync(candidates[0], foregroundWin, 250, cancellation.Token, expectedTitle: winTitle);
+                await AutoTypeService.ExecuteAutoTypeAsync(candidates[0], foregroundWin, 250, cancellation.Token,
+                    expectedTitle: winTitle, expectedProcessId: foregroundProcessId);
             }
             catch (OperationCanceledException)
             {
@@ -431,7 +444,6 @@ namespace SQLitePass.UI
                     {
                         DragDrop.DoDragDrop(DgEntries, new DataObject("SQLitePass.EntryId", _selectedEntry.Id.ToString()), DragDropEffects.Move);
                     }
-                    catch { }
                     finally
                     {
                         ClearDropAdorner();
@@ -466,7 +478,6 @@ namespace SQLitePass.UI
                     {
                         DragDrop.DoDragDrop(TvGroups, new DataObject("SQLitePass.GroupId", _dragCandidateGroup.Id.ToString()), DragDropEffects.Move);
                     }
-                    catch { }
                     finally
                     {
                         _dragCandidateGroup = null;

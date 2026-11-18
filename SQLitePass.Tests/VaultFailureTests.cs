@@ -35,6 +35,25 @@ public partial class VaultSecurityTests
     }
 
     [Fact]
+    public async Task FilesystemReplacementFailureKeepsPreviousBackupAndCommittedSave()
+    {
+        using var vault = await TestVault.Create(backup: true); var entry = await vault.Add();
+        string backupPath = vault.Storage.BackupFilePath;
+        byte[] previousBackup = File.ReadAllBytes(backupPath);
+        string blockedRotationPath = backupPath + ".1";
+        if (File.Exists(blockedRotationPath)) File.Delete(blockedRotationPath);
+        Directory.CreateDirectory(blockedRotationPath);
+
+        entry.Password = "database commit survives backup rotation failure";
+        await vault.Storage.SaveEntryAsync(entry, vault.Crypto);
+
+        Assert.NotNull(vault.Storage.LastBackupError);
+        Assert.Equal(entry.Password, (await vault.Storage.LoadEntryAsync(entry.Id, vault.Crypto)).Password);
+        Assert.Equal(previousBackup, File.ReadAllBytes(backupPath));
+        Assert.Empty(Directory.GetFiles(vault.DirectoryPath, "*.tmp"));
+    }
+
+    [Fact]
     public async Task DeletionPreservesAReadableSnapshotEvenWhenAutomaticBackupIsDisabled()
     {
         using var vault = await TestVault.Create(); var entry = await vault.Add();

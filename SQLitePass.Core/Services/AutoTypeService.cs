@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -10,6 +11,7 @@ public interface IAutoTypeInput
 {
     IntPtr ForegroundWindow { get; }
     string WindowTitle(IntPtr window);
+    uint ProcessId(IntPtr window);
     bool Activate(IntPtr window);
     void Character(char character);
     void Key(ushort key);
@@ -54,21 +56,43 @@ public static class AutoTypeService
     }
 
     public static IntPtr CaptureForegroundWindow() => NativeInput.GetForegroundWindow();
+    public static uint GetWindowProcessId(IntPtr window) => NativeInput.GetWindowProcessId(window);
+    public static string GetWindowProcessName(uint processId)
+    {
+        if (processId == 0 || processId > int.MaxValue) throw new ArgumentOutOfRangeException(nameof(processId));
+        using var process = Process.GetProcessById((int)processId);
+        return process.ProcessName;
+    }
+
+    public static bool IsForegroundTarget(IntPtr targetWindow, string expectedTitle, uint expectedProcessId)
+    {
+        if (targetWindow == IntPtr.Zero || expectedProcessId == 0) return false;
+        var input = new NativeInput();
+        return input.ForegroundWindow == targetWindow && input.ProcessId(targetWindow) == expectedProcessId &&
+            input.WindowTitle(targetWindow) == expectedTitle;
+    }
 
     public static async Task ExecuteAutoTypeAsync(PwEntry? entry, IntPtr targetWindow, int initialDelayMs = 500,
-        CancellationToken cancellationToken = default, IAutoTypeInput? input = null, string? expectedTitle = null)
+        CancellationToken cancellationToken = default, IAutoTypeInput? input = null, string? expectedTitle = null,
+        uint? expectedProcessId = null)
     {
         ArgumentNullException.ThrowIfNull(entry);
         if (targetWindow == IntPtr.Zero) throw new InvalidOperationException("Selezionare esplicitamente una finestra destinataria.");
-        var steps = Parse(entry); input ??= new NativeInput();
+        input ??= new NativeInput();
         cancellationToken.ThrowIfCancellationRequested();
+        expectedTitle ??= input.WindowTitle(targetWindow);
+        expectedProcessId ??= input.ProcessId(targetWindow);
+        if (expectedProcessId == 0) throw new InvalidOperationException("La finestra destinataria non è più disponibile.");
+        if (input.ProcessId(targetWindow) != expectedProcessId || input.WindowTitle(targetWindow) != expectedTitle)
+            throw new OperationCanceledException("Auto-Type interrotto: il destinatario è cambiato.");
+        var steps = Parse(entry);
         if (!input.Activate(targetWindow)) throw new InvalidOperationException("Impossibile attivare il destinatario.");
         await Task.Delay(Math.Clamp(initialDelayMs, 0, 5000), cancellationToken).ConfigureAwait(false);
-        expectedTitle ??= input.WindowTitle(targetWindow);
         void VerifyTarget()
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (input.ForegroundWindow != targetWindow || input.WindowTitle(targetWindow) != expectedTitle)
+            if (input.ForegroundWindow != targetWindow || input.WindowTitle(targetWindow) != expectedTitle ||
+                input.ProcessId(targetWindow) != expectedProcessId)
                 throw new OperationCanceledException("Auto-Type interrotto: il destinatario è cambiato.");
         }
         foreach (var step in steps)
@@ -76,17 +100,19 @@ public static class AutoTypeService
             VerifyTarget();
             foreach (char character in step.Text)
             {
-                VerifyTarget(); input.Character(character);
+                VerifyTarget(); input.Character(character); VerifyTarget();
                 await Task.Delay(10, cancellationToken).ConfigureAwait(false);
             }
-            if (step.Key != 0) { VerifyTarget(); input.Key(step.Key); }
+            if (step.Key != 0) { VerifyTarget(); input.Key(step.Key); VerifyTarget(); }
             await Task.Delay(step.DelayMilliseconds > 0 ? step.DelayMilliseconds : 30, cancellationToken).ConfigureAwait(false);
+            VerifyTarget();
         }
     }
 
     private sealed class NativeInput : IAutoTypeInput
     {
         [DllImport("user32.dll")] internal static extern IntPtr GetForegroundWindow();
+        [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
         [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr window);
         [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int key);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowText(IntPtr window, StringBuilder text, int count);
@@ -100,8 +126,10 @@ public static class AutoTypeService
         [StructLayout(LayoutKind.Sequential)] private struct KEYBOARD { public ushort vk, scan; public uint flags, time; public IntPtr extra; }
         [StructLayout(LayoutKind.Sequential)] private struct MOUSE { public int x, y; public uint data, flags, time; public IntPtr extra; }
         public IntPtr ForegroundWindow => GetForegroundWindow();
+        public uint ProcessId(IntPtr window) => GetWindowProcessId(window);
         public bool Activate(IntPtr window) => GetForegroundWindow() == window || SetForegroundWindow(window);
         public string WindowTitle(IntPtr window) { var title = new StringBuilder(1024); GetWindowText(window, title, title.Capacity); return title.ToString(); }
+        internal static uint GetWindowProcessId(IntPtr window) => GetWindowThreadProcessId(window, out var processId) == 0 ? 0 : processId;
         public void Character(char character) => Send(new KEYBOARD { scan = character, flags = 4 });
         public void Key(ushort key) => Send(new KEYBOARD { vk = key });
         private static void Send(KEYBOARD down)

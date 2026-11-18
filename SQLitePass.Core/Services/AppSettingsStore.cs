@@ -9,6 +9,7 @@ public sealed class SettingsConflictException() : IOException(
 
 public sealed class AppSettingsStore(string directory)
 {
+    private static readonly TimeSpan LeaseTimeout = TimeSpan.FromSeconds(30);
     private readonly object _sync = new();
     private readonly string _directory = Path.GetFullPath(directory);
     private readonly string _path = Path.Combine(Path.GetFullPath(directory), "appsettings.json");
@@ -21,8 +22,13 @@ public sealed class AppSettingsStore(string directory)
         while (true)
         {
             try { return new FileStream(_path + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
-            catch (IOException ex) when ((ex.HResult & 0xffff) is 32 or 33 && timer.Elapsed < TimeSpan.FromSeconds(5))
-            { Thread.Sleep(15); }
+            catch (IOException ex) when ((ex.HResult & 0xffff) is 32 or 33)
+            {
+                if (timer.Elapsed >= LeaseTimeout)
+                    throw new IOException("Timed out waiting for the application settings lock.", ex);
+                int delayMilliseconds = (int)Math.Clamp(timer.Elapsed.TotalMilliseconds / 50 + 15, 15, 100);
+                Thread.Sleep(delayMilliseconds + Random.Shared.Next(0, 16));
+            }
         }
     }
 

@@ -7,14 +7,14 @@ namespace SQLitePass.UI.Dialogs;
 
 internal sealed class AutoTypeConfirmDialog : Window
 {
-    internal AutoTypeConfirmDialog(string entryTitle, string targetTitle)
+    internal AutoTypeConfirmDialog(string entryTitle, string targetTitle, string targetProcessName)
     {
         SetResourceReference(TitleProperty, "AutoTypeConfirmTitle"); Width = 520; SizeToContent = SizeToContent.Height;
         WindowStartupLocation = WindowStartupLocation.CenterOwner; SetResourceReference(BackgroundProperty, "AppBg");
         var panel = new StackPanel { Margin = new Thickness(24) };
         var text = new TextBlock
         {
-            Text = LocalizationManager.GetString("AutoTypeConfirmText", entryTitle, targetTitle),
+            Text = LocalizationManager.GetString("AutoTypeConfirmText", entryTitle, targetTitle, targetProcessName),
             TextWrapping = TextWrapping.Wrap, FontSize = 14
         };
         text.SetResourceReference(TextBlock.ForegroundProperty, "TextPrimary"); panel.Children.Add(text);

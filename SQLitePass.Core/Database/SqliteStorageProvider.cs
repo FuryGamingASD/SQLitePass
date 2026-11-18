@@ -401,9 +401,9 @@ public sealed partial class SqliteStorageProvider : IDisposable
         return ReadAsync((c, tx, key, m) =>
         {
             var entry = ReadEntries(c, tx, key, m, entryId: entryId, cancellationToken: cancellationToken).SingleOrDefault()
-                ?? throw new InvalidOperationException("La voce non esiste più. Aggiornare il vault.");
+                ?? throw new VaultConflictException("La voce non esiste più. Aggiornare il vault.");
             if (expectedRevision.HasValue && entry.Revision != expectedRevision.Value)
-            { entry.ClearSecrets(); throw new InvalidOperationException("La voce è cambiata in un'altra sessione. Aggiornare e riprovare."); }
+            { entry.ClearSecrets(); throw new VaultConflictException("La voce è cambiata in un'altra sessione. Aggiornare e riprovare."); }
             return entry;
         }, cancellationToken);
     }
@@ -473,7 +473,7 @@ public sealed partial class SqliteStorageProvider : IDisposable
             $"UPDATE {table} SET {parentColumn}=$parent,revision=$next,payload=$payload WHERE id=$id AND revision=$expected";
         cmd.Parameters.AddWithValue("$id", id.ToString()); cmd.Parameters.AddWithValue("$parent", parent?.ToString() ?? (object)DBNull.Value);
         cmd.Parameters.AddWithValue("$payload", payload); cmd.Parameters.AddWithValue("$expected", expected); cmd.Parameters.AddWithValue("$next", expected + 1);
-        if (cmd.ExecuteNonQuery() != 1) throw new InvalidOperationException("Record modificato in un'altra sessione. Aggiornare e riprovare.");
+        if (cmd.ExecuteNonQuery() != 1) throw new VaultConflictException("Record modificato in un'altra sessione. Aggiornare e riprovare.");
     }
     public Task SaveGroupAsync(PwGroup group, CryptoEngine crypto) => SaveGroupsBatchAsync([group], crypto);
     public async Task SaveGroupsBatchAsync(IEnumerable<PwGroup> groups, CryptoEngine crypto)
@@ -515,7 +515,7 @@ public sealed partial class SqliteStorageProvider : IDisposable
                 command.Parameters.AddWithValue("$id", id.ToString());
                 command.Parameters.AddWithValue("$revision", revision);
                 if (command.ExecuteNonQuery() != 1)
-                    throw new InvalidOperationException("Record modified in another session. Refresh before retrying.");
+                    throw new VaultConflictException("Record modified in another session. Refresh before retrying.");
             }
         }, preservedBackupPurpose: "pre-delete");
     }

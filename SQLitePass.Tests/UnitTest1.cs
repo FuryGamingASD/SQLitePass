@@ -71,6 +71,15 @@ namespace SQLitePass.Tests
         }
 
         [Fact]
+        public void CanaryVerificationDoesNotHideDisposedEngineErrors()
+        {
+            using var engine = new CryptoEngine(new byte[32]);
+            Assert.False(engine.VerifyCanaryToken("not-base64"));
+            engine.Dispose();
+            Assert.Throws<ObjectDisposedException>(() => engine.VerifyCanaryToken("not-base64"));
+        }
+
+        [Fact]
         public void TestPasswordGenerator()
         {
             var options = new PasswordGeneratorOptions

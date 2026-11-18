@@ -177,11 +177,7 @@ namespace SQLitePass.Core.Crypto
                 string decrypted = DecryptString(canaryBase64);
                 return decrypted == CanaryVerificationToken;
             }
-            catch (CryptographicException)
-            {
-                return false;
-            }
-            catch (Exception)
+            catch (Exception exception) when (exception is CryptographicException or FormatException)
             {
                 return false;
             }
