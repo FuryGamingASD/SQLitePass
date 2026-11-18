@@ -237,12 +237,15 @@ namespace SQLitePass.UI
 
         private void MainWindow_StateChanged(object? sender, EventArgs e)
         {
-            if (_isPerformingAutoType) return;
-
             var settings = AppSettingsManager.Load();
 
             if (WindowState == WindowState.Minimized)
             {
+                // Minimizing the vault must stop active typing even when the user has
+                // disabled lock-on-minimize. The input API targets the global keyboard
+                // stream, so a minimized owner is never allowed to keep typing.
+                if (_isPerformingAutoType) _autoTypeCancellation.Cancel();
+
                 if (settings.AutoLockOnMinimize)
                 {
                     LockVault(userInitiated: false);

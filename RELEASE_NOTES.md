@@ -64,7 +64,9 @@ Existing vaults remain fully compatible.
 The following remain outside completed validation scope:
 
 - Native Windows clipboard validation
-- Native Windows Auto-Type validation
+- Native Windows Auto-Type validation; `SendInput` uses the global keyboard stream, so a focus change can race with a checked target
+- Native Win+L, screen-capture, DPI, Narrator and high-contrast validation
+- Hardware-level power-loss and storage-failure validation
 - Independent security review
 - Independent penetration testing
 
@@ -234,6 +236,8 @@ Introduced:
 - WDA_EXCLUDEFROMCAPTURE support
 - WDA_MONITOR fallback
 
+This is best-effort exclusion for supported capture paths. It does not prevent all screenshots, screen recording, malware, remote-control software or privileged capture. The native Windows behavior has not been validated for every configuration.
+
 ### Memory Handling
 
 Introduced:
@@ -241,13 +245,16 @@ Introduced:
 - Key-file buffer sanitization
 - Additional memory cleanup on lock
 
+These actions clear selected buffers and release references where possible. They do not guarantee that all secret copies or immutable .NET strings are removed from memory or unavailable to a memory-dump tool.
+
 ### Data Integrity
 
 Introduced:
 
 - Database integrity verification
-- Faster corruption detection
-- Backup-assisted recovery
+- Backup-candidate validation
+
+SQLite structural checks do not establish cryptographic authenticity or detect every logical problem. A valid recovery copy must exist and authenticate; recovery from physical storage failure is not guaranteed.
 
 ## Recovery
 
@@ -271,7 +278,7 @@ Support for:
 - URLs
 - Notes
 - Custom fields
-- TOTP seeds
+- recognized custom fields
 
 ### Browser CSV Import
 
@@ -283,11 +290,13 @@ Support for:
 - Brave
 - Opera
 
+Imports cover recognized source formats rather than every field or future export layout. Inspect the imported records and keep the original export until the result is verified. Unsupported Bitwarden item types are not automatically native SQLitePass features.
+
 ## Performance
 
-- High-performance bulk imports.
-- Large import acceleration.
-- Transaction-based import processing.
+- Transaction-based bulk imports.
+
+No fixed speedup is promised; performance varies with vault size, storage and backup settings.
 
 ---
 
@@ -333,8 +342,8 @@ Introduced:
 
 ### Auto-Type
 
-- Fixed minimization race conditions.
-- Added additional safety validation.
+- Fixed the selected-entry crash triggered by a minimize-state change.
+- Added additional target validation. This did not eliminate the race between checking a foreground window and sending global keyboard input; the 1.1.3 working branch adds cancellation on minimize but retains that P1 limitation.
 
 ### Auto-Lock
 
@@ -370,13 +379,17 @@ Introduced:
 - AES-256-GCM encryption
 - Argon2id key derivation
 
+Encrypted payloads do not imply that every structural field or metadata value is hidden; consult the current Data Protection documentation.
+
 ### Resilience
 
 Introduced:
 
-- WAL durability
+- SQLite WAL recovery for supported transaction failures
 - Automatic backup generation
 - Recovery-focused architecture
+
+WAL and backup behavior do not guarantee recovery after every hardware, filesystem or power failure.
 
 ### Password Management
 
@@ -499,4 +512,4 @@ SQLitePass has evolved from a resilient local password manager into a security-f
 - Defensive session handling
 - Verified backup workflows
 
-Vault Format 2 (introduced in 1.1.0) represents the current architectural baseline and is the recommended format for all active deployments.
+Vault Format 2 (introduced in 1.1.0) is the current supported architectural baseline. Whether SQLitePass is suitable for a deployment depends on its threat model, recovery practice and the documented limitations; this history does not certify it for every use.

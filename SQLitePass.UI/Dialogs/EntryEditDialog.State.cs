@@ -97,7 +97,22 @@ public partial class EntryEditDialog
 
     internal void CancelForLock()
     {
-        _cancelForLock = true; _passwordReveal.Hide(); _entry.ClearSecrets();
+        _cancelForLock = true;
+        if (_closed)
+        {
+            _entry.ClearSecrets();
+            return;
+        }
+        if (_closing)
+        {
+            // OnClosing will force the already-running close to complete after
+            // any discard prompt returns. Avoid mutating WPF controls mid-close.
+            _cancelCloseRequested = true;
+            _entry.ClearSecrets();
+            return;
+        }
+
+        _passwordReveal.Hide(); _entry.ClearSecrets();
         SensitiveWindowService.ClearControls(this); Close();
     }
 }

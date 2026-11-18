@@ -2,7 +2,7 @@
 
 SQLitePass is a modern local password manager for Windows built with .NET 10, WPF and SQLite.
 
-Unlike traditional vault designs that rely on a single encrypted file blob, SQLitePass combines authenticated AES-256-GCM encryption, Argon2id key derivation, authenticated vault integrity verification, resilient SQLite storage, validated backup recovery and defensive session management.
+SQLitePass stores vault records in SQLite. Vault Format 2 combines AES-256-GCM authenticated encryption, Argon2id key derivation, authenticated integrity verification, validated backup recovery and session controls. These mechanisms reduce specific risks but do not establish immunity to data loss, endpoint compromise or hardware failure.
 
 SQLitePass is designed around four primary goals:
 
@@ -83,6 +83,7 @@ SQLitePass implements several protection mechanisms while a vault is unlocked:
 - Automatic inactivity locking
 - Lock on Windows session lock
 - Auto-Type interruption on focus changes
+- Auto-Type cancellation during session locking
 - Sensitive UI clearing on lock
 - Credential generation invalidation during lock transitions
 
@@ -106,7 +107,7 @@ Clipboard contents remain accessible to the operating system and other software 
 
 ---
 
-## Auto-Type Protection
+## Auto-Type Safety Limits
 
 SQLitePass provides KeePass-style Auto-Type while attempting to minimize accidental credential disclosure.
 
@@ -116,9 +117,9 @@ Auto-Type:
 - requires user confirmation
 - validates the target process
 - validates the window title
-- continuously re-validates the target while typing
+- checks the target before and after each injected input
 
-Typing stops immediately if the foreground window changes.
+Windows `SendInput` writes to the global keyboard input stream rather than an authenticated window handle. The checks reduce accidental misdirection, but a focus change can race with an input event. Auto-Type is best-effort and must not be treated as authentication of a website or destination.
 
 ---
 

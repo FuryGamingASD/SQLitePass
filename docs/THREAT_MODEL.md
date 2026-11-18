@@ -349,13 +349,13 @@ Prevent accidental credential delivery.
 - Confirmation dialog
 - Process verification
 - Window-title verification
-- Continuous validation
+- Foreground, process and title checks before and after injected events
 
 ---
 
 ### Residual Risk
 
-Auto-Type ultimately depends on operating-system input APIs.
+Auto-Type uses the global `SendInput` keyboard stream. The target can change between a check and an event; process identity and window title do not authenticate a website or the content of a window. The application cancels typing on focus changes and session lock; the 1.1.3 candidate also cancels typing on vault-window minimization. These checks do not remove the check-to-input race. The user chose to retain Auto-Type for 1.1.3. KeePass's official documentation describes title-based target matching, warns that titles are not unique and leaves target legitimacy to the user; this is a comparable trust model, not a technical elimination of the global-input race ([Auto-Type](https://keepass.info/help/base/autotype.html), [security analysis](https://keepass.info/help/kb/sec_issues.html)). Require explicit target confirmation and keep the P1 residual visible.
 
 ---
 
@@ -659,7 +659,7 @@ Components not trusted:
 | Corruption | WAL + Recovery |
 | Clipboard Exposure | Timed Clipboard Cleanup |
 | Window Capture | Screen Capture Protection |
-| Auto-Type Hijack | Continuous Validation |
+| Auto-Type Hijack | Per-event Validation; Residual Global-Input Race |
 | User Error | Recovery Snapshots |
 | Failed Rekey | Pre-Rekey Backup |
 | Failed Migration | Migration Backup |

@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -16,6 +17,8 @@ namespace SQLitePass.UI.Dialogs
         public PwEntry ResultEntry => _entry;
         private bool _isPasswordRevealed = false;
         private bool _closed;
+        private bool _closing;
+        private bool _cancelCloseRequested;
         private bool _fileOperationBusy;
         private bool _lifetimeDisposed;
         private readonly CancellationTokenSource _lifetime = new();
@@ -76,6 +79,18 @@ namespace SQLitePass.UI.Dialogs
                 _original.Title = _original.Password = _original.Notes = _original.UserName = _original.Url = _original.SnapshotJson = string.Empty;
                 if (DialogResult != true) _entry.ClearSecrets();
             };
+        }
+
+        protected override void OnClosing(CancelEventArgs e)
+        {
+            _closing = true;
+            base.OnClosing(e);
+
+            // A vault lock can arrive while the discard prompt is running inside
+            // this window's Closing event. Do not call Close() reentrantly; let
+            // the current close finish and override a pending discard cancellation.
+            if (_cancelCloseRequested) e.Cancel = false;
+            if (e.Cancel) _closing = false;
         }
 
         private string CurrentPassword => _isPasswordRevealed ? TxtPasswordPlain.Text : TxtPasswordMasked.Password;

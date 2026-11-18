@@ -21,10 +21,31 @@ namespace SQLitePass.UI
             DispatcherUnhandledException += (s, args) =>
             {
                 AppLogger.LogError("DispatcherUnhandledException caught", args.Exception);
-                try { if (MainWindow is SQLitePass.UI.MainWindow main) main.LockAfterUnexpectedError(); }
-                catch { Shutdown(1); }
-                MessageBox.Show(SQLitePass.UI.Services.LocalizationManager.GetString("ErrorUnexpected"), SQLitePass.UI.Services.LocalizationManager.GetString("ErrorTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
-                args.Handled = true;
+                if (MainWindow is not SQLitePass.UI.MainWindow main)
+                {
+                    args.Handled = true;
+                    Shutdown(1);
+                    return;
+                }
+
+                try
+                {
+                    if (!main.LockAfterUnexpectedError())
+                    {
+                        args.Handled = true;
+                        Shutdown(1);
+                        return;
+                    }
+
+                    MessageBox.Show(SQLitePass.UI.Services.LocalizationManager.GetString("ErrorUnexpected"), SQLitePass.UI.Services.LocalizationManager.GetString("ErrorTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
+                    args.Handled = true;
+                }
+                catch (Exception recoveryException)
+                {
+                    AppLogger.LogError("Failed to fail closed after a dispatcher exception", recoveryException);
+                    args.Handled = true;
+                    Shutdown(1);
+                }
             };
 
             AppDomain.CurrentDomain.UnhandledException += (s, args) =>
@@ -38,8 +59,20 @@ namespace SQLitePass.UI
             TaskScheduler.UnobservedTaskException += (s, args) =>
             {
                 AppLogger.LogError("TaskScheduler.UnobservedTaskException caught", args.Exception);
-                Dispatcher.BeginInvoke(() => { if (MainWindow is SQLitePass.UI.MainWindow main) main.LockAfterUnexpectedError(); });
-                args.SetObserved();
+                try
+                {
+                    if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished) return;
+                    Dispatcher.BeginInvoke(new Action(() =>
+                    {
+                        if (MainWindow is SQLitePass.UI.MainWindow main && main.LockAfterUnexpectedError()) return;
+                        Shutdown(1);
+                    }));
+                    args.SetObserved();
+                }
+                catch (Exception recoveryException)
+                {
+                    AppLogger.LogError("Failed to schedule fail-closed handling for an unobserved task", recoveryException);
+                }
             };
 
             ShutdownMode = ShutdownMode.OnExplicitShutdown;

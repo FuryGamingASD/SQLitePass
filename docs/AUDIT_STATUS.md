@@ -1,5 +1,7 @@
 # Audit Status
 
+Updated: 18 November 2026, after publication of SQLitePass 1.1.2 and during local 1.1.3 remediation. The minimize-cancels-Auto-Type change is not part of a published release. This is an internal evidence summary, not an independent audit.
+
 ## Purpose
 
 This document summarizes the current security review status of SQLitePass.
@@ -22,14 +24,15 @@ It reflects the current state of publicly available evidence.
 
 | Area | Status |
 |---------|---------|
-| Source Code Review | Completed |
-| Architecture Review | Completed |
+| Source Code Review | Internal review completed against audit baseline; current branch changes reviewed, not independently audited |
+| Architecture Review | Internal review completed; rework recommendations remain |
 | Cryptography Review | Internal Review Completed |
-| Backup & Recovery Review | Completed |
-| Session Security Review | Completed |
-| Clipboard Security Review | Completed |
-| Auto-Type Review | Completed |
+| Backup & Recovery Review | Internal review and software fault tests; hardware durability unverified |
+| Session Security Review | Automated/internal review; native Windows lock checklist pending |
+| Clipboard Security Review | Code review and synthetic tests; native history/cloud behavior pending |
+| Auto-Type Review | Mitigated; P1 race remains and native validation is pending |
 | Dependency Review | Completed |
+| Native Windows release checklist | Not completed |
 | Third-Party Audit | Not Performed |
 | Penetration Test | Not Performed |
 | Bug Bounty Program | Not Available |
@@ -153,12 +156,18 @@ Verified:
 - Explicit confirmation
 - Process validation
 - Window validation
-- Continuous target verification
+- Foreground/process/title checks before and after injected events
 - Focus change interruption
+
+Limitations:
+
+- `SendInput` uses the global keyboard stream; the target can change between validation and an input event.
+- Process name and window title do not authenticate the destination or website.
+- Native Windows target/focus/modifier checks have not been completed.
 
 Status:
 
-✅ Reviewed
+⚠️ Mitigated; residual P1 risk remains
 
 ---
 
@@ -235,7 +244,7 @@ The following controls were verified:
 
 ✅ Clipboard hardening
 
-✅ Auto-Type validation
+⚠️ Auto-Type validation with a P1 check-to-input race
 
 ✅ Screen capture protection
 
@@ -373,7 +382,7 @@ Current reviewed dependencies:
 - Velopack
 - Hardcodet.NotifyIcon.Wpf
 
-No known security concerns were identified during documentation review.
+On 18 November 2026, `dotnet list package --vulnerable --include-transitive` reported no known NuGet advisories across five solution projects. This scan does not cover non-NuGet components, every bundled native binary, the operating system or undisclosed vulnerabilities. See the [local 1.1.3 verification summary](evidence/release-readiness-1.1.3.json).
 
 Dependency monitoring should continue through routine maintenance.
 
@@ -389,13 +398,7 @@ Current release line:
 
 Assessment:
 
-✅ Suitable for personal use
-
-✅ Suitable for professional use
-
-✅ Suitable for small business environments
-
-⚠️ Additional review recommended before Tier-0 enterprise use
+The release line has internal source and automated-test evidence. It has not received an independent audit or penetration test. A07 remains a P1 Auto-Type race, and the native Windows checklist has not been completed. This document does not recommend SQLitePass as the sole store for high-value or privileged credentials.
 
 ---
 
@@ -421,43 +424,31 @@ before relying exclusively on SQLitePass.
 
 # Review Coverage
 
-Estimated security review coverage:
+Evidence scope by area (not a security score):
 
 | Area | Coverage |
 |---------|----------|
-| Cryptography | High |
-| Storage | High |
-| Recovery | High |
-| Session Management | High |
-| Clipboard | High |
-| Auto-Type | High |
-| UI Hardening | High |
-| Memory Handling | Moderate |
-| Third-Party Components | Moderate |
-| Deployment Environment | Outside Scope |
-
-Overall coverage:
-
-```text
-High
-```
+| Cryptography | Internal source review; no independent protocol/implementation review |
+| Storage | Automated and synthetic integrity/recovery tests; no physical failure testing |
+| Recovery | Software fault tests; hardware durability not established |
+| Session Management | Automated WPF/session tests; native Windows lock checklist pending |
+| Clipboard | Implementation tests; Windows history/cloud behavior pending |
+| Auto-Type | Fake-input regressions; P1 check-to-input race remains, native checks pending |
+| UI Hardening | In-memory layout/contrast checks; native DPI and assistive-technology checks pending |
+| Memory Handling | Managed-buffer cleanup reviewed; complete string/runtime zeroization is not guaranteed |
+| Third-Party Components | NuGet advisory scan and license inventory; no independent native-binary provenance audit |
+| Deployment Environment | Outside source-review scope |
 
 ---
 
 # Conclusion
 
-The reviewed codebase demonstrates a level of maturity that is significantly above the average of small open-source password manager projects.
+The source review and automated suite provide evidence for specific controls, especially authenticated storage, recovery checks, session invalidation and backup handling. They do not establish that SQLitePass is free of vulnerabilities or suitable for a particular organization's risk profile.
 
-The strongest areas are:
+The principal outstanding assurance limits are:
 
-- Integrity verification
-- Recovery safety
-- Backup architecture
-- Session management
-- Defensive storage design
+- A07 remains a P1 mitigated Auto-Type risk.
+- Native Windows behavior for Auto-Type, clipboard, screen capture, locking, DPI and assistive technology is unverified.
+- Hardware failure scenarios, independent cryptographic review and penetration testing are not covered.
 
-No critical implementation vulnerabilities were identified during source review.
-
-The most significant remaining gaps involve independent third-party validation rather than observed weaknesses in the reviewed implementation.
-
-Future external review is encouraged to increase confidence and broaden assurance beyond source-code inspection.
+No critical cryptographic implementation flaw was identified in the cited internal source review. That statement is limited to its reviewed commit and scope; it is not a conclusion that no critical or other vulnerabilities exist in the current release. See [the 1.1.2 outcome](releases/RELEASE_OUTCOME_1.1.2.md) and [the 1.1.3 readiness checklist](releases/RELEASE_READINESS_1.1.3.md) for current release evidence.

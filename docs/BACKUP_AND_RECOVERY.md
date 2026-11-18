@@ -106,12 +106,12 @@ Old Backup
 New Backup
 ```
 
-Either:
+Under normal filesystem operation, either:
 
 - the previous backup remains valid, or
 - the new backup becomes active.
 
-Partial backup publication is intentionally avoided.
+Partial backup publication is intentionally avoided by using the platform's file-replacement operation. This is not a guarantee against every storage-device, filesystem, controller or power-loss failure; the previous verified generation should remain protected as an independent copy.
 
 ---
 
@@ -377,42 +377,42 @@ SQLitePass creates:
 
 snapshots.
 
-These sna*shots preserve the original vault *tate before migration.
+These snapshots preserve the original vault state before migration.
 
 ---
 
-## Up*rade Safety
+## Upgrade Safety
 
-Migration occurs only*after:
+Migration occurs only after:
 
 - Successful authenticatio*
 - Metadata verification
-- Structu*al validation
+- Structural validation
 - Group validation
--*Entry validation
+- Entry validation
 
-Invalid legacy d*tabases are rejected before conver*ion.
+Invalid legacy databases are rejected before conversion.
 
 ---
 
 # Rekey Recovery
 
-## Pu*pose
+## Purpose
 
 Changing:
 
 - Master Password*- Key File
 - KDF Parameters
 
-is co*sidered a high-risk operation.
+is considered a high-risk operation.
 
 --*
 
 ## Pre-Rekey Snapshot
 
-Before re*en*ryption SQLitePass creates:
+Before re-encryption SQLitePass creates:
 
-```te*t
+```text
 .pre-rekey-*.backup
 ```
 
@@ -582,7 +582,7 @@ Recommended:
 
 ## Power Failure During Save
 
-Expected outcome:
+Expected software behavior, subject to the storage device and operating system honoring flush requests:
 
 ✅ SQLite WAL recovery
 
@@ -592,7 +592,7 @@ Expected outcome:
 
 ## Power Failure During Backup
 
-Expected outcome:
+Expected software behavior, subject to the storage device and operating system honoring flush requests:
 
 ✅ Existing backup remains available
 

@@ -1,10 +1,12 @@
 # Release readiness SQLitePass 1.1.2
 
+> Fotografia pre-pubblicazione del 18 novembre 2026. La 1.1.2 è stata pubblicata successivamente; il consuntivo aggiornato è in [RELEASE_OUTCOME_1.1.2.md](RELEASE_OUTCOME_1.1.2.md). Le frasi seguenti descrivono lo stato prima del tag e non lo stato attuale.
+
 Verifica aggiornata al 18 novembre 2026 sul commit base `acca23bd0c114ca6343a2732feb4b7017ec6e41d` di `main`; gli interventi successivi sono sulla candidata PR #7.
 
 ## Esito
 
-La versione 1.1.2, il changelog e le note sono integrati in `main` dalla PR [#6](https://github.com/FuryGamingASD/SQLitePass/pull/6), merge commit `acca23b`. La CI sul merge commit, [Verify 44187232756](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44187232756), è riuscita. Non esiste ancora un tag, un pacchetto pubblico o una release 1.1.2.
+La versione 1.1.2, il changelog e le note erano integrati in `main` dalla PR [#6](https://github.com/FuryGamingASD/SQLitePass/pull/6), merge commit `acca23b`. La CI sul merge commit, [Verify 44187232756](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44187232756), era riuscita. Al momento di questa fotografia non esistevano ancora tag, pacchetto pubblico o release 1.1.2.
 
 L’utente conferma che la 1.1.1 si apre e funziona correttamente. Ritiene probabile che anche la 1.1.0 funzionasse: il problema osservato era la finestra non visibile durante una sessione remota senza essere davanti al PC. La diagnosi precedente di un difetto applicativo non è quindi confermata. Restano da svolgere o classificare le altre verifiche native e i residui tecnici dell’audit.
 
@@ -17,7 +19,7 @@ L’utente conferma che la 1.1.1 si apre e funziona correttamente. Ritiene proba
 - La CI sul merge commit [44187232756](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44187232756) ha completato build senza warning/errori, due esecuzioni della suite da 152 test, audit NuGet con `KnownNugetVulnerabilities: 0`, packaging, verifica artefatti e smoke test installer. Installazione pulita, aggiornamento locale da 1.0.2 e disinstallazione sono riusciti senza avviare l’applicazione. Il job `release` è stato saltato perché il commit non era una pubblicazione.
 - Gli aggiornamenti Actions sono ora integrati e fissati a SHA: checkout 7.0.1, setup-dotnet 6.1.0, upload-artifact 7.0.2, download-artifact 8.0.2. La vecchia nota di manutenzione dei pin Node 20→24 nel report di remediation è superata da questi merge.
 - Microsoft.Data.Sqlite è 11.0.0; i lock file dei cinque progetti e l’inventario/licenze sono stati aggiornati, compresa la nuova dipendenza SQLite.
-- La release più recente pubblicata resta [1.1.1](https://github.com/FuryGamingASD/SQLitePass/releases/tag/v1.1.1). `main` dichiara versione 1.1.2; non è stata pubblicata.
+- Al momento di questa fotografia la release più recente pubblicata era [1.1.1](https://github.com/FuryGamingASD/SQLitePass/releases/tag/v1.1.1). La 1.1.2 è stata poi pubblicata; vedere il consuntivo collegato sopra.
 - La CI della candidata ha prodotto assembly `1.1.2.0`, build senza warning/errori, 152 test superati in ciascuna delle due esecuzioni, zero vulnerabilità NuGet note, packaging e verifica degli artefatti riusciti; installazione pulita, aggiornamento locale da 1.0.2 e disinstallazione silenziosi superati. Il test non avvia l’applicazione.
 - Il primo run candidato [44183263335](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44183263335) ha intercettato un `AssemblyVersion` UI rimasto a 1.1.1. Corretto nel commit `3ea588b`; il run successivo è riuscito. Nessuna release è stata pubblicata durante questi run.
 - Nel lavoro successivo su C14, i conflitti di revisione/sessione sono stati tipizzati come `VaultConflictException` e mappati esplicitamente dalla UI. Restore locked, build locale della solution (zero warning/errori) e 152 test sono riusciti. La CI Windows sul candidato `583e3bb` è riuscita nei run [44193383263](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44193383263) e [44193373481](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44193373481); il job di pubblicazione è stato saltato perché la PR è draft.
@@ -55,9 +57,9 @@ I test automatici usano vault sintetici e adattatori finti. La conferma di avvio
 
 La firma Authenticode (E03) è **esclusa esplicitamente dall’utente** e non va riaperta come requisito per questa release. I pacchetti restano NotSigned.
 
-La tabella originale dei 49 rilievi e i limiti dettagliati restano in [remediation](REMEDIATION_2026-11-16.md), [readiness 1.1.0 del 17 novembre](RELEASE_READINESS_2026-11-17.md), [esito 1.1.1](RELEASE_OUTCOME_2026-11-17_1.1.1.md) e [benchmark](PERFORMANCE_2026-11-16.md). Questi documenti sono storici; questo riepilogo aggiorna lo stato dei merge e della CI, senza riclassificare i rilievi non provati come risolti.
+La tabella originale dei 49 rilievi e i limiti dettagliati restano in [remediation](../audit/REMEDIATION_2026-11-16.md), [readiness 1.1.0 del 17 novembre](RELEASE_READINESS_2026-11-17.md), [esito 1.1.1](RELEASE_OUTCOME_2026-11-17_1.1.1.md) e [benchmark](../PERFORMANCE_2026-11-16.md). Questi documenti sono storici; questo riepilogo aggiorna lo stato dei merge e della CI, senza riclassificare i rilievi non provati come risolti.
 
-## Passi release 1.1.2
+## Passi previsti prima della pubblicazione (fotografia storica)
 
 1. Registrare gli esiti delle verifiche Windows ancora aperte sopra.
 2. Per ogni residuo, scegliere tra implementazione/verifica prima della release oppure accettazione esplicita come limite noto; non descrivere come completato ciò che non è stato provato.

@@ -131,8 +131,15 @@ internal static class Program
                     }
                     results.Add(new { Window = window.GetType().Name, Variant = variant, Language = language, Theme = theme, Dark = dark, RasterScale = scale, Rendered = true });
                     // No window is shown, activated or sent input. No desktop integration is initialized.
-                    if (window is MainWindow main) main.Content = null;
-                    if (window is EntryEditDialog editor) editor.CancelForLock(); else window.Close();
+                    try
+                    {
+                        if (window is MainWindow main) main.Content = null;
+                        if (window is EntryEditDialog editor) editor.CancelForLock(); else window.Close();
+                    }
+                    catch (Exception exception)
+                    {
+                        throw new InvalidOperationException($"Could not close synthetic verification window {window.GetType().FullName} ({name}).", exception);
+                    }
                 }
                 entry.ClearSecrets();
             }

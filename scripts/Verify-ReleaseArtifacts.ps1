@@ -67,6 +67,7 @@ $ui = Get-Content (Join-Path $uiOutput 'ui-render-results.json') -Raw | ConvertF
 $session = Get-Content (Join-Path $uiOutput 'session-lock-results.json') -Raw | ConvertFrom-Json
 $editor = Get-Content (Join-Path $uiOutput 'editor-results.json') -Raw | ConvertFrom-Json
 if ($ui.Cases -ne $ExpectedUiCases -or $ui.WindowsShown -or -not $ui.PagedMainWindowIncluded -or -not $session.EditorCleared -or -not $session.KeyDisposed -or -not $session.OwnedDialogsClosed) { throw 'Unexpected WPF verification result.' }
+if (-not $session.MinimizeCancelsAutoType -or -not $session.MinimizeDoesNotLockVault -or -not $session.UnexpectedUiErrorLocksSession) { throw 'Auto-Type minimize or fail-closed session regression failed.' }
 if (-not $session.ProviderLoadingTested -or -not $session.UiFiltersTested -or -not $session.RevealsAndFiltersCleared -or
     -not $editor.MonotonicRevealDeadline -or -not $editor.InlineTitleExpiryAndAutoTypeValidation -or -not $editor.BoundHistoryPreparedOnDispatcher) { throw 'Editor/filter/reveal verification failed.' }
 $contrasts = @(Get-Content (Join-Path $uiOutput 'theme-contrast-results.json') -Raw | ConvertFrom-Json)

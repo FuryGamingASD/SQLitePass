@@ -1,0 +1,103 @@
+{
+  "verifiedAt": "2026-11-18",
+  "purpose": "Local pre-release verification; not a release attestation",
+  "branch": "codex/1.1.3-audit-remediation",
+  "baseCommit": "79533b27ec0436cbacae8a48f3f7947865da1d05",
+  "workingTreeWasModified": true,
+  "environment": {
+    "operatingSystem": "Windows",
+    "pinnedSdk": "10.0.404",
+    "sdkUsed": "10.0.404",
+    "sdkNote": "The pinned SDK was installed in an isolated temporary directory and used for locked restore, Release build and automated tests."
+  },
+  "build": {
+    "lockedRestore": "passed",
+    "configuration": "Release",
+    "command": "dotnet build SQLitePass.slnx -c Release --no-restore --warnaserror",
+    "result": "passed",
+    "warnings": 0,
+    "errors": 0,
+    "projects": 5,
+    "sourceScope": "Current working tree at application version 1.1.3; compilation only, application not launched."
+  },
+  "automatedTests": {
+    "command": "dotnet test SQLitePass.Tests -c Release --no-build --no-restore --logger trx;LogFileName=1.1.3-tests.trx",
+    "passed": 161,
+    "failed": 0,
+    "skipped": 0,
+    "result": "passed",
+    "sourceScope": "Current working tree after the idempotent editor-close fix and 1.1.3 version bump."
+  },
+  "dependencyAdvisoryScan": {
+    "scope": "NuGet including transitive dependencies",
+    "command": "dotnet list SQLitePass.slnx package --vulnerable --include-transitive --format json --no-restore",
+    "projects": 5,
+    "knownAdvisoriesReported": 0,
+    "result": "passed",
+    "output": "artifacts/verification/1.1.3-readiness/nuget-vulnerabilities.json"
+  },
+  "syntheticWpfVerification": {
+    "windowsShown": false,
+    "desktopInputUsed": false,
+    "nativeDpiValidated": false,
+    "nativeAssistiveTechnologyValidated": false,
+    "nativeHighContrastValidated": false,
+    "previousFullRun": {
+      "cases": 1080,
+      "result": "passed",
+      "scope": "Earlier source iteration; not the final working tree."
+    },
+    "lastCompletedFullRun": {
+      "result": "failed",
+      "stage": "synthetic window cleanup",
+      "window": "EntryEditDialog-dirty-de-dark-100",
+      "exception": "InvalidOperationException: WPF rejected a Close call while the window was already closing.",
+      "scope": "Completed before the idempotent editor-close fix.",
+      "windowsShown": false,
+      "desktopInputUsed": false
+    },
+    "latestAttempt": {
+      "result": "interrupted",
+      "stage": "full synthetic WPF rendering",
+      "reason": "Stopped immediately after the user reported an application crash while the verifier was running; no final layout result was produced.",
+      "windowsShown": false,
+      "desktopInputUsed": false
+    },
+    "sessionOnly": {
+      "result": "passed",
+      "scope": "Source iteration includes the idempotent editor-close fix; session-only check completed before the project version metadata bump, with windows hidden and synthetic data.",
+      "minimizeCancelsAutoType": true,
+      "minimizeDoesNotLockVault": true,
+      "unexpectedUiErrorLocksSession": true
+    },
+    "processCheckAfterInterruption": {
+      "matchingSQLitePassOrDotnetProcesses": 0,
+      "matchingRecentApplicationEvents": 0,
+      "causalityEstablished": false
+    },
+    "result": "incomplete"
+  },
+  "releasePreparation": {
+    "applicationVersion": "1.1.3",
+    "assemblyVersion": "1.1.3.0",
+    "releaseNotesFile": "RELEASE_NOTES_v1.1.3.md",
+    "releaseNotesPathCheck": "passed",
+    "packageBuilt": false,
+    "releasePublished": false
+  },
+  "releasePublisherSafetyTest": {
+    "command": "scripts/Test-ReleasePublication.ps1",
+    "scenariosPassed": 4,
+    "networkCalls": 0,
+    "result": "passed"
+  },
+  "nativeWindowsChecklist": "not performed",
+  "releasePublished": false,
+  "knownReleaseBlockers": [
+    "Auto-Type is retained per user direction; the P1 check-to-global-SendInput race remains documented and native target checks are pending.",
+    "The completed pre-fix WPF layout run failed during synthetic EntryEditDialog cleanup; the post-fix full render was stopped after the user reported an application crash and has no result.",
+    "Native Windows interaction and accessibility checks have not been performed.",
+    "No successful final-candidate CI run, package, tag, or asset digest exists yet."
+  ],
+  "detailedLocalArtifacts": "artifacts/verification/1.1.3-readiness/ (ignored by Git)"
+}

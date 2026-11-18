@@ -49,7 +49,7 @@ Examples:
 - Backup validation
 - Recovery validation
 
-Credential material is never intentionally transmitted to external services. 【1-f4567e】【2-72d254】
+Credential material is never intentionally transmitted to external services.
 
 ---
 
@@ -62,7 +62,7 @@ Users control:
 - Secondary backup location
 - Retention policies
 
-SQLitePass does not automatically export vault contents to external services. 【3-a15784】【4-ba2171】
+SQLitePass does not automatically export vault contents to external services.
 
 ---
 
@@ -79,7 +79,7 @@ Examples:
 - VPN credentials
 - Service account passwords
 
-These items are encrypted before storage. 【2-72d254】【1-f4567e】
+These items are encrypted before storage.
 
 ---
 
@@ -94,7 +94,7 @@ Examples:
 - Entry history
 - Attachments
 
-These items are also encrypted within Vault Format 2. 【2-72d254】
+These items are also encrypted within Vault Format 2.
 
 ---
 
@@ -110,7 +110,7 @@ Examples:
 - Timestamps
 - Parent relationships
 
-This information may remain visible without unlocking the vault and is required for integrity verification, recovery and storage management. 【2-72d254】【5-2abfca】
+This information may remain visible without unlocking the vault and is required for integrity verification, recovery and storage management.
 
 ---
 
@@ -130,7 +130,7 @@ Protected entry data includes:
 - Custom fields
 - Attachments
 
-Vault Format 2 encrypts entry and group contents before storage. 【2-72d254】【6-af2beb】
+Vault Format 2 encrypts entry and group contents before storage.
 
 ---
 
@@ -145,7 +145,7 @@ Examples:
 - MFA recovery codes
 - Private references
 
-Custom field values are encrypted within the vault and cleared when sensitive entry data is disposed. 【7-933d32】【6-af2beb】
+Custom field values are encrypted within the vault and cleared when sensitive entry data is disposed.
 
 ---
 
@@ -160,7 +160,7 @@ Examples:
 - Configuration exports
 - Documentation
 
-Attachment data is decrypted only when needed and attachment buffers are explicitly overwritten when released. 【8-6d3f9d】【6-af2beb】
+Attachment data is decrypted only when needed and attachment buffers are explicitly overwritten when released.
 
 ---
 
@@ -175,7 +175,7 @@ SQLitePass protects stored data using:
 | AAD | Record Binding |
 | Manifest Verification | Vault Integrity |
 
-The implementation protects both confidentiality and integrity of stored content. 【1-f4567e】【2-72d254】
+The implementation protects both confidentiality and integrity of stored content.
 
 ---
 
@@ -191,7 +191,7 @@ SQLitePass stores:
 - Key derivation parameters
 - Authentication artifacts
 
-but not the plaintext password. 【1-f4567e】【2-72d254】
+but not the plaintext password.
 
 ---
 
@@ -207,7 +207,7 @@ Password
 Key File
 ```
 
-when the dual-factor mode is enabled. 【9-a7c594】【10-6c32c4】
+when the dual-factor mode is enabled.
 
 ---
 
@@ -235,7 +235,7 @@ Supported range:
 3 to 300 seconds
 ```
 
-【11-e3d324】【4-ba2171】
+
 
 ---
 
@@ -243,7 +243,7 @@ Supported range:
 
 Clipboard contents are cleared only if SQLitePass still owns them.
 
-This prevents accidental deletion of unrelated user clipboard content. 【11-e3d324】
+This prevents accidental deletion of unrelated user clipboard content.
 
 ---
 
@@ -254,7 +254,7 @@ Where supported by Windows, SQLitePass requests exclusion from:
 - Clipboard History
 - Cloud Clipboard Synchronization
 
-These mechanisms reduce unintended persistence of copied credentials. 【11-e3d324】【12-011f6a】
+These mechanisms reduce unintended persistence of copied credentials.
 
 ---
 
@@ -268,7 +268,7 @@ Clipboard contents remain visible to:
 
 while present in the clipboard buffer.
 
-Clipboard protection reduces exposure but cannot guarantee complete confidentiality. 【11-e3d324】【12-011f6a】
+Clipboard protection reduces exposure but cannot guarantee complete confidentiality.
 
 ---
 
@@ -288,7 +288,7 @@ with fallback to:
 WDA_MONITOR
 ```
 
-when necessary. 【13-c02280】
+when necessary.
 
 ---
 
@@ -301,7 +301,7 @@ The protection is intended to reduce disclosure through:
 - Many screen-recording utilities
 - Various conferencing platforms
 
-on supported Windows versions. 【13-c02280】
+on supported Windows versions.
 
 ---
 
@@ -315,7 +315,7 @@ Screen-capture protection does not protect against:
 - Kernel malware
 - Administrative compromise
 
-Protection should be considered best-effort rather than absolute. 【13-c02280】【14-ef9e29】
+Protection should be considered best-effort rather than absolute.
 
 ---
 
@@ -337,13 +337,13 @@ A value of:
 0
 ```
 
-disables inactivity locking. 【15-179eaf】【4-ba2171】
+disables inactivity locking.
 
 ---
 
 ## Windows Session Lock
 
-SQLitePass can automatically lock whenever Windows itself is locked. 【15-179eaf】【10-6c32c4】
+SQLitePass can automatically lock whenever Windows itself is locked.
 
 Examples:
 
@@ -365,7 +365,7 @@ When a vault locks, SQLitePass:
 - Cancels Auto-Type operations
 - Invalidates in-flight credential operations
 
-【10-6c32c4】【16-383e97】【15-179eaf】
+
 
 ---
 
@@ -381,7 +381,7 @@ Examples include:
 - Custom-field cleanup
 - UI control cleanup
 
-【1-f4567e】【6-af2beb】【16-383e97】
+
 
 ---
 
@@ -395,7 +395,7 @@ Because .NET strings are immutable:
 - Garbage collection timing cannot be controlled.
 - Complete memory erasure cannot be guaranteed.
 
-This limitation applies to managed desktop applications in general. 【6-af2beb】【5-2abfca】【14-ef9e29】
+This limitation applies to managed desktop applications in general.
 
 ---
 
@@ -416,7 +416,7 @@ Examples:
 - Language preferences
 - Backup settings
 
-Settings are not encrypted. 【4-ba2171】【5-2abfca】
+Settings are not encrypted.
 
 ---
 
@@ -430,7 +430,7 @@ Designed behavior:
 - Secrets are not intentionally written to log files.
 - Raw credential values are excluded.
 
-Logs remain operational data and should still be protected appropriately. 【17-f7151e】【5-2abfca】
+Logs remain operational data and should still be protected appropriately.
 
 ---
 
@@ -444,7 +444,7 @@ Examples:
 - Browser CSV
 - Bitwarden JSON
 
-Imported plaintext files should be considered sensitive and protected accordingly. 【18-ae6548】【5-2abfca】
+Imported plaintext files should be considered sensitive and protected accordingly.
 
 ---
 
@@ -460,7 +460,7 @@ Exported data includes:
 - URLs
 - Notes
 
-【19-493210】【5-2abfca】
+
 
 ---
 
@@ -473,13 +473,13 @@ CSV exports do not preserve:
 - Custom fields
 - Full vault integrity protections
 
-CSV exports should be used for migration purposes only. 【5-2abfca】【19-493210】
+CSV exports should be used for migration purposes only.
 
 ---
 
 # Backup Privacy
 
-Backups contain encrypted vault data and remain protected by the same cryptographic controls as the active vault. 【3-a15784】【5-2abfca】
+Backups contain encrypted vault data and remain protected by the same cryptographic controls as the active vault.
 
 However:
 
@@ -573,6 +573,12 @@ SQLitePass is not designed to protect against:
 - Compromised operating systems
 
 Additional endpoint and organizational controls are required for those threats.
+
+---
+
+# Implementation References
+
+The design and limitations described here are summarized in the project's [cryptography](CRYPTOGRAPHY.md), [security architecture](SECURITY_ARCHITECTURE.md), [memory handling](MEMORY_HANDLING.md), [backup and recovery](BACKUP_AND_RECOVERY.md), and [threat model](THREAT_MODEL.md) documents. Those summaries are not independent attestations; consult the current source and the release-specific verification report for implementation status.
 
 ---
 

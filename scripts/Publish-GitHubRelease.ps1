@@ -5,6 +5,9 @@ $provenance=Get-Content (Join-Path $ArtifactDirectory 'release-provenance.json')
 if($provenance.SourceCommit -ne $env:GITHUB_SHA -or $provenance.SourceDirty){throw 'Only the clean verified commit may be published.'}
 if($provenance.Version -notmatch '^\d+\.\d+\.\d+$'){throw 'Unexpected version.'}
 $tag='v'+$provenance.Version
+$repoRoot=Split-Path -Parent $PSScriptRoot
+$releaseNotes=Join-Path $repoRoot "RELEASE_NOTES_v$($provenance.Version).md"
+if(-not (Test-Path -LiteralPath $releaseNotes -PathType Leaf)){throw "Release notes file is missing: $releaseNotes"}
 $checksums=@(Get-Content (Join-Path $ArtifactDirectory 'checksums.json') -Raw | ConvertFrom-Json)
 foreach($entry in $checksums){
     if($entry.File -ne [IO.Path]::GetFileName($entry.File)){throw 'Invalid checksum filename.'}
@@ -18,7 +21,7 @@ if($existing){
     if($existing.targetCommitish -ne $env:GITHUB_SHA){throw 'An existing release from a different commit must not be overwritten.'}
     $alreadyPublished=-not $existing.isDraft
 } else {
-    & gh release create $tag --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "SQLitePass $($provenance.Version)" --notes-file "RELEASE_NOTES_v$($provenance.Version).md" --draft
+    & gh release create $tag --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "SQLitePass $($provenance.Version)" --notes-file $releaseNotes --draft
     if($LASTEXITCODE -ne 0){throw 'Draft release creation failed.'}
 }
 $releaseMetadata=& gh release view $tag --repo $env:GITHUB_REPOSITORY --json apiUrl

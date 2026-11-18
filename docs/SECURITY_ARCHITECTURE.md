@@ -9,7 +9,7 @@ SQLitePass is a local-first Windows password manager designed to prioritize:
 3. Recoverability
 4. Operational safety
 
-The architecture is intentionally designed to resist common causes of credential loss, including accidental corruption, interrupted writes, storage failures, application crashes and unsafe recovery procedures.
+The architecture includes controls intended to reduce credential-loss risk from software errors, interrupted transactions and unsafe recovery. It cannot ensure survival of every storage-device, filesystem, controller or power failure; see the recovery documentation for these limits.
 
 SQLitePass does not depend on remote infrastructure, cloud services, browser extensions or external synchronization services.
 
@@ -265,20 +265,22 @@ and
 PRAGMA synchronous=FULL
 ```
 
-This provides:
+These SQLite settings request:
 
 - atomic commits
 - crash recovery
 - reduced corruption risk
 - durable transaction persistence
 
+Actual durability still depends on the filesystem and storage stack honoring flush requests. This is not evidence of hardware-level power-loss protection.
+
 ---
 
 ## Atomic Operations
 
-Modifications are committed atomically.
+Database modifications use SQLite transactions and are committed atomically within the database transaction boundary.
 
-Vault updates either:
+For failures handled by SQLite's transaction mechanism, vault updates either:
 
 - complete successfully, or
 - leave the previous valid state intact.
@@ -415,6 +417,9 @@ When locking occurs:
 - dialogs are closed
 - drafts are cleared
 - Auto-Type is cancelled
+- the 1.1.3 candidate also cancels active Auto-Type when the vault window is minimized, including when lock-on-minimize is disabled
+- an unhandled dispatcher exception locks the active vault before being marked handled; the application shuts down if no vault window is active or the immediate lock state cannot be established
+- an unobserved task failure schedules the same lock-or-shutdown response on the dispatcher before being marked observed
 
 ---
 
@@ -481,13 +486,13 @@ Auto-Type requires:
 
 ## Continuous Verification
 
-During typing SQLitePass continuously verifies:
+Before and after injected input events SQLitePass checks:
 
 - foreground window
 - process identity
 - window title
 
-Typing stops immediately if validation fails.
+These checks reduce the chance of accidental misdirection. Windows `SendInput` writes to the global keyboard stream and cannot atomically target the verified window handle, so a focus change can race with an input event. This is a best-effort control, not origin authentication or a guarantee that credentials cannot reach another window.
 
 ---
 
@@ -624,4 +629,4 @@ SQLitePass combines authenticated encryption, authenticated integrity verificati
 
 The architecture deliberately favors data preservation and integrity verification over silent continuation after faults.
 
-No software can eliminate all risk; however, SQLitePass is designed to ensure that failures become visible, recoverable and verifiable whenever possible.
+No software can eliminate all risk. SQLitePass aims to make supported integrity and recovery failures visible and to preserve validated copies where possible; it does not ensure that every failure is recoverable.

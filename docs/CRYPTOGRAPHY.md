@@ -520,7 +520,7 @@ Cryptography does not protect against:
 | Randomness | OS Cryptographic RNG |
 | Password Generation | Cryptographic RNG + Fisher-Yates |
 
-All selected algorithms are publicly reviewed, widely deployed and currently considered suitable for password-manager applications.
+The primitives have public specifications and broad use. That does not independently validate SQLitePass's composition, parameter policy, implementation, migration or recovery protocol. No independent cryptography audit or penetration test is recorded; suitability claims are limited to the internal review described in [Audit Status](AUDIT_STATUS.md).
 
 ---
 

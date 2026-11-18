@@ -1,0 +1,38 @@
+{
+  "SyntheticOnly": true,
+  "Runtime": ".NET 10.0.15",
+  "Architecture": "X64",
+  "EntryCount": 10000,
+  "AttachmentBytesPerEntry": 0,
+  "HistorySnapshotsPerEntry": 0,
+  "DatabaseBytesIncludingSidecars": 9248768,
+  "Full": {
+    "Milliseconds": 379.34,
+    "AllocatedManagedBytes": 52926296,
+    "RetainedManagedBytes": 8943456,
+    "Entries": 10000,
+    "AttachmentBuffers": 0,
+    "HistorySnapshots": 0
+  },
+  "Overview": {
+    "Milliseconds": 339.66,
+    "AllocatedManagedBytes": 45326296,
+    "RetainedManagedBytes": 6791736,
+    "Entries": 10000,
+    "AttachmentBuffers": 0,
+    "HistorySnapshots": 0
+  },
+  "BoundedPage": {
+    "Milliseconds": 301.07,
+    "AllocatedManagedBytes": 44442256,
+    "RetainedManagedBytes": 135920,
+    "Entries": 200,
+    "AttachmentBuffers": 0,
+    "HistorySnapshots": 0
+  },
+  "PageEntryLimit": 200,
+  "PageEstimatedByteBudget": 8388608,
+  "RetainedMemoryReductionPercent": 24.06,
+  "RetainedMemoryMethod": "Managed heap difference while holding the result and after clearing/releasing it, with full collection at each point; approximate, not process memory.",
+  "Limits": "Local synthetic measurement; not total process memory or a worst-case latency test. Paging still authenticates all ciphertext and scans/decrypts records transiently. The estimated page byte budget permits one oversized record so navigation never skips it."
+}

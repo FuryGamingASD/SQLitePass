@@ -1,8 +1,8 @@
 # Verifica della candidata SQLitePass 1.1.0
 
-> Questo documento descrive la candidata locale prima della pubblicazione ed è storico. La release 1.1.0 è stata pubblicata: vedere lʼ[esito definitivo](RELEASE_OUTCOME_2026-11-17.md). La pubblicazione non chiude lʼaudit; restano aperti i limiti riportati sotto.
+> Questo documento descrive la candidata locale 1.1.0 prima della pubblicazione ed è storico. La release è pubblicata: vedere lʼ[esito definitivo](RELEASE_OUTCOME_2026-11-17.md). Per la versione corrente e i residui pianificati consultare la [readiness 1.1.3](RELEASE_READINESS_1.1.3.md).
 
-Data: 17 novembre 2026. Prosecuzione della richiesta di completare AUDIT_2026-11-16.md; **la firma Authenticode è lʼunica esclusione concordata**. Le precedenti regressioni di compilazione e Auto-Type sono corrette. [STATUS_2026-11-17.md](STATUS_2026-11-17.md) conserva la verifica storica delle 02:19 e non descrive lʼultimo stato.
+Data: 17 novembre 2026. Prosecuzione della richiesta di completare [AUDIT_2026-11-16.md](../audit/AUDIT_2026-11-16.md); **la firma Authenticode è lʼunica esclusione concordata**. Le precedenti regressioni di compilazione e Auto-Type sono corrette. [STATUS_2026-11-17.md](../archive/STATUS_2026-11-17.md) conserva la verifica storica delle 02:19 e non descrive lʼultimo stato.
 
 **Lʼintero audit non è ancora chiuso.** I risultati qui sotto descrivono una candidata locale pre-pubblicazione e restano utili come evidenze tecniche. La release pubblicata è tracciata nel report di esito. Rimangono i collaudi Windows nativi, parte del rework e le raccomandazioni elencate sotto. Nessun vault reale è stato aperto o modificato.
 
@@ -52,22 +52,13 @@ Le finestre del verificatore non vengono mostrate, attivate o comandate tramite 
 | 96 voci con allegato 128 KiB e revisione | 46.442.424 B | 68.880 B | 64.664 B, 96 voci | 216,68 ms |
 | 10.000 voci piccole senza allegati/storia | 8.951.680 B | 6.799.960 B | 135.920 B, 200 voci | 332,88 ms |
 
-Metodo affinato: differenza del heap gestito mantenendo il risultato e dopo averlo pulito/rilasciato, con GC completo a entrambi i punti. Evita di attribuire al risultato oggetti liberati da una misura precedente. Resta una stima locale, non working set totale, memoria nativa, media statistica o prova del caso peggiore. Il benchmark di volume non contiene record grandi. **Ogni query continua ad autenticare tutto il ciphertext e a scansionare/decifrare transitoriamente i record: costo O(N)**. Scritture e backup restano completi. [Protocollo e misure storiche](PERFORMANCE_2026-11-16.md).
+Metodo affinato: differenza del heap gestito mantenendo il risultato e dopo averlo pulito/rilasciato, con GC completo a entrambi i punti. Evita di attribuire al risultato oggetti liberati da una misura precedente. Resta una stima locale, non working set totale, memoria nativa, media statistica o prova del caso peggiore. Il benchmark di volume non contiene record grandi. **Ogni query continua ad autenticare tutto il ciphertext e a scansionare/decifrare transitoriamente i record: costo O(N)**. Scritture e backup restano completi. [Protocollo e misure storiche](../PERFORMANCE_2026-11-16.md).
 
-## Artefatti locali
+## Artefatti della candidata
 
 Build **1.1.0-25a2ca09f51e45f8a9a981328b6790ea**, Windows x64 self-contained, applicazione 1.1.0.0, formato vault 2.
 
-- [Portable ZIP](../artifacts/releases/1.1.0-25a2ca09f51e45f8a9a981328b6790ea/SQLitePass-win-Portable.zip)
-- [Installer](../artifacts/releases/1.1.0-25a2ca09f51e45f8a9a981328b6790ea/SQLitePass-win-Setup.exe)
-- [Manifest SHA-256](../artifacts/releases/1.1.0-25a2ca09f51e45f8a9a981328b6790ea/checksums.json)
-- [Verifica artefatto](../artifacts/verification/editing-artifact-verification.json) e [inventario sorgenti](../artifacts/verification/editing-source-files-sha256.json)
-- [Installazione/aggiornamento/disinstallazione](../artifacts/verification/windows-package-smoke.json)
-- [Verifica editor](../artifacts/verification/ui-editing/editor-results.json) e [stabilità sorgenti](../artifacts/verification/editing-source-stability.json)
-- [Test TRX](../artifacts/verification/editing-tests.trx), [scansione NuGet](../artifacts/verification/editing-nuget-vulnerabilities.json), [WPF](../artifacts/verification/ui-editing/)
-- [Benchmark 96 voci](../artifacts/verification/editing-memory-benchmark.json) e [10.000 voci](../artifacts/verification/editing-volume-benchmark.json)
-
-Questi output sono candidati locali pre-pubblicazione, ignorati da Git e distinti dagli asset pubblicati. Il feed GitHub anonimo e il pacchetto pubblico sono stati verificati dal workflow finale; i digest e la provenienza sono nel [report di esito](RELEASE_OUTCOME_2026-11-17.md). I binari restano non firmati.
+Gli output locali di build, installazione, TRX, rendering e verifica erano candidati pre-pubblicazione ignorati da Git; non sono parte di questo repository. Gli asset pubblicati, i digest e la provenienza sono riportati nellʼ[esito 1.1.0](RELEASE_OUTCOME_2026-11-17.md). I benchmark sintetici conservati sono in [docs/evidence](../evidence/README.md). I binari restano non firmati.
 
 ## Requisiti ancora aperti
 
@@ -78,7 +69,7 @@ Questi output sono candidati locali pre-pubblicazione, ignorati da Git e distint
 5. La CI sulla revisione definitiva, la tracciabilità commit/tag e il feed pubblico sono verificati. Rimangono lʼavvio interattivo portable/installer e il percorso manuale completo dei flussi applicativi.
 6. Guasti fisici a dischi/USB/alimentazione e revisione indipendente del formato/migrazione/recovery: non attestati. Fault injection software e WAL reale non equivalgono a queste prove.
 
-Il problema iniziale del sandbox è stato superato per i comandi locali. Il collaudo UI esterno resta escluso dallʼautomazione in questa sessione dalla skill [computer-use](C:/Users/vboxuser/.codex/plugins/cache/openai-bundled/computer-use/26.1111.21308/skills/computer-use/SKILL.md), la cui [guidance, riga 239](C:/Users/vboxuser/.codex/plugins/cache/openai-bundled/computer-use/26.1111.21308/docs/guidance.md) prescrive: «Do not automate password manager apps or password manager websites.» Questo limite è distinto dagli interventi di codice ancora aperti; non è stato trasformato in un esito positivo dei collaudi nativi.
+Non sono stati eseguiti test interattivi nativi dell'applicazione. Le verifiche in memoria e gli adattatori fake non sostituiscono i flussi Windows; la [readiness 1.1.3](RELEASE_READINESS_1.1.3.md) contiene la checklist manuale aggiornata.
 
 ## Riproduzione
 

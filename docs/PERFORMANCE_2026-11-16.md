@@ -1,6 +1,6 @@
 # Memoria e caricamento del vault
 
-> Le sezioni iniziali conservano misure e limiti storici. La successiva prova della paginazione del 17 novembre, in fondo al documento, descrive il codice attuale e un metodo di misura affinato.
+> Le sezioni iniziali conservano misure e limiti storici del 16 novembre. Le ripetizioni successive, datate nel testo e basate su fixture sintetiche, descrivono il codice di paging misurato in quel momento e un metodo di misura affinato; non rappresentano una misura della release pubblicata o del processo completo.
 
 Misura locale del **16 novembre 2026**, linea di sviluppo 1.1.0, formato vault 2. Runtime .NET 10.0.14, architettura x64. Questa prova usa esclusivamente dati sintetici e non avvia la UI.
 
@@ -37,7 +37,7 @@ Database e sidecar: **35.241.984 byte**, circa 33,61 MiB.
 | Byte gestiti allocati durante il caricamento | 117.001.552 B · 111,58 MiB | 70.575.528 B · 67,31 MiB |
 | Tempo osservato | 144,83 ms | 118,93 ms |
 
-In questa fixture la memoria gestita mantenuta dallo snapshot scende del **99,86%** e le allocazioni cumulative del **39,68%**. Il [JSON grezzo della misura](D:/Progetti/PasswordManager/artifacts/verification/vault-memory-benchmark.json) è un output locale ignorato da Git.
+In questa fixture la memoria gestita mantenuta dallo snapshot scende del **99,86%** e le allocazioni cumulative del **39,68%**. Il [JSON grezzo della misura](evidence/vault-memory-benchmark.json) è incluso nel repository.
 
 Queste percentuali **non descrivono il consumo totale dell'applicazione**. I tempi derivano da una misura locale dopo riscaldamento e non sono una promessa di latenza, una media statistica o una prova del caso peggiore.
 
@@ -54,7 +54,7 @@ Le regressioni verificano anche che i dettagli non caricati vengano preservati n
 
 ## Ripetizione su Windows VM, 17 novembre 2026
 
-Runtime .NET 10.0.15, x64. Gli output locali sono [fixture da 96 voci](../artifacts/verification/resume-memory-benchmark.json) e [fixture da 10.000 voci](../artifacts/verification/resume-volume-benchmark.json). La seconda modalità si riproduce con:
+Runtime .NET 10.0.15, x64. I dati grezzi sono la [fixture da 96 voci](evidence/resume-memory-benchmark.json) e la [fixture da 10.000 voci](evidence/resume-volume-benchmark.json). La seconda modalità si riproduce con:
 
     dotnet run --project SQLitePass.TestHost -c Release --no-build --no-restore -- --benchmark-many
 
@@ -77,11 +77,11 @@ Il metodo del heap è stato affinato: misura mentre il risultato è mantenuto e 
 | 96 voci con allegati/storia | 46.442.328 B | 64.688 B | 72.912 B | 96 | 172,72 ms |
 | 10.000 voci piccole | 8.943.456 B | 6.791.736 B | 135.920 B | 200 | 301,07 ms |
 
-[JSON 96 voci](../artifacts/verification/paging-memory-benchmark.json), [JSON 10.000 voci](../artifacts/verification/paging-volume-benchmark.json). Le allocazioni cumulative restano proporzionali al vault: tutta la cifratura viene autenticata e i record decifrati transitoriamente a ogni query. Non sono working set/native memory/UI/backup, medie statistiche o worst case. Restano scalari della pagina residenti, record e backup completi, editing di record grandi e prove su dispositivi lenti.
+[JSON 96 voci](evidence/paging-memory-benchmark.json), [JSON 10.000 voci](evidence/paging-volume-benchmark.json). Le allocazioni cumulative restano proporzionali al vault: tutta la cifratura viene autenticata e i record decifrati transitoriamente a ogni query. Non sono working set/native memory/UI/backup, medie statistiche o worst case. Restano scalari della pagina residenti, record e backup completi, editing di record grandi e prove su dispositivi lenti.
 
 
 ## Ripetizione dopo editor e filtri, 17 novembre 2026
 
-Nuova misura con il metodo di rilascio descritto sopra. [96 voci](../artifacts/verification/editing-memory-benchmark.json), [10.000 voci](../artifacts/verification/editing-volume-benchmark.json). La pagina da 200 voci piccole trattiene 135.920 B contro 6.799.960 B dellʼelenco leggero completo; tempo osservato 332,88 ms. La fixture con allegati/storia trattiene 64.664 B nella pagina da 96 voci. Sono singole osservazioni del heap gestito, non working set o benchmark nativi della UI.
+Nuova misura con il metodo di rilascio descritto sopra. [96 voci](evidence/editing-memory-benchmark.json), [10.000 voci](evidence/editing-volume-benchmark.json). La pagina da 200 voci piccole trattiene 135.920 B contro 6.799.960 B dellʼelenco leggero completo; tempo osservato 332,88 ms. La fixture con allegati/storia trattiene 64.664 B nella pagina da 96 voci. Sono singole osservazioni del heap gestito, non working set o benchmark nativi della UI.
 
 Il confronto finale della bozza e la validazione Auto-Type sono ora su worker; lʼaggiornamento della cronologia rimane sul contesto del chiamante perché la collezione può essere collegata alla UI. Il breadcrumb usa solo gli antenati selezionati e limita segmenti/caratteri. Autenticazione/scansione O(N), record e backup completi e gli altri limiti restano invariati.
