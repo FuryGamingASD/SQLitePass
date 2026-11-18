@@ -172,8 +172,60 @@
   "releasePublished": false,
   "knownReleaseBlockers": [
     "Auto-Type is retained per user direction; the P1 check-to-global-SendInput race remains documented and native target checks are pending.",
-    "The hosted CI package was built from the pull request merge commit, not a final main-branch release commit; the release workflow has not run.",
-    "Native Windows interaction, accessibility and normal product application launch checks have not been performed. A later hidden synthetic WPF rerun passed but did not reproduce the reported product crash; the original cause remains unknown."
+    "The hosted PR CI passes on the current head, but final-main CI, release workflow, public assets, checksums and provenance are pending.",
+    "A source-entrypoint smoke showed the isolated unlock window, but the installed candidate and remaining native checklist have not been exercised. The reported crash was not reproduced and its original cause remains unknown."
   ],
-  "detailedLocalArtifacts": "artifacts/verification/1.1.3-readiness/ (ignored by Git)"
+  "detailedLocalArtifacts": "artifacts/verification/1.1.3-readiness/ (ignored by Git)",
+  "localNativeStartupSmoke": {
+    "result": "passed",
+    "startedAtUtc": "2026-11-18T22:23:24Z",
+    "completedAtUtc": "2026-11-18T22:23:29Z",
+    "sourceCommit": "49eed427134457607307adb4b2eff91dd364bc93",
+    "sdk": "10.0.404",
+    "runner": "Temporary WPF host invoked SQLitePass.UI.Program.Main() from the project reference.",
+    "entrypointCoverage": [
+      "Velopack initialization",
+      "SingleInstanceCoordinator",
+      "App.InitializeComponent",
+      "App.OnStartup",
+      "LoginWindow.ShowDialog"
+    ],
+    "visibleWindow": {
+      "height": 540,
+      "type": "SQLitePass.UI.Dialogs.LoginWindow",
+      "title": "SQLitePass - Sblocco Vault",
+      "nativeHandlePresent": true,
+      "wpfPresentationSourcePresent": true,
+      "width": 480
+    },
+    "isolatedSettingsAndLogDirectories": true,
+    "userProfileSettingsTouched": false,
+    "realVaultOpened": false,
+    "desktopInputUsed": false,
+    "automaticShutdownAfterSeconds": 5,
+    "exitCode": 0,
+    "originalCrashReproduced": false,
+    "limitation": "The source entry point visibly rendered its unlock window in an isolated host. This did not launch the packaged executable, exercise install/update integration or explain the user-reported crash.",
+    "evidence": "artifacts/verification/1.1.3-startup-smoke-20261118/startup-smoke.json (ignored by Git)"
+  },
+  "latestHostedCiRuns": [
+    {
+      "result": "passed",
+      "runNumber": 117,
+      "url": "https://github.com/FuryGamingASD/SQLitePass/actions/runs/44409591978",
+      "workflow": "Verify",
+      "event": "push",
+      "runId": 44409591978,
+      "commit": "49eed427134457607307adb4b2eff91dd364bc93"
+    },
+    {
+      "result": "passed",
+      "runNumber": 118,
+      "url": "https://github.com/FuryGamingASD/SQLitePass/actions/runs/44409599826",
+      "workflow": "Verify",
+      "event": "pull_request",
+      "runId": 44409599826,
+      "commit": "49eed427134457607307adb4b2eff91dd364bc93"
+    }
+  ]
 }
