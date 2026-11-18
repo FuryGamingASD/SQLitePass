@@ -1,6 +1,6 @@
 {
   "verifiedAt": "2026-11-18",
-  "purpose": "Local pre-release verification; not a release attestation",
+  "purpose": "Pre-release verification summary combining local checks and hosted pull-request CI; not a release attestation",
   "branch": "codex/1.1.3-audit-remediation",
   "baseCommit": "79533b27ec0436cbacae8a48f3f7947865da1d05",
   "workingTreeWasModified": true,
@@ -63,6 +63,34 @@
       "windowsShown": false,
       "desktopInputUsed": false
     },
+    "hostedCiRun": {
+      "result": "passed",
+      "workflow": "Verify #110",
+      "runId": 44399667859,
+      "runUrl": "https://github.com/FuryGamingASD/SQLitePass/actions/runs/44399667859",
+      "runNumber": 110,
+      "pullRequest": "https://github.com/FuryGamingASD/SQLitePass/pull/8",
+      "prHeadCommit": "49e6a388a3ec71bdea70ec822a9aa5f8c37dd3ad",
+      "testedMergeCommit": "c5d539f4777666aa6553109f486e7c36755e1fcf",
+      "operatingSystem": "Windows Server 2025 (10.0.26100)",
+      "sdk": "10.0.404",
+      "buildWarnings": 0,
+      "buildErrors": 0,
+      "testsPassed": 161,
+      "testsFailed": 0,
+      "testsSkipped": 0,
+      "layoutCases": 1080,
+      "contrastPairs": 105,
+      "knownNuGetAdvisories": 0,
+      "packageSmoke": {
+        "freshInstall": "passed",
+        "upgradeFrom": "1.0.2",
+        "upgrade": "passed",
+        "uninstall": "passed",
+        "applicationStarted": false,
+        "realVaultOpened": false
+      }
+    },
     "sessionOnly": {
       "result": "passed",
       "scope": "Source iteration includes the idempotent editor-close fix; session-only check completed before the project version metadata bump, with windows hidden and synthetic data.",
@@ -82,7 +110,34 @@
     "assemblyVersion": "1.1.3.0",
     "releaseNotesFile": "RELEASE_NOTES_v1.1.3.md",
     "releaseNotesPathCheck": "passed",
-    "packageBuilt": false,
+    "packageBuilt": true,
+    "buildId": "1.1.3-e7a23300e3aa4ea8abd7b753e2fa334c",
+    "ciPackageVerification": {
+      "applicationVersion": "1.1.3.0",
+      "bundledRuntime": "10.0.15",
+      "portableEntries": 496,
+      "artifactHashesChecked": 7,
+      "dependencyNotices": 11,
+      "applicationSignature": "NotSigned",
+      "setupSignature": "NotSigned",
+      "signingWaivedByUser": true,
+      "sourceCommit": "c5d539f4777666aa6553109f486e7c36755e1fcf",
+      "sourceIsPullRequestMergeCommit": true
+    },
+    "workflowArtifacts": [
+      {
+        "name": "verification-c5d539f4777666aa6553109f486e7c36755e1fcf",
+        "sizeBytes": 25255498,
+        "sha256": "1677f3bfa13358ffeaa08c0c64ce71d5a7a4a9a4055a96db97535cd68ec9749e"
+      },
+      {
+        "name": "SQLitePass-win-x64",
+        "sizeBytes": 246860370,
+        "sha256": "66e9cb891e45e71ac32050b1a0d531e25d1396055a7e9102fb7115106c69bb89"
+      }
+    ],
+    "workflowArtifactExpiry": "2026-12-02 (14-day GitHub Actions retention)",
+    "packageWasNotPublished": true,
     "releasePublished": false
   },
   "releasePublisherSafetyTest": {
@@ -95,9 +150,8 @@
   "releasePublished": false,
   "knownReleaseBlockers": [
     "Auto-Type is retained per user direction; the P1 check-to-global-SendInput race remains documented and native target checks are pending.",
-    "The completed pre-fix WPF layout run failed during synthetic EntryEditDialog cleanup; the post-fix full render was stopped after the user reported an application crash and has no result.",
-    "Native Windows interaction and accessibility checks have not been performed.",
-    "No successful final-candidate CI run, package, tag, or asset digest exists yet."
+    "The hosted CI package was built from the pull request merge commit, not a final main-branch release commit; the release workflow has not run.",
+    "Native Windows interaction, accessibility and real application launch checks have not been performed. The user reported a crash while the local hidden WPF render was running; causality is unknown."
   ],
   "detailedLocalArtifacts": "artifacts/verification/1.1.3-readiness/ (ignored by Git)"
 }

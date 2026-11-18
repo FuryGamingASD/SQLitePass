@@ -1,0 +1,94 @@
+# SQLitePass 1.1.3 readiness
+
+Status: **work in progress; not ready to publish**. Updated 18 November 2026.
+
+The source baseline is the published [v1.1.2 release](RELEASE_OUTCOME_1.1.2.md), tag commit `f8c378386a43ba4886b17d6b5341bd28881c367d`. The current remediation branch adds a minimize-during-Auto-Type cancellation fix and documentation corrections. The vault format is intended to remain unchanged. Do not create the release tag until the verification and manual checklist below have been recorded against the final candidate.
+
+## Implemented in this work
+
+- Minimizing the vault cancels active Auto-Type even when lock-on-minimize is disabled; an isolated WPF verification exercises this behavior without displaying a window or sending desktop input.
+- Unhandled dispatcher errors now lock the authenticated vault before being marked handled; if the vault cannot be locked or no vault window is active, the application shuts down. The isolated verifier exercises the lock entry point and awaits its cleanup. An unobserved task failure schedules the same lock-or-shutdown response.
+- Editor lock cleanup is now idempotent during an in-progress WPF close: a lock arriving during the discard prompt completes the existing close instead of calling `Close()` reentrantly.
+- Added a 1.1.2 publication outcome with tag, workflow, asset digests and explicit verification limits.
+- Prepared the 1.1.3 application, assembly and package version metadata, release notes and CI defaults; publication remains disabled until the final gates pass.
+- Retained Auto-Type at the user's direction. KeePass documents that window titles are not unique and that users must verify the target window. That is a comparable target-trust limit; KeePass's documentation does not establish that it has SQLitePass's specific check-to-`SendInput` race, and it does not eliminate SQLitePass's race ([Auto-Type](https://keepass.info/help/base/autotype.html), [security analysis](https://keepass.info/help/kb/sec_issues.html)).
+- Repaired corrupted recovery guidance, removed unresolved citation tokens and added repository-local synthetic benchmark evidence.
+- The documentation links, release history and security claims have been reconciled with the published 1.1.2 outcome and the current audit status.
+
+## Verification performed
+
+The [verification summary](../evidence/release-readiness-1.1.3.json) combines local checks with hosted CI. On the pinned **.NET SDK 10.0.404**, locked restore and Release compilation passed with **0 warnings and 0 errors**; **161/161 automated tests** passed and the five-project transitive NuGet scan found **0 known advisories**. The synthetic session verifier passed after the editor-close fix, including minimize cancellation, no lock when lock-on-minimize is disabled, and fail-closed handling of unexpected UI errors.
+
+Hosted GitHub Actions [Verify run #110](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44399667859) on Windows Server 2025 passed for PR #8. It reports the same build/test results, the full hidden WPF verification (**1,080 layout cases**), **105 contrast pairs**, zero known NuGet advisories, and self-contained 1.1.3 packaging. Fresh install, upgrade from 1.0.2, and uninstall smoke checks passed in a temporary test directory. The product application was not started and no real vault was opened. The workflow artifacts are temporary, have a 14-day retention period (through 2 December 2026), and are not a public release. The run tested synthetic PR merge commit `c5d539f4777666aa6553109f486e7c36755e1fcf`, containing PR head `49e6a388a3ec71bdea70ec822a9aa5f8c37dd3ad`; the eventual main-branch candidate still requires its own CI and release workflow.
+
+The earlier completed local WPF run, before the idempotent editor-close fix, failed during cleanup of a synthetic dirty `EntryEditDialog`. The local post-fix full render was stopped when the user reported that the app had crashed; no local result was obtained. I did not restart it on the user's machine. The hosted PR run subsequently completed all 1,080 hidden WPF cases. These facts establish temporal overlap only; the available process and event checks did not identify the cause of the reported app crash. The verifier did not show windows or send desktop input. Four release-publisher safety scenarios pass using a fake CLI without network calls.
+
+The [draft PR #8](https://github.com/FuryGamingASD/SQLitePass/pull/8) remains unmerged and the release is unpublished. This evidence does not complete native Windows checks, close the retained A07 Auto-Type race, or substitute for a final-main release build. Native application launch, tray behavior, Win+L, Clipboard History, DPI, Narrator, high contrast and controlled-target Auto-Type checks remain unverified. Detailed local TRX/render output is ignored by Git.
+
+## Security and reliability release gates
+
+| Area | Current status | Evidence required to close |
+| --- | --- | --- |
+| Auto-Type A07 | Partially mitigated; P1 residual remains and is accepted for retention by the user. Process/title/focus validation cannot bind global `SendInput` atomically to an HWND. Minimize cancellation is added in this branch. KeePass documents its title-matching limit: titles are not unique, so the user must verify the receiving window. This is a similar target-trust concern; the cited KeePass documentation does not establish an identical check-to-input race in KeePass and does not resolve SQLitePass's implementation-specific race ([Auto-Type](https://keepass.info/help/base/autotype.html), [security analysis](https://keepass.info/help/kb/sec_issues.html)). | Keep the P1 disclosure and perform the native synthetic-target checks below. Never state that target changes are impossible or the race is eliminated. |
+| Session lock A08 | Automated lock cleanup and generation invalidation exist; native modal and Windows lock behavior is not verified here. | Complete the Win+L, dialog, long-operation and minimize checks below. |
+| Clipboard A09/B06 | Shared ownership/timeout handling exists; OS history and cloud behavior are unverified. | Complete copy, timeout, ownership, history and cloud checks below on the target Windows build. |
+| Backup A11 | Software fault-injection checks exist, including an OS replacement failure. No physical storage/power-loss test is represented. | Re-run release CI and recovery checks. Record hardware testing only if performed on isolated copies; keep physical durability as an explicit limit otherwise. |
+| Performance C13 | Paging lowers retained memory; authentication/scanning remains O(N), records and backups remain full-sized, and scalar secrets remain in page memory. | Keep the known limits. Do not add an unreviewed format or manifest change to this patch release. |
+| Error handling C14 | Typed conflicts exist. Unhandled dispatcher errors lock the active vault before being marked handled and shut down if no vault is active or immediate locking fails. Unobserved task failures schedule the same lock-or-shutdown response before being marked observed. The idempotent editor close fix passes the session-only verifier and the hosted full WPF verifier passes all 1,080 cases. The local post-fix attempt was interrupted after the user reported a crash; causality is unknown. Other generic catches and task ownership remain. | Investigate the reported crash using its actual reproduction/logs before claiming root cause; do not infer causality from timing. Review the release diff for swallowed security/integrity failures. Defer broad architecture replacement unless a concrete defect requires it. |
+| Accessibility D05–D07 | In-memory layout, contrast and localization checks exist; native DPI and assistive technology are unverified. | Complete the native accessibility checks below and record OS/monitor settings. |
+| Independent review | No independent cryptography audit or penetration test is recorded. | Preserve as an explicit limitation; do not claim certification or absence of vulnerabilities. |
+| Code signing E03 | Intentionally waived by the user; package remains unsigned. | Keep the release unsigned and document the expected Windows reputation prompt. |
+
+## Native Windows checklist
+
+**Execution status: not performed in this work.** Run manually with a synthetic vault and disposable test accounts on an isolated Windows profile. Never use production credentials or a user's only vault. Record Windows build, display scaling, candidate build, date, tester and result for each item. CI, hidden WPF rendering and fake input adapters do not count as native completion.
+
+### Launch, tray and package lifecycle
+
+- [ ] Install the candidate from a clean profile and confirm the unlock window is visible and responsive.
+- [ ] Launch a second instance; confirm the existing unlock/vault window restores from tray and minimization.
+- [ ] Lock/unlock, close-to-tray and minimize-to-tray behavior match settings.
+- [ ] Upgrade from 1.1.2 with the app running; confirm clean shutdown, update completion and next launch.
+- [ ] Uninstall and verify application-owned shortcuts/processes are removed without deleting the user's vault or backups.
+
+### Synthetic vault, credentials and recovery
+
+- [ ] Create a new synthetic vault; confirm a pre-existing file is not overwritten.
+- [ ] Unlock with correct and incorrect passwords; verify incorrect credentials do not mutate the vault.
+- [ ] Test password plus key file and key-file-only vaults, including missing/wrong key files.
+- [ ] On a copy of a legacy-format fixture, migrate, reopen, verify representative fields/history/attachments, and confirm a pre-migration snapshot exists.
+- [ ] Change password and key file; verify old factors fail and new factors succeed. Repeat on copies only.
+- [ ] Restore a verified backup on a copy and verify content before accepting it.
+
+### Locking and sensitive UI
+
+- [ ] Trigger `Win+L` with an editor, settings dialog and another sensitive dialog open; after unlock, confirm the vault is locked and old plaintext is absent.
+- [ ] Trigger `Win+L` during a long import/export or vault operation; confirm cancellation/lock completes safely and no partial data is reported as committed.
+- [ ] Minimize while synthetic Auto-Type is active; confirm typing stops. Repeat with lock-on-minimize enabled and disabled.
+- [ ] Reveal a password, switch applications and wait through the configured timeout; confirm it is masked again.
+
+### Clipboard and screen capture
+
+- [ ] Copy username, password, custom field and generated password; verify configured timeout clears only SQLitePass-owned content.
+- [ ] Replace clipboard content from another application before expiry; confirm SQLitePass does not erase the replacement.
+- [ ] Inspect `Win+V`, Clipboard History and Cloud Clipboard on the test Windows profile; record the Windows configuration and observed result.
+- [ ] Test screen capture with protection enabled and disabled using synthetic values. Record API fallback/unsupported behavior; treat the control as best-effort.
+
+### Auto-Type and accessibility
+
+- [ ] Use a controlled local test target and synthetic credentials. Confirm the target process/title shown in the confirmation and test ambiguous matches.
+- [ ] Change focus, title, process or window handle during typing; confirm typing stops and no later characters are sent.
+- [ ] Test with Shift, Ctrl or Alt held and with an elevated target; confirm safe refusal or documented behavior.
+- [ ] Navigate every primary workflow using keyboard only and Narrator; verify accessible names, focus order, visible focus and error announcements.
+- [ ] Test native high-contrast mode, text scaling and display scales 100%, 125%, 150% and 200%, including a small display and long German strings.
+
+## Automated release evidence required
+
+- [x] Locked restore, Release build with zero warnings/errors, full test suite and 1,080-case WPF verification pass on the PR merge commit in hosted CI. Repeat on the final candidate commit after merge.
+- [x] NuGet vulnerability scan reports no known advisories for the PR build's shipped dependency graph. Repeat on the final candidate commit after merge.
+- [x] Self-contained package verification and temporary-directory fresh install/upgrade/uninstall smoke checks pass on the PR merge commit. Final-main checksums, provenance and release assets are still pending.
+- [ ] The tag workflow publishes the expected assets and verifies the public update feed/package.
+- [ ] The native checklist has a dated result record, with failures fixed and retested or remaining risks explicitly accepted.
+- [ ] `RELEASE_OUTCOME_1.1.3.md` records the final tag, workflow, asset digests, native checklist result and remaining limitations.
+
+The native checklist must remain open until a person has run it on Windows. Hosted CI does not launch the application, open a vault or exercise real Windows desktop behavior. The prior signature waiver continues to apply and is not a native test result. Do not publish 1.1.3 until the reported crash has been investigated, the required native checklist is recorded, final-main CI passes, and the release workflow produces verified assets.
