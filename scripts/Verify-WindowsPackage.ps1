@@ -1,7 +1,8 @@
 param(
     [Parameter(Mandatory)]
     [ValidatePattern('^\d+\.\d+\.\d+-[a-f0-9]{32}$')]
-    [string]$BuildId
+    [string]$BuildId,
+    [switch]$CheckRunningApp
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -13,6 +14,42 @@ $assemblyVersion = "$applicationVersion.0"
 $setup = Join-Path $release 'SQLitePass-win-Setup.exe'
 $package = Join-Path $release "SQLitePass-$applicationVersion-full.nupkg"
 $legacySetup = Join-Path $projectRoot 'releases\SQLitePass-win-Setup.exe'
+$previousSetup = Join-Path $projectRoot 'releases\SQLitePass-1.1.2-Setup.exe'
+$settingsDirectory = Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'SQLitePass'
+$inputPaths = @($setup, $package, $legacySetup)
+if ($CheckRunningApp) {
+    if ($env:RUNNER_ENVIRONMENT -ne 'github-hosted' -or (Test-Path -LiteralPath $settingsDirectory)) {
+        throw 'The live application smoke requires a clean GitHub-hosted Windows profile.'
+    }
+    $inputPaths += $previousSetup
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+
+public static class PackageSmokeWindow
+{
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr window);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsIconic(IntPtr window);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr window, uint flags);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessageTimeout(IntPtr window, uint message, UIntPtr wParam,
+        IntPtr lParam, uint flags, uint timeout, out UIntPtr result);
+
+    public static bool IsResponsiveAndOnScreen(IntPtr window)
+    {
+        return window != IntPtr.Zero && IsWindowVisible(window) && !IsIconic(window)
+            && MonitorFromWindow(window, 0) != IntPtr.Zero
+            && SendMessageTimeout(window, 0, UIntPtr.Zero, IntPtr.Zero, 2, 1000, out _) != IntPtr.Zero;
+    }
+}
+'@
+}
 $uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\SQLitePass'
 $shortcuts = @(
     (Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'SQLitePass.lnk'),
@@ -21,12 +58,12 @@ $shortcuts = @(
 if (Test-Path -LiteralPath $uninstallKey) { throw 'An existing SQLitePass installation must not be changed by this test.' }
 foreach ($shortcut in $shortcuts) { if (Test-Path -LiteralPath $shortcut) { throw 'An existing SQLitePass shortcut must not be overwritten.' } }
 if (Get-Process -Name SQLitePass -ErrorAction SilentlyContinue) { throw 'Close existing application sessions before this isolated test.' }
-foreach ($path in @($setup, $package, $legacySetup)) { if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Required test artifact missing: $path" } }
+foreach ($path in $inputPaths) { if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Required test artifact missing: $path" } }
 $checksums = Get-Content -LiteralPath (Join-Path $release 'checksums.json') -Raw | ConvertFrom-Json
 foreach ($checksum in $checksums) {
     if ((Get-FileHash -LiteralPath (Join-Path $release $checksum.File) -Algorithm SHA256).Hash -ne $checksum.Hash) { throw 'Release artifact checksum mismatch.' }
 }
-$settings = Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'SQLitePass\appsettings.json'
+$settings = Join-Path $settingsDirectory 'appsettings.json'
 $settingsHash = if (Test-Path -LiteralPath $settings) { (Get-FileHash -LiteralPath $settings -Algorithm SHA256).Hash } else { $null }
 $results = [Collections.Generic.List[object]]::new()
 $runId = [guid]::NewGuid().ToString('N')
@@ -54,12 +91,100 @@ function Uninstall-TestCopy([string]$Root, [string]$Label) {
     if (Test-Path -LiteralPath $uninstallKey) { throw 'Uninstall left the application registration present.' }
     foreach ($shortcut in $shortcuts) { if (Test-Path -LiteralPath $shortcut) { throw 'Uninstall left an application shortcut present.' } }
 }
+function New-TestInstallPath([string]$Scenario) {
+    $temp = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
+    $resolved = [IO.Path]::GetFullPath((Join-Path $temp "SQLitePass-install-test-$runId-$Scenario"))
+    if ([IO.Path]::GetDirectoryName($resolved) -ne [IO.Path]::TrimEndingDirectorySeparator($temp) -or
+        (Test-Path -LiteralPath $resolved)) { throw 'Unsafe or occupied test installation path.' }
+    return $resolved
+}
+function Start-TestApp([string]$Root, [string[]]$Arguments = @()) {
+    $info = [Diagnostics.ProcessStartInfo]::new((Join-Path $Root 'current\SQLitePass.exe'))
+    $info.UseShellExecute = $false
+    $info.WorkingDirectory = Join-Path $Root 'current'
+    foreach ($argument in $Arguments) { $info.ArgumentList.Add($argument) }
+    return [Diagnostics.Process]::Start($info)
+}
+function Wait-ForLoginWindow([Diagnostics.Process]$Process) {
+    $timer = [Diagnostics.Stopwatch]::StartNew()
+    while ($timer.Elapsed.TotalSeconds -lt 20) {
+        $Process.Refresh()
+        if ($Process.HasExited) { throw "SQLitePass exited before showing its window (exit $($Process.ExitCode))." }
+        if ($Process.MainWindowTitle.StartsWith('SQLitePass', [StringComparison]::Ordinal) -and
+            [PackageSmokeWindow]::IsResponsiveAndOnScreen($Process.MainWindowHandle)) { return }
+        Start-Sleep -Milliseconds 200
+    }
+    throw 'The installed SQLitePass unlock window did not become visible and responsive.'
+}
+function Assert-CleanAppExit([Diagnostics.Process]$Process, [string]$Operation) {
+    if (-not $Process.WaitForExit(10000) -or $Process.ExitCode -ne 0) {
+        throw "SQLitePass did not exit cleanly during $Operation."
+    }
+}
+function Invoke-RunningAppScenarios {
+    foreach ($scenario in @('running-fresh', 'running-upgrade')) {
+        Write-Output "Testing the installed application in scenario $scenario."
+        $resolved = New-TestInstallPath $scenario
+        $started = [Collections.Generic.List[Diagnostics.Process]]::new()
+        $isUpgrade = $scenario -eq 'running-upgrade'
+        try {
+            $inputSetup = if ($isUpgrade) { $previousSetup } else { $setup }
+            Invoke-Native $inputSetup @('--silent', '--installto', $resolved, '--log', (Join-Path $output "$scenario-install.log"))
+            Assert-Version $resolved $(if ($isUpgrade) { '1.1.2.0' } else { $assemblyVersion })
+            $primary = Start-TestApp $resolved
+            $started.Add($primary)
+            Wait-ForLoginWindow $primary
+            if ($isUpgrade) {
+                Invoke-Native (Join-Path $resolved 'Update.exe') @('--silent', '--log', (Join-Path $output "$scenario-apply.log"), 'apply', '--package', $package, '--norestart')
+                Assert-CleanAppExit $primary 'update'
+                Assert-Version $resolved $assemblyVersion
+                $primary = Start-TestApp $resolved
+                $started.Add($primary)
+                Wait-ForLoginWindow $primary
+            } else {
+                if (-not $primary.CloseMainWindow()) { throw 'Could not close the first unlock window.' }
+                Assert-CleanAppExit $primary 'closing the unlock window'
+                $primary = Start-TestApp $resolved @('--minimized')
+                $started.Add($primary)
+                Start-Sleep -Seconds 2
+                $primary.Refresh()
+                if ($primary.HasExited -or $primary.MainWindowHandle -ne [IntPtr]::Zero) {
+                    throw 'Tray startup did not keep the first process running without a main window.'
+                }
+                $secondary = Start-TestApp $resolved
+                $started.Add($secondary)
+                Assert-CleanAppExit $secondary 'second-instance activation'
+                Wait-ForLoginWindow $primary
+            }
+            Uninstall-TestCopy $resolved $scenario
+            Assert-CleanAppExit $primary 'uninstall'
+            $results.Add([ordered]@{
+                Scenario = $scenario
+                Passed = $true
+                InstalledVersion = $assemblyVersion
+                ResponsiveOnScreenUnlockWindow = $true
+                WakeFromTrayViaSecondInstance = -not $isUpgrade
+                UpgradeFrom = $(if ($isUpgrade) { '1.1.2' } else { $null })
+                CleanExitWhileUpdating = $isUpgrade
+                CleanExitWhileUninstalling = $true
+                AppStarted = $true
+                RealVaultOpened = $false
+            })
+        } finally {
+            foreach ($process in $started) {
+                try {
+                    if (-not $process.HasExited) { $process.Kill(); $process.WaitForExit(5000) | Out-Null }
+                } finally { $process.Dispose() }
+            }
+            if (Test-Path -LiteralPath (Join-Path $resolved 'current\SQLitePass.dll')) {
+                Uninstall-TestCopy $resolved "$scenario-cleanup"
+            }
+        }
+    }
+}
 try {
     foreach ($scenario in @('fresh', 'upgrade')) {
-        $installRoot = Join-Path ([IO.Path]::GetTempPath()) ("SQLitePass-install-test-$runId-$scenario")
-        $resolved = [IO.Path]::GetFullPath($installRoot)
-        if (-not $resolved.StartsWith([IO.Path]::GetFullPath([IO.Path]::GetTempPath()), [StringComparison]::OrdinalIgnoreCase) -or
-            -not [IO.Path]::GetFileName($resolved).StartsWith("SQLitePass-install-test-$runId-") -or (Test-Path -LiteralPath $resolved)) { throw 'Unsafe or occupied test installation path.' }
+        $resolved = New-TestInstallPath $scenario
         Write-Output "Testing $scenario installation in an isolated temporary directory."
         try {
             $inputSetup = if ($scenario -eq 'fresh') { $setup } else { $legacySetup }
@@ -79,9 +204,10 @@ try {
     }
     $afterHash = if (Test-Path -LiteralPath $settings) { (Get-FileHash -LiteralPath $settings -Algorithm SHA256).Hash } else { $null }
     if ($afterHash -ne $settingsHash) { throw 'Application preferences changed during installer testing.' }
-    [ordered]@{ BuildId=$BuildId; Passed=$true; SilentInstall=$true; AutomaticAppLaunch=$false; RealVaultOpened=$false; UserSettingsUnchanged=$true; Uninstalled=$true; Scenarios=@($results.ToArray()); LegacySetupSha256=(Get-FileHash -LiteralPath $legacySetup -Algorithm SHA256).Hash } |
+    if ($CheckRunningApp) { Invoke-RunningAppScenarios }
+    [ordered]@{ BuildId=$BuildId; Passed=$true; SilentInstall=$true; AutomaticAppLaunch=$false; ExplicitAppLaunch=[bool]$CheckRunningApp; RealVaultOpened=$false; SettingsUnchangedDuringSilentInstallerSmoke=$true; Uninstalled=$true; Scenarios=@($results.ToArray()); LegacySetupSha256=(Get-FileHash -LiteralPath $legacySetup -Algorithm SHA256).Hash } |
         ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $output 'windows-package-smoke.json') -Encoding utf8
-    Write-Output 'Fresh install, local update from 1.0.2, and uninstall passed without launching the application.'
+    Write-Output 'Fresh install, local update from 1.0.2, and uninstall passed.'
 } catch {
     [ordered]@{ BuildId=$BuildId; Passed=$false; ErrorType=$_.Exception.GetType().FullName; CompletedScenarios=@($results.ToArray()) } |
         ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $output 'windows-package-smoke.json') -Encoding utf8

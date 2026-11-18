@@ -7,6 +7,7 @@ Maintenance and reliability release.
 - Cancel active Auto-Type when the vault window is minimized, even when automatic locking on minimize is disabled.
 - Lock the active vault before handling an unexpected dispatcher error; shut down if no authenticated vault is active or locking cannot complete.
 - Safely complete an entry editor close when a vault lock arrives during its discard prompt.
+- Preserve second-instance activation and updater shutdown requests that arrive while the app is starting.
 - Correct security and recovery documentation to describe verified behavior and known limits.
 
 ## Security and compatibility

@@ -19,10 +19,11 @@ internal sealed class SingleInstanceCoordinator : IDisposable
     private readonly EventWaitHandle _shutdownEvent;
     private readonly RegisteredWaitHandle _waitRegistration;
     private readonly RegisteredWaitHandle _shutdownRegistration;
+    private readonly object _handlersLock = new();
     private Action? _activationHandler;
     private Action? _shutdownHandler;
-    private int _activationPending;
-    private int _shutdownPending;
+    private bool _activationPending;
+    private bool _shutdownPending;
     private int _disposed;
 
     private SingleInstanceCoordinator(Mutex mutex, EventWaitHandle activationEvent, EventWaitHandle shutdownEvent)
@@ -96,42 +97,52 @@ internal sealed class SingleInstanceCoordinator : IDisposable
     public void RegisterActivationHandler(Action handler)
     {
         ArgumentNullException.ThrowIfNull(handler);
-        Volatile.Write(ref _activationHandler, handler);
-        if (Interlocked.Exchange(ref _activationPending, 0) != 0)
-            handler();
+        bool pending;
+        lock (_handlersLock)
+        {
+            _activationHandler = handler;
+            pending = _activationPending;
+            _activationPending = false;
+        }
+        if (pending) handler();
     }
 
     public void RegisterShutdownHandler(Action handler)
     {
         ArgumentNullException.ThrowIfNull(handler);
-        Volatile.Write(ref _shutdownHandler, handler);
-        if (Interlocked.Exchange(ref _shutdownPending, 0) != 0)
-            handler();
+        bool pending;
+        lock (_handlersLock)
+        {
+            _shutdownHandler = handler;
+            pending = _shutdownPending;
+            _shutdownPending = false;
+        }
+        if (pending) handler();
     }
 
     private void OnActivationRequested()
     {
-        var handler = Volatile.Read(ref _activationHandler);
-        if (handler == null)
+        Action? handler;
+        lock (_handlersLock)
         {
-            Interlocked.Exchange(ref _activationPending, 1);
-            return;
+            handler = _activationHandler;
+            if (handler == null) _activationPending = true;
         }
 
-        try { handler(); }
+        try { handler?.Invoke(); }
         catch (Exception exception) { AppLogger.LogWarning("Window activation request failed: " + exception.GetType().Name); }
     }
 
     private void OnShutdownRequested()
     {
-        var handler = Volatile.Read(ref _shutdownHandler);
-        if (handler == null)
+        Action? handler;
+        lock (_handlersLock)
         {
-            Interlocked.Exchange(ref _shutdownPending, 1);
-            return;
+            handler = _shutdownHandler;
+            if (handler == null) _shutdownPending = true;
         }
 
-        try { handler(); }
+        try { handler?.Invoke(); }
         catch (Exception exception) { AppLogger.LogWarning("Application shutdown request failed: " + exception.GetType().Name); }
     }
 
