@@ -385,7 +385,7 @@ These snapshots preserve the original vault state before migration.
 
 Migration occurs only after:
 
-- Successful authenticatio*
+- Successful authentication
 - Metadata verification
 - Structural validation
 - Group validation
@@ -399,14 +399,11 @@ Invalid legacy databases are rejected before conversion.
 
 ## Purpose
 
-Changing:
+The following rekey operations are considered high-risk:
 
-- Master Password*- Key File
-- KDF Parameters
-
-is considered a high-risk operation.
-
---*
+- Changing the master password
+- Replacing or removing the key file
+- Changing the KDF parameters
 
 ## Pre-Rekey Snapshot
 
