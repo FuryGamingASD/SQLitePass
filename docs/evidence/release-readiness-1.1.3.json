@@ -65,13 +65,13 @@
     },
     "hostedCiRun": {
       "result": "passed",
-      "workflow": "Verify #110",
-      "runId": 44399667859,
-      "runUrl": "https://github.com/FuryGamingASD/SQLitePass/actions/runs/44399667859",
-      "runNumber": 110,
+      "workflow": "Verify #112",
+      "runId": 44401931309,
+      "runUrl": "https://github.com/FuryGamingASD/SQLitePass/actions/runs/44401931309",
+      "runNumber": 112,
       "pullRequest": "https://github.com/FuryGamingASD/SQLitePass/pull/8",
-      "prHeadCommit": "49e6a388a3ec71bdea70ec822a9aa5f8c37dd3ad",
-      "testedMergeCommit": "c5d539f4777666aa6553109f486e7c36755e1fcf",
+      "prHeadCommit": "e3630a6bc20a68bf5b285cc22f308c79edd0b0f3",
+      "testedMergeCommit": "a3715e8a3de344fd61deb6cfef19e631171303ee",
       "operatingSystem": "Windows Server 2025 (10.0.26100)",
       "sdk": "10.0.404",
       "buildWarnings": 0,
@@ -112,7 +112,9 @@
     "releaseNotesPathCheck": "passed",
     "packageBuilt": true,
     "buildId": "1.1.3-e7a23300e3aa4ea8abd7b753e2fa334c",
+    "buildIdEvidenceRunNumber": 110,
     "ciPackageVerification": {
+      "evidenceRunNumber": 110,
       "applicationVersion": "1.1.3.0",
       "bundledRuntime": "10.0.15",
       "portableEntries": 496,
@@ -126,17 +128,19 @@
     },
     "workflowArtifacts": [
       {
-        "name": "verification-c5d539f4777666aa6553109f486e7c36755e1fcf",
-        "sizeBytes": 25255498,
-        "sha256": "1677f3bfa13358ffeaa08c0c64ce71d5a7a4a9a4055a96db97535cd68ec9749e"
+        "name": "verification-a3715e8a3de344fd61deb6cfef19e631171303ee",
+        "sizeBytes": 25262410,
+        "sha256": "e3849e6e9cf13c2ac9fe4bad6a2e6caf9d98cb479860c3431eb7ac68b5e30332"
       },
       {
         "name": "SQLitePass-win-x64",
-        "sizeBytes": 246860370,
-        "sha256": "66e9cb891e45e71ac32050b1a0d531e25d1396055a7e9102fb7115106c69bb89"
+        "sizeBytes": 246860410,
+        "sha256": "686fc56ec222ac47772c8f9b89fd4abbb2bb430b29501df9eea159b3ccc1f515"
       }
     ],
-    "workflowArtifactExpiry": "2026-12-02 (14-day GitHub Actions retention)",
+    "workflowArtifactRunNumber": 112,
+    "workflowArtifactSourceCommit": "a3715e8a3de344fd61deb6cfef19e631171303ee",
+    "workflowArtifactExpiry": "2026-12-02 21:33 UTC (14-day GitHub Actions retention)",
     "packageWasNotPublished": true,
     "releasePublished": false
   },
