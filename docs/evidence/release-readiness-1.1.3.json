@@ -210,22 +210,22 @@
   },
   "latestHostedCiRuns": [
     {
-      "result": "passed",
-      "runNumber": 117,
-      "url": "https://github.com/FuryGamingASD/SQLitePass/actions/runs/44409591978",
       "workflow": "Verify",
       "event": "push",
-      "runId": 44409591978,
-      "commit": "49eed427134457607307adb4b2eff91dd364bc93"
+      "result": "passed",
+      "runId": 44411772629,
+      "commit": "2528e4becbc0477b098f58f53af7539d64b59760",
+      "url": "https://github.com/FuryGamingASD/SQLitePass/actions/runs/44411772629",
+      "runNumber": 119
     },
     {
-      "result": "passed",
-      "runNumber": 118,
-      "url": "https://github.com/FuryGamingASD/SQLitePass/actions/runs/44409599826",
       "workflow": "Verify",
       "event": "pull_request",
-      "runId": 44409599826,
-      "commit": "49eed427134457607307adb4b2eff91dd364bc93"
+      "result": "passed",
+      "runId": 44411783294,
+      "commit": "2528e4becbc0477b098f58f53af7539d64b59760",
+      "url": "https://github.com/FuryGamingASD/SQLitePass/actions/runs/44411783294",
+      "runNumber": 120
     }
   ]
 }
