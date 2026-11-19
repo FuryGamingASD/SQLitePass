@@ -8,6 +8,7 @@ using System.Windows.Threading;
 using SQLitePass.Core.Crypto;
 using SQLitePass.Core.Database;
 using SQLitePass.Core.Models;
+using SQLitePass.Core.Services;
 using SQLitePass.UI;
 using SQLitePass.UI.Dialogs;
 
@@ -32,10 +33,23 @@ internal static class SessionVerification
         var child = new PwGroup { Name = "Synthetic child", ParentId = root.Id };
         var source = new PwEntry { GroupId = child.Id, Title = "Synthetic entry", UserName = "synthetic user", Password = "synthetic password", Tags = "work", ExpiryDate = DateTime.Today.AddDays(-1) };
         using var storage = await SqliteStorageProvider.CreateVaultAsync(Path.Combine(temporary, "session.kpd"), metadata, crypto, [root, child], [source], false);
+        AppSettingsManager.Update(settings =>
+        {
+            settings.AutoLockOnMinimize = false;
+            settings.MinimizeToTray = false;
+        });
         Console.WriteLine("Session verification: constructing window.");
         var main = new MainWindow(storage, crypto, metadata, enableDesktopIntegration: false);
         try
         {
+            var autoTypeCancellation = Field<CancellationTokenSource>(main, "_autoTypeCancellation");
+            main.GetType().GetField("_isPerformingAutoType", Private)!.SetValue(main, true);
+            main.WindowState = WindowState.Minimized;
+            main.GetType().GetMethod("MainWindow_StateChanged", Private)!.Invoke(main, [main, EventArgs.Empty]);
+            Require(autoTypeCancellation.IsCancellationRequested, "Minimizing the vault did not cancel active Auto-Type.");
+            Require(!Field<bool>(main, "_isLocked"), "The minimize cancellation scenario unexpectedly locked the vault.");
+            main.GetType().GetField("_isPerformingAutoType", Private)!.SetValue(main, false);
+
             Console.WriteLine("Session verification: loading rows.");
             await InvokeTask(main, "RefreshDataAsync");
 
@@ -66,7 +80,8 @@ internal static class SessionVerification
             Field<SQLitePass.UI.Services.TimedSecretReveal>(main, "_previewReveal").Reveal();
             Field<SQLitePass.UI.Services.TimedSecretReveal>(main, "_columnReveal").Reveal();
             Console.WriteLine("Session verification: locking.");
-            await InvokeTask(main, "LockVaultAsync", false);
+            Require(main.LockAfterUnexpectedError(), "Unexpected UI errors did not immediately place the vault in locked state.");
+            await Field<Task>(main, "_lockCompletion");
             Console.WriteLine("Session verification: checking cleared state.");
             Require(Field<bool>(main, "_isLocked") && !Field<bool>(main, "_isLocking"), "Session did not finish locking.");
             Require(entries.Count == 0 && Field<IList>(main, "_rootGroups").Count == 0, "Vault controls retain session rows.");
@@ -78,7 +93,7 @@ internal static class SessionVerification
             source.ClearSecrets();
             Require(!Field<SQLitePass.UI.Services.TimedSecretReveal>(main, "_columnReveal").IsRevealed &&
                 Field<TextBox>(main, "TxtTagFilter").Text.Length == 0 && Field<TextBlock>(main, "TxtEntryScope").Text.Length == 0, "Lock retained reveal/filter/breadcrumb state.");
-            return new { SyntheticOnly = true, WindowsShown = false, DesktopInputUsed = false, RowsCleared = true, PagingCursorsCleared = true, ProviderLoadingTested = true, UiFiltersTested = true, RevealsAndFiltersCleared = true, EditorCleared = true, KeyDisposed = true, OwnedDialogsClosed = true };
+            return new { SyntheticOnly = true, WindowsShown = false, DesktopInputUsed = false, MinimizeCancelsAutoType = true, MinimizeDoesNotLockVault = true, UnexpectedUiErrorLocksSession = true, RowsCleared = true, PagingCursorsCleared = true, ProviderLoadingTested = true, UiFiltersTested = true, RevealsAndFiltersCleared = true, EditorCleared = true, KeyDisposed = true, OwnedDialogsClosed = true };
         }
         finally { main.Close(); source.ClearSecrets(); }
     }

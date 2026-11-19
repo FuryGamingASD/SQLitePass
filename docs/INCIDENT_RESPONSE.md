@@ -1,413 +1,80 @@
 # Incident Response
 
-## Purpose
+Updated: 18 November 2026.
 
-This document defines the incident response process for SQLitePass.
+This runbook covers suspected vulnerabilities, credential exposure, vault integrity failures, backup failures, malicious releases and supply-chain concerns. It supplements the device owner's and organization's incident process; it does not determine legal notification duties.
 
-Its objectives are to:
+## Report a vulnerability
 
-- Protect users
-- Contain security incidents
-- Preserve evidence
-- Reduce impact
-- Restore normal operation
-- Improve future resilience
+Use [GitHub Private Vulnerability Reporting](https://github.com/FuryGamingASD/SQLitePass/security/advisories/new) for suspected vulnerabilities. If that channel is unavailable, ask for a confidential contact channel without posting exploit details publicly. Never attach a real vault, password, key file, production credential or memory dump. Reproduce with synthetic data only.
 
-SQLitePass is a local-first password manager. Consequently, most incidents affect:
+## Severity and response target
 
-- Confidentiality
-- Integrity
-- Availability
+| Severity | Examples | Initial action |
+| --- | --- | --- |
+| Critical | Vault authentication bypass, key disclosure, remote code execution, malicious release or compromised signing/build pipeline | Immediately contain distribution or affected service; preserve evidence; assess user impact and prepare an advisory. |
+| High | Authentication or integrity bypass, unsafe recovery, destructive data loss, exploitable Auto-Type disclosure | Investigate urgently, reproduce safely, determine affected versions and prepare a fix or mitigation. |
+| Medium | Clipboard leakage, information disclosure, unsafe defaults or security control failure requiring user action | Triage promptly, determine exposure and plan a fix and user guidance. |
+| Low | Limited non-sensitive disclosure or operational defect with no material confidentiality/integrity impact | Track through normal maintenance and correct the documentation where needed. |
 
-of local vault data rather than centralized cloud infrastructure.
+Severity is an initial assessment, not a promise about response time. Reclassify when evidence changes.
 
----
+## Response procedure
 
-# Scope
+### 1. Record and acknowledge
 
-This process applies to:
+Record the report date, affected release, Windows version, installation type, vault format, reproduction steps and observed confidentiality, integrity and availability impact. Assign an incident identifier. Do not record secret values.
 
-- Security vulnerabilities
-- Suspected cryptographic weaknesses
-- Vault integrity failures
-- Backup failures
-- Unauthorized access attempts
-- Malicious modifications
-- Supply chain concerns
-- Update security problems
-- Data corruption events
+### 2. Preserve evidence
 
-This process does not replace:
+Preserve relevant logs, release metadata, workflow runs, installer hashes and synthetic reproduction files. For a damaged vault, preserve the vault and its `-wal` and `-shm` sidecars together. Keep originals unchanged and restrict access to evidence. Do not request or copy user passwords, key files, production vaults or memory dumps.
 
-- Operating system incident response
-- Enterprise SOC procedures
-- Digital forensics investigations
-- Regulatory breach notification requirements
+### 3. Contain
 
----
+Choose containment based on the incident. Examples include pausing a release, disabling an affected feature, advising users to stop using an affected workflow, or isolating an affected endpoint. Do not delete backups or evidence as a containment step. If the endpoint may be compromised, do not unlock the vault there.
 
-# Security Principles
+### 4. Assess scope and impact
 
-When handling incidents:
+Determine affected versions, formats, operating conditions, prerequisites, exploitability and whether confidentiality, integrity or availability was affected. Separate reproduced behavior from code-based analysis and unverified scenarios. Identify whether credentials may have been exposed and which external services need credential rotation.
 
-1. Preserve evidence
-2. Prevent further damage
-3. Avoid unnecessary modifications
-4. Work on copies whenever possible
-5. Validate recovery procedures
-6. Document every action
+### 5. Correct and validate
 
----
+Develop the narrowest safe fix or mitigation. Add regression coverage for the reproduced failure where practical. Validate build, automated tests, dependency findings, package provenance and recovery behavior. Native Windows behavior, hardware failure resistance and independent audit results must be reported only when they have actually been verified.
 
-# Incident Severity Classification
+### 6. Communicate and release
 
-## Severity 1 (Critical)
+Prepare an advisory that states affected versions, impact, prerequisites, mitigation, fixed version and remaining limits. Avoid publishing exploit details before users have a practical mitigation. Verify the release assets and update feed before directing users to them.
 
-Immediate compromise of confidentiality.
+### 7. Recover and learn
 
-Examples:
+If a user's endpoint or vault was affected, recovery should use a trusted device and a validated copy; follow the Disaster Recovery runbook. After closure, record root cause, timeline, affected versions, evidence, corrective actions and follow-up owners. Update the threat model, security policy, release notes and tests when their assumptions changed.
 
-- Vault decryption without credentials
-- Authentication bypass
-- Key disclosure
-- Remote code execution
-- Supply-chain compromise
-- Malicious release distribution
+## Incident-specific considerations
 
-Expected response:
+### Cryptography or authentication
 
-```text
-Immediate
-```
+Treat suspected key disclosure, authentication bypass, canary bypass or record-authentication failure as Critical or High until scope is established. Preserve the exact affected version and synthetic test case. Do not make claims about compromise or safety without evidence. Coordinate credential rotation from a trusted device if exposure is plausible.
 
-Recommended action:
+### Vault integrity or recovery
 
-- Stop distribution
-- Preserve evidence
-- Notify users
-- Publish advisory
+Stop writes to the affected copy. Preserve the vault and sidecars, validate recovery candidates on copies and retain the original until recovered data has been checked. A successful SQLite integrity check does not alone prove cryptographic authenticity or content completeness.
 
----
+### Auto-Type or clipboard
 
-## Severity 2 (High)
+Record the target process, window state, user action and timing using synthetic credentials. Do not reproduce against a real login or production account. Clipboard history, cloud synchronization and screen capture behavior depend on Windows configuration and must not be described as verified unless tested on the relevant Windows build.
 
-Potential compromise or serious integrity failure.
+### Release or supply chain
 
-Examples:
+Pause distribution when a release artifact, dependency, workflow or provenance record may be compromised. Preserve workflow logs and asset digests. Compare the published feed and assets with the verified build output, then publish corrected packages and a user advisory if necessary.
 
-- Cryptographic implementation flaw
-- Backup validation bypass
-- Recovery verification bypass
-- Privilege escalation
-- Vault tampering bypass
+## Closure checklist
 
-Expected response:
+- [ ] Scope, severity, affected versions and evidence are recorded.
+- [ ] Containment and user guidance are documented.
+- [ ] Fixes have regression coverage and verification evidence.
+- [ ] Release assets and update feed are checked, if a release was required.
+- [ ] Recovery and credential rotation guidance is provided when relevant.
+- [ ] Advisory, release notes and security documentation are updated.
+- [ ] Remaining risks, owner and follow-up date are recorded.
 
-```text
-Urgent
-```
-
-Recommended action:
-
-- Investigate immediately
-- Assess exploitation risk
-- Prepare fix
-- Publish advisory when appropriate
-
----
-
-## Severity 3 (Medium)
-
-Security weaknesses requiring user action.
-
-Examples:
-
-- Information disclosure
-- Unsafe defaults
-- Insufficient validation
-- Auto-Type security weaknesses
-- Clipboard handling defects
-
-Expected response:
-
-```text
-High priority
-```
-
-Recommended action:
-
-- Correct in next release
-- Update documentation
-- Communicate mitigations
-
----
-
-## Severity 4 (Low)
-
-Minor risks without significant practical impact.
-
-Examples:
-
-- Cosmetic security bugs
-- Non-sensitive information leakage
-- Logging defects without credential exposure
-
-Expected response:
-
-```text
-Normal development cycle
-```
-
----
-
-# Incident Categories
-
-## Cryptographic Incident
-
-Examples:
-
-- AES implementation flaw
-- Argon2 weakness
-- Authentication bypass
-- Key derivation error
-
-Potential impact:
-
-- Vault compromise
-- Offline cracking exposure
-- Integrity bypass
-
-Priority:
-
-```text
-Critical
-```
-
----
-
-## Vault Integrity Incident
-
-Examples:
-
-- Manifest validation failure
-- Unexpected modification detection
-- Tampering concerns
-
-Potential impact:
-
-- Data corruption
-- Data integrity uncertainty
-
-Priority:
-
-```text
-High
-```
-
----
-
-## Backup Incident
-
-Examples:
-
-- Backup validation failure
-- Missing backups
-- Corrupted backups
-- Recovery failure
-
-Potential impact:
-
-- Availability loss
-- Recovery failure
-
-Priority:
-
-```text
-High
-```
-
----
-
-## Authentication Incident
-
-Examples:
-
-- Incorrect unlock behavior
-- Key-file bypass
-- Session validation failure
-
-Potential impact:
-
-- Unauthorized access
-
-Priority:
-
-```text
-Critical
-```
-
----
-
-## Auto-Type Incident
-
-Examples:
-
-- Wrong target detection
-- Focus validation failure
-- Credential disclosure during typing
-
-Potential impact:
-
-- Credential exposure
-
-Priority:
-
-```text
-High
-```
-
----
-
-## Clipboard Incident
-
-Examples:
-
-- Clipboard not cleared
-- Clipboard timeout failure
-- Cloud Clipboard leakage
-
-Potential impact:
-
-- Temporary credential exposure
-
-Priority:
-
-```text
-Medium
-```
-
----
-
-## Supply Chain Incident
-
-Examples:
-
-- Malicious dependency
-- Compromised build script
-- Compromised CI/CD workflow
-- Malicious release artifact
-
-Potential impact:
-
-- Full compromise
-
-Priority:
-
-```text
-Critical
-```
-
----
-
-# Detection Sources
-
-Incidents may be detected through:
-
-## User Reports
-
-Examples:
-
-- GitHub Issues
-- Private vulnerability reports
-- Security researchers
-
----
-
-## Internal Testing
-
-Examples:
-
-- Automated tests
-- Regression tests
-- CI verification
-- Release validation
-
----
-
-## Security Review
-
-Examples:
-
-- Source code review
-- Dependency review
-- External audit
-- Penetration testing
-
----
-
-## Operational Observation
-
-Examples:
-
-- Vault integrity failures
-- Recovery failures
-- Unexpected crashes
-- Validation errors
-
----
-
-# Initial Response Procedure
-
-## Step 1 - Record the Event
-
-Capture:
-
-- Date
-- Time
-- Version
-- Environment
-- Reporter
-- Reproduction details
-
-Assign a temporary incident identifier.
-
-Example:
-
-```text
-INC-2026-001
-```
-
----
-
-## Step 2 - Preserve Evidence
-
-Preserve:
-
-- Vault copies
-- Recovery copies
-- Logs
-- Screenshots
-- Error messages
-
-Do not modify original artifacts.
-
----
-
-## Step 3 - Determine Severity
-
-Classify:
-
-- Critical
-- High
-- Medium
-- Low
-
-Severity determines response urgency.
-
----
-
-## Step 4 - Assess Scope
-
-Determine:
-
-- A
+This runbook is an internal process guide, not a guarantee of response time, incident recovery or regulatory compliance.

@@ -88,7 +88,7 @@ public sealed partial class SqliteStorageProvider
         }
         finally
         {
-            try { if (File.Exists(temporary)) File.Delete(temporary); }
+            try { DeleteTemporary(temporary); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { LastBackupError ??= "Pulizia del file temporaneo non completata."; }
             try { BackupStatusChanged?.Invoke(this, EventArgs.Empty); }
             catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException) { AppLogger.LogWarning("Notifica dello stato backup non consegnata."); }

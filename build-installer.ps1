@@ -1,6 +1,6 @@
 param(
     [ValidatePattern('^\d+\.\d+\.\d+(-[A-Za-z0-9.-]+)?$')]
-    [string]$Version = "1.1.2",
+    [string]$Version = "1.1.3",
     [string]$CertificateThumbprint = $env:SQLITEPASS_SIGN_CERT,
     [switch]$AllowUnsigned
 )

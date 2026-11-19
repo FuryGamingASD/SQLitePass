@@ -13,7 +13,7 @@ Its objectives are to:
 - Validate recovery workflows
 - Reduce the likelihood of introducing vulnerabilities
 
-Security testing is performed continuously throughout development and before public releases.
+Automated security checks run in development and release workflows, but their scope varies by feature and release. This document defines the test strategy; it does not claim that every listed test is continuously run or that every control has passed native validation. For current, dated evidence, see the [audit status](AUDIT_STATUS.md) and [release readiness](releases/RELEASE_READINESS_1.1.3.md).
 
 Testing improves confidence but does not guarantee the absence of vulnerabilities.
 
@@ -554,6 +554,12 @@ Auto-Type is cancelled.
 ---
 
 # Session Security Testing
+
+## Unexpected UI Errors
+
+Verify that an unhandled dispatcher exception immediately changes an active vault to locked state before the exception is marked handled. If the vault lock cannot be established, the application must exit. When no authenticated vault window is active, it must not continue the damaged UI session. An unobserved task failure must schedule the same lock-or-shutdown response before it is marked observed.
+
+The isolated WPF verifier invokes the lock entry point and awaits cleanup. It does not inject a dispatcher exception or unobserved task failure into the full running application; those event paths should be included in a controlled manual release check.
 
 ## Manual Lock
 

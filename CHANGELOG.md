@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- Cancel active Auto-Type when the vault window is minimized, including when lock-on-minimize is disabled.
+- Add a synthetic WPF regression for minimize cancellation without displaying a window or sending desktop input.
+- Fail closed on unhandled dispatcher errors: lock the active vault before marking the exception handled, and shut down if a vault cannot be locked or no vault window is active. Unobserved task failures now schedule the same lock-or-shutdown response before being marked observed.
+- Prevent reentrant editor closing when a vault lock arrives while an entry discard prompt is already closing the window.
+- Preserve activation and updater shutdown requests that arrive before the app finishes starting.
+- Remove the uninstalled copy's Windows startup entry when it belongs to that installation.
+- Remove temporary SQLite journal files after vault backups.
+- Correct release claims and repair incomplete recovery and incident-response documentation.
+
 ## [1.1.2] - 2026-11-18
 
 ### Changed
@@ -69,18 +81,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.2] - 2026-11-12
 
 ### 🛡️ Security & Privacy Hardening
-- **Anti-Screenshot & Anti-Spyware Protection**: Integrated native Win32 `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE / WDA_MONITOR)`. Application windows (Unlock Vault, Dashboard, Entry Editor, Settings) now appear completely blacked out / invisible to screen capture tools (Snipping Tool, OBS, Discord, TeamViewer, screenshot malware). Can be toggled in *Settings*.
-- **In-Memory Key File Sanitization**: Guaranteed zeroing of `_keyFileBytes` with `CryptographicOperations.ZeroMemory` within `finally` blocks immediately after Argon2id key derivation, preventing key material leakage in memory dumps.
-- **Memory Purge on Vault Lock**: Forced garbage collection (`GC.Collect()` and finalizer synchronization) when locking the vault to purge discarded in-memory strings.
+- **Best-effort Screen Capture Exclusion**: Added optional Win32 `SetWindowDisplayAffinity` support (`WDA_EXCLUDEFROMCAPTURE`, with a `WDA_MONITOR` fallback). Supported capture paths may omit or blank protected windows; this does not block every capture method, spyware or privileged process.
+- **Key-file Buffer Cleanup**: The selected `_keyFileBytes` buffer is cleared after derivation. This does not clear every copy held by the runtime or prevent memory-dump access to other copies.
+- **Lock-time Memory Cleanup**: Locking releases references and requests garbage collection for eligible objects. It cannot guarantee that immutable .NET strings have been overwritten or immediately removed from process memory.
 
 ### 💾 Database, Performance & Resilience
-- **High-Performance Batch Import (50x Faster)**: Implemented `SaveEntriesBatchAsync` executing bulk entry insertions inside a single atomic SQLite transaction with a single online backup snapshot, reducing import times for thousands of passwords from ~35s to under 500ms.
-- **Proactive Database Integrity Check (`PRAGMA quick_check;`)**: Verifies physical database page consistency upon vault opening; in the event of disk sector damage or corruption, automatically offers instant recovery from the isolated `.kpd.backup` snapshot.
-- **Recycle Bin & Soft-Delete**: First-time entry deletions now safely relocate items to the "Cestino" (Recycle Bin) folder. Permanent erasure requires confirmation only when deleting directly from the Recycle Bin or through the new **"Empty Recycle Bin"** action.
+- **Batch Import**: Added bulk entry writes in a SQLite transaction. Import time depends on vault size, storage, backup configuration and the imported data; no general speedup factor is claimed.
+- **Database Integrity Check**: Added SQLite `quick_check` validation and a recovery-candidate flow. This checks database structure; it cannot repair every damaged file or guarantee recovery from physical media failure.
+- **Recycle Bin & Soft-Delete**: First-time entry deletions move items to the Recycle Bin. Permanent deletion removes them from the active vault after confirmation, but prior backups or retained history may still contain copies; this is not a secure-erasure guarantee.
 
 ### 🚀 Multi-Platform Import Support
-- **Bitwarden JSON Importer**: Full support for Bitwarden unencrypted `.json` vault exports (credentials, URLs, notes, custom fields, and TOTP seeds).
-- **Web Browser CSV Importer**: Auto-detects and imports passwords from **Google Chrome, Microsoft Edge, Mozilla Firefox, Brave, and Opera**.
+- **Bitwarden JSON Importer**: Added import of supported fields from unencrypted Bitwarden `.json` exports. This is not a full-fidelity round trip; unsupported item types are not necessarily converted to native SQLitePass features.
+- **Browser CSV Importer**: Added import support for recognized CSV formats from Chrome, Edge, Firefox, Brave and Opera. Export layouts vary; review the imported data and retain the source export until it is verified.
 
 ### ✨ User Experience & Ergonomics
 - **Interactive Folder / Group Drag & Drop**:
@@ -124,7 +136,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🐛 Bug Fixes
 - **Password Generator Dialog Crash**: Fixed `NullReferenceException` caused by premature event triggers (`ValueChanged` on slider and `Checked` on checkboxes) during XAML component initialization.
-- **Auto-Type Crash & Execution Hardening**: Fixed crash in `BtnAutoType_Click` caused by window state minimization race condition clearing selected entry reference. Added null-checks and exception guards across `AutoTypeService`.
+- **Auto-Type Selection Crash**: Fixed a crash when minimizing cleared the selected-entry reference. This did not eliminate the separate race inherent in global `SendInput`; the unreleased 1.1.3 work also cancels active Auto-Type on minimize.
 - **Smart Context-Aware Action Buttons**: Top toolbar buttons (Copy User, Copy Password, Open URL, Auto-Type) and context menus are now dynamically enabled only when the selected entry actually contains that specific data, preventing misleading clickable states on empty fields.
 - **Silent Background Auto-Lock**: Prevented the unlock window from aggressively popping up and stealing focus over other applications when idle timeout or Windows session lock occurs while the app is in the background or minimized to the System Tray. Cancelling unlock no longer abruptly shuts down the application.
 
@@ -136,10 +148,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.0] - 2026-11-10
 
 ### 🚀 Initial Official Release
-- **Anti-Corruption Architecture**: Field-level AES-256-GCM encryption with Argon2id key derivation, stored in unencrypted SQLite database.
-- **SQLite WAL Engine**: ACID transactions with `PRAGMA journal_mode = WAL` preventing data loss from unexpected power cuts or OS updates.
-- **Isolated Atomic Dual-Backup**: Automatic out-of-process `.kpd.backup` synchronized on every change.
+- **Encrypted SQLite Storage**: Used AES-256-GCM payload encryption and Argon2id key derivation. SQLite structure and some metadata remained visible in this format.
+- **SQLite WAL Transactions**: Used SQLite transactions and WAL recovery. These controls reduce software-level partial-write risk but do not guarantee survival of every power, filesystem, controller or media failure.
+- **Automatic Backup**: Added a local `.kpd.backup` workflow. Backup creation and publication depend on successful writes, configuration and available storage; a same-device copy does not protect against device loss.
 - **Global Auto-Type (`Ctrl+Alt+A`)**: Background hotkey for system-wide credential entry.
-- **KeePass Parity**: Custom fields, encrypted file attachments, history/versioning, CSV import/export, and configurable clipboard clearing.
+- **Password Management Features**: Custom fields, encrypted file attachments, history, CSV import/export and configurable clipboard clearing. This feature list does not imply complete format compatibility with KeePass or other password managers.
 - **Multi-Language Support**: English, Italiano, Français, Deutsch, and Español.
 - **Velopack Installer & Auto-Updater**: Native background updates and portable edition.

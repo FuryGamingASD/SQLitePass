@@ -41,7 +41,11 @@ public partial class MainWindow
         LockedOverlay.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
     }
     private void BtnUnlock_Click(object sender, RoutedEventArgs e) => PromptUnlock();
-    internal void LockAfterUnexpectedError() => LockVault(userInitiated: false);
+    internal bool LockAfterUnexpectedError()
+    {
+        LockVault(userInitiated: false);
+        return _isLocked;
+    }
     private PwEntry? ReadDraggedEntry(DragEventArgs e) =>
         e.Data.GetData("SQLitePass.EntryId", false) is string id && Guid.TryParse(id, out var key) ? _visibleEntries.FirstOrDefault(entry => entry.Id == key) : null;
     private PwGroup? ReadDraggedGroup(DragEventArgs e)

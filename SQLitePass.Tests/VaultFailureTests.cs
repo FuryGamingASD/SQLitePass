@@ -7,6 +7,17 @@ namespace SQLitePass.Tests;
 public partial class VaultSecurityTests
 {
     [Fact]
+    public async Task SuccessfulBackupRemovesTemporaryDatabaseAndJournals()
+    {
+        using var vault = await TestVault.Create(backup: true);
+        await vault.Add();
+
+        Assert.Null(vault.Storage.LastBackupError);
+        Assert.True(File.Exists(vault.Storage.BackupFilePath));
+        Assert.Empty(Directory.GetFiles(vault.DirectoryPath, "*.tmp*"));
+    }
+
+    [Fact]
     public async Task SimulatedFullDiskBeforeCommitRollsBackWithoutUpdatingBackup()
     {
         using var vault = await TestVault.Create(backup: true); var entry = await vault.Add();
@@ -31,7 +42,7 @@ public partial class VaultSecurityTests
         Assert.NotNull(vault.Storage.LastBackupError);
         Assert.Equal("committed", (await vault.Storage.LoadEntryAsync(entry.Id, vault.Crypto)).Password);
         Assert.Equal(backup, File.ReadAllBytes(vault.Storage.BackupFilePath));
-        Assert.Empty(Directory.GetFiles(vault.DirectoryPath, "*.tmp"));
+        Assert.Empty(Directory.GetFiles(vault.DirectoryPath, "*.tmp*"));
     }
 
     [Fact]
@@ -50,7 +61,7 @@ public partial class VaultSecurityTests
         Assert.NotNull(vault.Storage.LastBackupError);
         Assert.Equal(entry.Password, (await vault.Storage.LoadEntryAsync(entry.Id, vault.Crypto)).Password);
         Assert.Equal(previousBackup, File.ReadAllBytes(backupPath));
-        Assert.Empty(Directory.GetFiles(vault.DirectoryPath, "*.tmp"));
+        Assert.Empty(Directory.GetFiles(vault.DirectoryPath, "*.tmp*"));
     }
 
     [Fact]

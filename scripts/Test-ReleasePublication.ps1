@@ -6,7 +6,7 @@ $priorGh=Get-Item Function:\global:gh -ErrorAction SilentlyContinue
 try {
     New-Item -ItemType Directory -Path $root | Out-Null
     $env:GITHUB_SHA='0123456789012345678901234567890123456789'; $env:GITHUB_REPOSITORY='example/release-test'
-    [ordered]@{Version='1.1.2';SourceCommit=$env:GITHUB_SHA;SourceDirty=$false} | ConvertTo-Json | Set-Content (Join-Path $root 'release-provenance.json') -Encoding utf8
+    [ordered]@{Version='1.1.3';SourceCommit=$env:GITHUB_SHA;SourceDirty=$false} | ConvertTo-Json | Set-Content (Join-Path $root 'release-provenance.json') -Encoding utf8
     Set-Content (Join-Path $root 'payload.txt') 'synthetic release bytes' -Encoding utf8
     @(Get-ChildItem $root -File | ForEach-Object {[ordered]@{File=$_.Name;Hash=(Get-FileHash $_.FullName -Algorithm SHA256).Hash}}) | ConvertTo-Json | Set-Content (Join-Path $root 'checksums.json') -Encoding utf8
     function global:gh {
@@ -17,6 +17,8 @@ try {
             if(-not $state.Exists){$global:LASTEXITCODE=1;return}
             @{apiUrl='https://api.github.com/repos/example/release-test/releases/1';isDraft=$state.Draft;targetCommitish=$state.Commit} | ConvertTo-Json -Compress
         } elseif($command[0] -eq 'release' -and $command[1] -eq 'create'){
+            $notesArgument=[Array]::IndexOf($command,'--notes-file')
+            if($notesArgument -lt 0 -or $notesArgument+1 -ge $command.Count -or -not (Test-Path -LiteralPath $command[$notesArgument+1] -PathType Leaf)){throw 'Release notes file was not passed or does not exist.'}
             $state.Writes.Add('create');$state.Exists=$true;$state.Draft=$true
         } elseif($command[0] -eq 'release' -and $command[1] -eq 'upload'){
             $state.Writes.Add('upload');$file=Get-Item -LiteralPath $command[3]

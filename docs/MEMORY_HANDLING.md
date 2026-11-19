@@ -169,7 +169,7 @@ Sensitive entry fields include:
 - Custom field values
 - History snapshots
 
-These values exist in plaintext only while actively required.
+These values are decrypted for use and are cleared from active models when those models are released or the session is locked. Managed strings and copies held by the runtime may persist until garbage collection; this does not guarantee that plaintext exists only while actively required.
 
 ---
 
@@ -382,10 +382,11 @@ These values exist in memory before simulated keyboard entry.
 SQLitePass attempts to:
 
 - minimize retention,
-- validate the destination window,
-- cancel execution when the target changes.
+- validate the destination window before and after input events,
+- cancel execution when the target changes; the 1.1.3 candidate also cancels it when the vault window is minimized.
 
 Credentials are not permanently cached by the Auto-Type subsystem.
+Because `SendInput` uses the global keyboard stream, a target change can race with an input event. Auto-Type is best-effort and does not authenticate a destination.
 
 ---
 

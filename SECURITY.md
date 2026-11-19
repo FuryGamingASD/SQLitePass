@@ -190,7 +190,7 @@ The following information remains visible without the master credential:
 - Timestamps
 - Encrypted payload sizes
 
-This metadata visibility is a deliberate design choice and should not be treated as a vulnerability.
+This metadata visibility is a documented privacy trade-off. Its exposure may still matter for some users' threat models and should not be dismissed as irrelevant.
 
 ---
 
@@ -257,7 +257,6 @@ Clipboard copies:
 - Use an automatic timeout
 - Attempt exclusion from Clipboard History
 - Attempt exclusion from Cloud Clipboard synchronization
-- Attempt exclusion from monitoring pipelines
 
 The clipboard is only cleared if SQLitePass still owns the copied content.
 
@@ -271,3 +270,28 @@ Clipboard protection cannot prevent:
 
 - Malware running on the system
 - Clipboard monitoring
+- Other operating-system or application clipboard consumers
+- Clipboard History or Cloud Clipboard behavior that is not excluded by the current Windows configuration
+- A recipient application retaining data after a paste
+
+The application requests exclusion flags where supported, but those flags are best-effort. Native Clipboard History and Cloud Clipboard behavior has not been validated on every supported Windows configuration.
+
+SQLitePass is not designed to protect against:
+
+- Administrator-level or kernel-level compromise
+- Malware with access to the unlocked process
+- Memory dumping by a privileged attacker
+- Hardware keyloggers or physical observation
+
+These threats require endpoint and operational controls beyond the vault application.
+
+---
+
+# Current Known Risks
+
+- Auto-Type validates the foreground window, process and title before and after injected events, but Windows `SendInput` uses the global keyboard stream. The target can change between validation and an input event; this remains a P1 risk.
+- The 1.1.3 candidate cancels Auto-Type when the vault window is minimized, including when lock-on-minimize is disabled. This narrows one scenario but does not remove the global-input race. Auto-Type is retained at the user's direction. KeePass documents a similar target-trust limitation: window titles are not unique, so users must verify the receiving window. Its documentation does not establish that KeePass has SQLitePass's specific check-to-`SendInput` race; the comparison does not make `SendInput` atomic or remove SQLitePass's race ([KeePass Auto-Type](https://keepass.info/help/base/autotype.html), [KeePass security analysis](https://keepass.info/help/kb/sec_issues.html)). Native Windows validation remains pending.
+- The application and installer are unsigned, as previously agreed. Windows may show reputation or publisher warnings.
+- There has been no independent cryptographic audit or penetration test. Hardware-level power-loss and storage-failure behavior is not certified.
+
+For current release evidence and the complete manual test plan, see [the audit status](docs/AUDIT_STATUS.md) and [1.1.3 readiness report](docs/releases/RELEASE_READINESS_1.1.3.md).

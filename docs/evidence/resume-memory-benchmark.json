@@ -1,0 +1,27 @@
+{
+  "SyntheticOnly": true,
+  "Runtime": ".NET 10.0.15",
+  "Architecture": "X64",
+  "EntryCount": 96,
+  "AttachmentBytesPerEntry": 131072,
+  "HistorySnapshotsPerEntry": 1,
+  "DatabaseBytesIncludingSidecars": 35246080,
+  "Full": {
+    "Milliseconds": 226.8,
+    "AllocatedManagedBytes": 117017576,
+    "RetainedManagedBytes": 46439824,
+    "Entries": 96,
+    "AttachmentBuffers": 96,
+    "HistorySnapshots": 96
+  },
+  "Overview": {
+    "Milliseconds": 216.57,
+    "AllocatedManagedBytes": 70609240,
+    "RetainedManagedBytes": 64816,
+    "Entries": 96,
+    "AttachmentBuffers": 0,
+    "HistorySnapshots": 0
+  },
+  "RetainedMemoryReductionPercent": 99.86,
+  "Limits": "Local synthetic measurement; not a UI or worst-case latency test. Overview still reads/authenticates all ciphertext and decrypts each complete record transiently."
+}
