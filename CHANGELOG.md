@@ -9,6 +9,7 @@
 - Prevent reentrant editor closing when a vault lock arrives while an entry discard prompt is already closing the window.
 - Preserve activation and updater shutdown requests that arrive before the app finishes starting.
 - Remove the uninstalled copy's Windows startup entry when it belongs to that installation.
+- Remove temporary SQLite journal files after vault backups.
 - Correct release claims and repair incomplete recovery and incident-response documentation.
 
 ## [1.1.2] - 2026-11-18

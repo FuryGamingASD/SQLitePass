@@ -9,6 +9,7 @@ Maintenance and reliability release.
 - Safely complete an entry editor close when a vault lock arrives during its discard prompt.
 - Preserve second-instance activation and updater shutdown requests that arrive while the app is starting.
 - Remove the uninstalled copy's Windows startup entry when it belongs to that installation.
+- Remove temporary SQLite journal files after vault backups.
 - Correct security and recovery documentation to describe verified behavior and known limits.
 
 ## Security and compatibility
