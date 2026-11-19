@@ -16,4 +16,4 @@ Maintenance and reliability release.
 
 - Auto-Type remains available. It uses Windows' global simulated keyboard input. Foreground, process and title checks plus confirmation reduce risk, but they cannot bind each input atomically to a specific window. The target can change between validation and input. Treat this as a remaining P1 limitation and verify the target before each use.
 - No vault-format change or migration is required.
-- The release package is unsigned under the user's existing signing waiver. Windows may show a publisher or reputation warning.
+- The release package is unsigned. Windows may show a publisher or reputation warning.
