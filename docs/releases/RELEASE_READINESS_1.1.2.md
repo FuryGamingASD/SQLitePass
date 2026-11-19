@@ -8,8 +8,6 @@ Verifica aggiornata al 18 novembre 2026 sul commit base `acca23bd0c114ca6343a273
 
 La versione 1.1.2, il changelog e le note erano integrati in `main` dalla PR [#6](https://github.com/FuryGamingASD/SQLitePass/pull/6), merge commit `acca23b`. La CI sul merge commit, [Verify 44187232756](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44187232756), era riuscita. Al momento di questa fotografia non esistevano ancora tag, pacchetto pubblico o release 1.1.2.
 
-L’utente conferma che la 1.1.1 si apre e funziona correttamente. Ritiene probabile che anche la 1.1.0 funzionasse: il problema osservato era la finestra non visibile durante una sessione remota senza essere davanti al PC. La diagnosi precedente di un difetto applicativo non è quindi confermata. Restano da svolgere o classificare le altre verifiche native e i residui tecnici dell’audit.
-
 **Gate di sicurezza residuo:** A07 (Auto-Type) è ancora classificato **P1 mitigato**, non corretto, nella remediation. La candidata conserva il PID dall'hotkey iniziale, mostra il nome dell'app nella conferma e ricontrolla foreground/HWND/PID/titolo dopo la ricerca async e prima/dopo ciascun input; i test sintetici coprono cambi focus/processo/titolo anche sull'ultimo tasto o carattere e rifiuto di HWND riutilizzato. Questo riduce l'esposizione e rende il destinatario più visibile, ma nome processo e titolo non autenticano l'origine e non si elimina la race tra verifica e `SendInput`. Quest'ultimo immette eventi nello stream globale di tastiera, non in un HWND specifico. La CI usa input finti e non verifica i flussi nativi. Il rilascio non può essere descritto come chiusura dell'audit: prima della pubblicazione occorre chiudere A07 con prove adeguate oppure accettare esplicitamente questo rischio residuo.
 
 ## Stato verificato dopo i merge
@@ -29,11 +27,10 @@ L’utente conferma che la 1.1.1 si apre e funziona correttamente. Ritiene proba
 - La verifica del commit documentale `01ea3e7` ha evidenziato una contesa occasionale sul lock delle preferenze: uno dei due run Windows ha completato 159/160 test perché una scrittura concorrente superava il timeout di 5 secondi; il secondo run è passato 160/160. Nel commit `6d9e763` il timeout è stato portato a 30 secondi con backoff e jitter. La regressione C10 include un lock mantenuto per 5,5 secondi e verifica che l'aggiornamento attenda e completi.
 - Le CI Windows [44203897404](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44203897404) e [44203906325](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44203906325) sul codice `6d9e763` sono riuscite: entrambe hanno verificato 161 test, build, audit, packaging e installazione/aggiornamento/disinstallazione; i job `release` sono stati saltati perché la PR è draft. Gli artefatti di verifica e il pacchetto x64 sono stati conservati.
 
-La CI del codice di release ha superato la suite da 161 test e i gate Windows sul commit `6d9e763`; il job di pubblicazione resta escluso finché la PR è draft. La conferma dell’utente chiude il dubbio sull’avvio della 1.1.1; la pipeline stessa resta non interattiva e non prova i flussi desktop elencati sotto.
+La CI del codice di release ha superato la suite da 161 test e i gate Windows sul commit `6d9e763`; il job di pubblicazione resta escluso finché la PR è draft. La pipeline stessa resta non interattiva e non prova i flussi desktop elencati sotto.
 
 ## Verifiche native ancora da eseguire
 
-- [x] L’utente conferma che la finestra della 1.1.1 appare e che l’applicazione funziona correttamente.
 - [ ] Provare secondo avvio, ripristino da tray/minimizzazione e riapertura dopo aggiornamento.
 - [ ] Con vault sintetico, provare creazione, sblocco, migrazione, cambio credenziale/key file, blocco Win+L durante operazioni e dialoghi.
 - [ ] Provare copia da controlli, scadenza clipboard, Win+V e cronologia/cloud di Windows.
