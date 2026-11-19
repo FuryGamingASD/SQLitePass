@@ -48,7 +48,7 @@ In [Verify #128](https://github.com/FuryGamingASD/SQLitePass/actions/runs/444242
 | Error handling C14 | Typed conflicts exist. Unhandled dispatcher errors lock the active vault before being marked handled and shut down if no vault is active or immediate locking fails. Unobserved task failures schedule the same lock-or-shutdown response before being marked observed. The idempotent editor close fix passes the session-only verifier; hosted CI and the latest local hidden WPF rerun each passed all 1,080 cases. The isolated source-entrypoint smoke displayed a native unlock window, but did not reproduce the reported crash. The earlier partial local attempt has no final manifest or exception trace. Other generic catches and task ownership remain. | Obtain an app-specific crash event/dump or the exact user trigger before claiming the reported crash is fixed. Review the release diff for swallowed security/integrity failures. Defer broad architecture replacement unless a concrete defect requires it. |
 | Accessibility D05–D07 | In-memory layout, contrast and localization checks exist; native DPI and assistive technology are unverified. | Complete the native accessibility checks below and record OS/monitor settings. |
 | Independent review | No independent cryptography audit or penetration test is recorded. | Preserve as an explicit limitation; do not claim certification or absence of vulnerabilities. |
-| Code signing E03 | Intentionally waived by the user; package remains unsigned. | Keep the release unsigned and document the expected Windows reputation prompt. |
+| Code signing E03 | Intentionally waived; package remains unsigned. | Keep the release unsigned and document the expected Windows reputation prompt. |
 
 ## Native Windows checklist
 
