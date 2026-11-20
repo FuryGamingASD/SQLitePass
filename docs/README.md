@@ -26,9 +26,10 @@ The root [README](../README.md), [security policy](../SECURITY.md), [changelog](
 
 ## Releases
 
+- [SQLitePass 1.1.3 release outcome](releases/RELEASE_OUTCOME_1.1.3.md).
+- [SQLitePass 1.1.3 readiness and manual checklist](releases/RELEASE_READINESS_1.1.3.md).
+- [SQLitePass 1.1.3 release notes](../RELEASE_NOTES_v1.1.3.md).
 - [SQLitePass 1.1.2 release outcome](releases/RELEASE_OUTCOME_1.1.2.md).
-- [SQLitePass 1.1.3 readiness and manual checklist](releases/RELEASE_READINESS_1.1.3.md) — current local work; the release is not published and the native checklist remains open.
-- [SQLitePass 1.1.3 candidate release notes](../RELEASE_NOTES_v1.1.3.md) — prepared notes; not yet published.
 - [SQLitePass 1.1.1 release outcome](releases/RELEASE_OUTCOME_2026-11-17_1.1.1.md).
 - [SQLitePass 1.1.0 release outcome](releases/RELEASE_OUTCOME_2026-11-17.md).
 - [1.1.2 pre-publication readiness snapshot](releases/RELEASE_READINESS_1.1.2.md).

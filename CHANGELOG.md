@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-11-21
+
 ### Fixed
 - Cancel active Auto-Type when the vault window is minimized, including when lock-on-minimize is disabled.
 - Add a synthetic WPF regression for minimize cancellation without displaying a window or sending desktop input.

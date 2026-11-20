@@ -1,8 +1,8 @@
 # SQLitePass 1.1.3 readiness
 
-Status **candidate verification in progress**. Updated 19 November 2026.
+**Published on 21 November 2026.** This report preserves the candidate verification and desktop test plan. The published build, VM results and deferred checks are recorded in the [release outcome](RELEASE_OUTCOME_1.1.3.md).
 
-The source baseline is the published [v1.1.2 release](RELEASE_OUTCOME_1.1.2.md), tag commit `f8c378386a43ba4886b17d6b5341bd28881c367d`. The current remediation branch adds a minimize-during-Auto-Type cancellation fix and documentation corrections. The vault format is intended to remain unchanged. Do not create the release tag until the verification and manual checklist below have been recorded against the final candidate.
+The source baseline was the published [v1.1.2 release](RELEASE_OUTCOME_1.1.2.md), tag commit `f8c378386a43ba4886b17d6b5341bd28881c367d`. The remediation added a minimize-during-Auto-Type cancellation fix and documentation corrections. The vault format stayed unchanged.
 
 ## Implemented in this work
 
@@ -98,11 +98,8 @@ Use a synthetic vault and an isolated Windows profile for the desktop checks. Re
 
 ## Automated release evidence required
 
-- [x] Locked restore, Release build with zero warnings/errors, full test suite and 1,080 WPF cases passed in Verify #127. Repeat on the final candidate after merge.
-- [x] The NuGet scan found no known advisories for the candidate dependency graph in Verify #127. Repeat on the final candidate after merge.
-- [x] Package verification, fresh install, startup, local upgrade and uninstall passed in Verify #127. Repeat on the final candidate after merge.
-- [ ] The tag workflow publishes the expected assets and verifies the public update feed/package.
-- [ ] The native checklist has a dated result record, with failures fixed and retested or remaining risks explicitly accepted.
-- [ ] `RELEASE_OUTCOME_1.1.3.md` records the final tag, workflow, asset digests, native checklist result and remaining limitations.
-
-Before publishing, record the remaining checks from an interactive Windows profile running the installed candidate with a synthetic vault. Run CI on `main` and verify the public feed and build provenance through the release workflow. The original crash remains recorded as unreproduced. The existing signature waiver applies.
+- [x] Locked restore, Release build, 162 tests, 1,080 WPF cases and the NuGet advisory scan passed for the published commit in [Verify #140](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44487220560).
+- [x] Package verification, fresh install, startup, local upgrade and uninstall passed in Verify #140.
+- [x] The repository publisher verified the public assets. The public feed and package were verified separately with Velopack.
+- [ ] The remaining desktop checks include the V1 file integrity check and V5–V8. Publication was approved with these checks deferred.
+- [x] The [release outcome](RELEASE_OUTCOME_1.1.3.md) records the final tag, CI run, asset digests and verification limits.
