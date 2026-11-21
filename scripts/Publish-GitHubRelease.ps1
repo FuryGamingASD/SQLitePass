@@ -6,8 +6,14 @@ if($provenance.SourceCommit -ne $env:GITHUB_SHA -or $provenance.SourceDirty){thr
 if($provenance.Version -notmatch '^\d+\.\d+\.\d+$'){throw 'Unexpected version.'}
 $tag='v'+$provenance.Version
 $repoRoot=Split-Path -Parent $PSScriptRoot
-$releaseNotes=Join-Path $repoRoot "RELEASE_NOTES_v$($provenance.Version).md"
-if(-not (Test-Path -LiteralPath $releaseNotes -PathType Leaf)){throw "Release notes file is missing: $releaseNotes"}
+$releaseNotesPath=Join-Path $repoRoot 'RELEASE_NOTES.md'
+$releaseHistory=Get-Content -LiteralPath $releaseNotesPath -Raw
+$escapedVersion=[regex]::Escape($provenance.Version)
+$pattern='(?ms)^# SQLitePass '+$escapedVersion+'[ \t]*(?:\r?\n|\z)(?<body>.*?)(?=^# |\z)'
+$sections=[regex]::Matches($releaseHistory,$pattern)
+if($sections.Count -ne 1){throw "Expected one '# SQLitePass $($provenance.Version)' heading in RELEASE_NOTES.md."}
+$notesBody=[regex]::Replace($sections[0].Groups['body'].Value.Trim(),'(?:\A|\r?\n)---[ \t]*\z','').Trim()
+if(-not $notesBody){throw "Release notes section for $($provenance.Version) is empty."}
 $checksums=@(Get-Content (Join-Path $ArtifactDirectory 'checksums.json') -Raw | ConvertFrom-Json)
 foreach($entry in $checksums){
     if($entry.File -ne [IO.Path]::GetFileName($entry.File)){throw 'Invalid checksum filename.'}
@@ -21,8 +27,12 @@ if($existing){
     if($existing.targetCommitish -ne $env:GITHUB_SHA){throw 'An existing release from a different commit must not be overwritten.'}
     $alreadyPublished=-not $existing.isDraft
 } else {
-    & gh release create $tag --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "SQLitePass $($provenance.Version)" --notes-file $releaseNotes --draft
-    if($LASTEXITCODE -ne 0){throw 'Draft release creation failed.'}
+    $notesFile=New-TemporaryFile
+    try {
+        Set-Content -LiteralPath $notesFile.FullName -Value "# SQLitePass $($provenance.Version)`n`n$notesBody" -Encoding utf8
+        & gh release create $tag --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "SQLitePass $($provenance.Version)" --notes-file $notesFile.FullName --draft
+        if($LASTEXITCODE -ne 0){throw 'Draft release creation failed.'}
+    } finally { Remove-Item -LiteralPath $notesFile.FullName }
 }
 $releaseMetadata=& gh release view $tag --repo $env:GITHUB_REPOSITORY --json apiUrl
 if($LASTEXITCODE -ne 0){throw 'Cannot find the draft release.'}

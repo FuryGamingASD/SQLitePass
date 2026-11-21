@@ -28,7 +28,7 @@ The root [README](../README.md), [security policy](../SECURITY.md), [changelog](
 
 - [SQLitePass 1.1.3 release outcome](releases/RELEASE_OUTCOME_1.1.3.md).
 - [SQLitePass 1.1.3 readiness and manual checklist](releases/RELEASE_READINESS_1.1.3.md).
-- [SQLitePass 1.1.3 release notes](../RELEASE_NOTES_v1.1.3.md).
+- [SQLitePass 1.1.3 release notes](../RELEASE_NOTES.md#sqlitepass-113).
 - [SQLitePass 1.1.2 release outcome](releases/RELEASE_OUTCOME_1.1.2.md).
 - [SQLitePass 1.1.1 release outcome](releases/RELEASE_OUTCOME_2026-11-17_1.1.1.md).
 - [SQLitePass 1.1.0 release outcome](releases/RELEASE_OUTCOME_2026-11-17.md).

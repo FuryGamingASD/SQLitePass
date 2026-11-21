@@ -22,12 +22,19 @@ Security guarantees should always be interpreted according to the current docume
 
 Released on 21 November 2026.
 
-- Auto-Type cancels when the vault window is minimized, even with automatic locking on minimize disabled.
-- Unexpected dispatcher errors lock the vault or shut down the application. A vault lock can also complete safely while the entry editor is closing.
-- Activation and shutdown requests received during startup are preserved. Uninstall removes the Windows startup entry when it belongs to that installation.
-- Backup cleanup removes temporary SQLite journal files. The vault format remains unchanged.
+Maintenance and reliability release.
 
-The Windows package is unsigned. Auto-Type retains the documented P1 risk associated with global keyboard input. The release outcome records the verified assets, the VM results and the checks deferred at publication. [Release notes](RELEASE_NOTES_v1.1.3.md) · [Release outcome](docs/releases/RELEASE_OUTCOME_1.1.3.md)
+- Auto-Type cancels when the vault window is minimized, even with automatic locking on minimize disabled.
+- Unexpected dispatcher errors lock the active vault. The application shuts down if there is no authenticated vault or the lock fails.
+- A vault lock can complete safely while the entry editor is closing after a discard prompt.
+- Second-instance activation and updater shutdown requests received during startup are preserved. Uninstall removes the Windows startup entry when it belongs to that installation.
+- Backup cleanup removes temporary SQLite journal files. Security and recovery documentation now describes the verified behavior and known limits.
+
+The vault format stays unchanged. Upgrading from 1.1.2 requires no vault migration. The Windows package is unsigned, so Windows may show a publisher or reputation warning.
+
+Auto-Type remains available. It checks the foreground window, process and title and asks for confirmation. Windows sends the input through a global keyboard stream, so the target can still change after a check. This remains a P1 limitation. Verify the destination before each use.
+
+The release outcome records the verified assets, VM results and checks deferred at publication. [Release outcome](https://github.com/FuryGamingASD/SQLitePass/blob/main/docs/releases/RELEASE_OUTCOME_1.1.3.md)
 
 ---
 

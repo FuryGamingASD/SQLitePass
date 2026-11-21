@@ -19,6 +19,11 @@ try {
         } elseif($command[0] -eq 'release' -and $command[1] -eq 'create'){
             $notesArgument=[Array]::IndexOf($command,'--notes-file')
             if($notesArgument -lt 0 -or $notesArgument+1 -ge $command.Count -or -not (Test-Path -LiteralPath $command[$notesArgument+1] -PathType Leaf)){throw 'Release notes file was not passed or does not exist.'}
+            $notesText=Get-Content -LiteralPath $command[$notesArgument+1] -Raw
+            $headings=[regex]::Matches($notesText,'(?m)^# .+$')
+            if($headings.Count -ne 1 -or $headings[0].Value.TrimEnd() -cne '# SQLitePass 1.1.3'){
+                throw 'Draft notes must contain only the matching release section from RELEASE_NOTES.md.'
+            }
             $state.Writes.Add('create');$state.Exists=$true;$state.Draft=$true
         } elseif($command[0] -eq 'release' -and $command[1] -eq 'upload'){
             $state.Writes.Add('upload');$file=Get-Item -LiteralPath $command[3]
@@ -53,7 +58,18 @@ try {
     $rejected=$false
     try {& $publisher -ArtifactDirectory $root} catch {$rejected=$true}
     if(-not $rejected -or $global:SQLitePassReleaseTestState.Writes.Contains('publish')){throw 'Digest mismatch did not stop publication.'}
-    Write-Output 'Four publication safety scenarios passed with an in-memory CLI; no network calls.'
+    $global:SQLitePassReleaseTestState=New-State $false $true $false
+    $provenancePath=Join-Path $root 'release-provenance.json'
+    $provenance=Get-Content -LiteralPath $provenancePath -Raw | ConvertFrom-Json
+    $provenance.Version='9999.9999.9999'
+    $provenance | ConvertTo-Json | Set-Content -LiteralPath $provenancePath -Encoding utf8
+    $rejected=$false
+    try {& $publisher -ArtifactDirectory $root} catch {
+        if($_.Exception.Message -ne "Expected one '# SQLitePass 9999.9999.9999' heading in RELEASE_NOTES.md."){throw}
+        $rejected=$true
+    }
+    if(-not $rejected -or $global:SQLitePassReleaseTestState.Writes.Count -ne 0){throw 'Missing release notes did not stop publication.'}
+    Write-Output 'Five publication safety scenarios passed with an in-memory CLI; no network calls.'
 } finally {
     $env:GITHUB_SHA=$savedSha;$env:GITHUB_REPOSITORY=$savedRepo
     Remove-Item Function:\global:gh -ErrorAction SilentlyContinue

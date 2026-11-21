@@ -128,7 +128,8 @@
   "releasePreparation": {
     "applicationVersion": "1.1.3",
     "assemblyVersion": "1.1.3.0",
-    "releaseNotesFile": "RELEASE_NOTES_v1.1.3.md",
+    "releaseNotesFileAtSnapshot": "https://github.com/FuryGamingASD/SQLitePass/blob/v1.1.3/RELEASE_NOTES_v1.1.3.md",
+    "currentReleaseNotes": "../../RELEASE_NOTES.md#sqlitepass-113",
     "releaseNotesPathCheck": "passed",
     "packageBuilt": true,
     "buildId": "1.1.3-e7a23300e3aa4ea8abd7b753e2fa334c",
