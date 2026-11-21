@@ -18,6 +18,19 @@ Security guarantees should always be interpreted according to the current docume
 
 ---
 
+# SQLitePass 1.1.3
+
+Released on 21 November 2026.
+
+- Auto-Type cancels when the vault window is minimized, even with automatic locking on minimize disabled.
+- Unexpected dispatcher errors lock the vault or shut down the application. A vault lock can also complete safely while the entry editor is closing.
+- Activation and shutdown requests received during startup are preserved. Uninstall removes the Windows startup entry when it belongs to that installation.
+- Backup cleanup removes temporary SQLite journal files. The vault format remains unchanged.
+
+The Windows package is unsigned. Auto-Type retains the documented P1 risk associated with global keyboard input. The release outcome records the verified assets, the VM results and the checks deferred at publication. [Release notes](RELEASE_NOTES_v1.1.3.md) · [Release outcome](docs/releases/RELEASE_OUTCOME_1.1.3.md)
+
+---
+
 # SQLitePass 1.1.2
 
 Released: 2026-11-18
@@ -343,7 +356,7 @@ Introduced:
 ### Auto-Type
 
 - Fixed the selected-entry crash triggered by a minimize-state change.
-- Added additional target validation. This did not eliminate the race between checking a foreground window and sending global keyboard input; the 1.1.3 working branch adds cancellation on minimize but retains that P1 limitation.
+- Added target validation. Version 1.1.3 also cancels Auto-Type on minimize. The race between checking the foreground window and sending global keyboard input remains a P1 limitation.
 
 ### Auto-Lock
 
@@ -489,7 +502,7 @@ Focus:
 
 ## Phase 3 – Authenticated Vault Architecture
 
-Versions 1.1.0–1.1.2
+Versions 1.1.0–1.1.3
 
 Focus:
 

@@ -13,7 +13,7 @@ The source baseline was the published [v1.1.2 release](RELEASE_OUTCOME_1.1.2.md)
 - The uninstall callback removes the Windows startup entry when it points to the copy being removed. Velopack 1.2.161 stops processes before calling this callback, so the uninstall smoke verifies process removal and registry ownership. The package smoke checks the candidate's update callback separately and reports how the old installation stops during an external update.
 - Creating the VM fixtures reproduced leftover SQLite journal files beside temporary backup copies. Backup cleanup now removes the temporary database and its journals after the verification connection closes. Regression tests check successful backup and failure paths.
 - Added a 1.1.2 publication outcome with tag, workflow, asset digests and explicit verification limits.
-- Prepared the 1.1.3 application, assembly and package version metadata, release notes and CI defaults; publication remains disabled until the final gates pass.
+- Prepared the 1.1.3 application, assembly and package metadata, release notes and CI defaults.
 - Retained Auto-Type at the user's direction. KeePass documents that window titles are not unique and that users must verify the target window. That is a comparable target-trust limit; KeePass's documentation does not establish that it has SQLitePass's specific check-to-`SendInput` race, and it does not eliminate SQLitePass's race ([Auto-Type](https://keepass.info/help/base/autotype.html), [security analysis](https://keepass.info/help/kb/sec_issues.html)).
 - Repaired corrupted recovery guidance, removed unresolved citation tokens and added repository-local synthetic benchmark evidence.
 - The documentation links, release history and security claims have been reconciled with the published 1.1.2 outcome and the current audit status.
@@ -58,20 +58,20 @@ Use a synthetic vault and an isolated Windows profile for the desktop checks. Re
 
 - [x] Install the candidate from a clean profile and confirm the unlock window is visible and responsive (Verify #127).
 - [x] Launch a second instance after startup in the tray and confirm the existing process opens the unlock window (Verify #127).
-- [ ] Verify restoration of an authenticated vault window from tray and minimization.
-- [ ] Lock/unlock, close-to-tray and minimize-to-tray behavior match settings.
+- [x] Restored an authenticated vault window from tray and minimization in the Windows VM (V4).
+- [x] Verified lock and unlock, closing to tray and minimizing to tray in the Windows VM (V4).
 - [x] Apply the local update with the 1.1.2 unlock window open, confirm the old process stops, and relaunch 1.1.3 (Verify #127). The older process may be stopped by Velopack, as observed in #128.
 - [x] Uninstall with the unlock window open and verify process, shortcut and startup registration cleanup. Verify that a synthetic profile file remains intact (Verify #127).
-- [ ] With a disposable vault and backup outside the installation directory, confirm both remain intact after uninstall.
+- [x] The synthetic vault and backup survived uninstall. The local vault reopened after reinstall (V4).
 
 ### Synthetic vault, credentials and recovery
 
-- [ ] Create a new synthetic vault; confirm a pre-existing file is not overwritten.
-- [ ] Unlock with correct and incorrect passwords; verify incorrect credentials do not mutate the vault.
-- [ ] Test password plus key file and key-file-only vaults, including missing/wrong key files.
-- [ ] On a copy of a legacy-format fixture, migrate, reopen, verify representative fields/history/attachments, and confirm a pre-migration snapshot exists.
-- [ ] Change password and key file; verify old factors fail and new factors succeed. Repeat on copies only.
-- [ ] Restore a verified backup on a copy and verify content before accepting it.
+- [x] The correct password unlocked the synthetic vault, the wrong password was rejected and the app refused to create a vault over an existing file (V1).
+- [ ] Compare the file contents before and after the rejected attempts (V1).
+- [x] Tested password plus key file and key-file-only vaults, including rejection of missing or incorrect credentials (V2).
+- [x] Migrated a legacy fixture copy and confirmed that the entry, history, attachment and pre-migration snapshot were present (V3).
+- [x] Changed password and key file on a copy. The new factors opened the vault and incorrect factors were rejected (V3).
+- [x] Restored a backup on a local copy and verified the fixture entry (V3).
 
 ### Locking and sensitive UI
 

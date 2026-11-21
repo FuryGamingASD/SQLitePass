@@ -2,6 +2,8 @@
 
 SQLitePass is a modern local password manager for Windows built with .NET 10, WPF and SQLite.
 
+The latest stable release is **1.1.3**. It includes a Windows x64 installer and a portable build. [Download on GitHub](https://github.com/FuryGamingASD/SQLitePass/releases/tag/v1.1.3) · [Release verification and remaining checks](docs/releases/RELEASE_OUTCOME_1.1.3.md)
+
 SQLitePass stores vault records in SQLite. Vault Format 2 combines AES-256-GCM authenticated encryption, Argon2id key derivation, authenticated integrity verification, validated backup recovery and session controls. These mechanisms reduce specific risks but do not establish immunity to data loss, endpoint compromise or hardware failure.
 
 SQLitePass is designed around four primary goals:
@@ -83,11 +85,13 @@ SQLitePass implements several protection mechanisms while a vault is unlocked:
 - Automatic inactivity locking
 - Lock on Windows session lock
 - Auto-Type interruption on focus changes
-- Auto-Type cancellation during session locking
+- Auto-Type cancellation during session locking and when the vault window is minimized
 - Sensitive UI clearing on lock
 - Credential generation invalidation during lock transitions
 
 Sensitive dialogs, password controls and editable content are cleared when the session is locked.
+
+After an unexpected dispatcher error, SQLitePass locks the active vault. The application shuts down if it cannot lock the vault or has no active vault window.
 
 ---
 

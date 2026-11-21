@@ -12,6 +12,8 @@ The current supported release line is:
 
 SQLitePass 1.1 introduces Vault Format 2, authenticated vault integrity verification, validated recovery workflows, record revisions and authenticated encrypted storage.
 
+The latest stable build in this line is [SQLitePass 1.1.3](https://github.com/FuryGamingASD/SQLitePass/releases/tag/v1.1.3).
+
 Earlier 1.0 releases contain known architectural limitations and recovery defects documented in the project audit and remediation reports.
 
 Always maintain an independent backup before upgrading an existing vault.
@@ -274,7 +276,7 @@ Clipboard protection cannot prevent:
 - Clipboard History or Cloud Clipboard behavior that is not excluded by the current Windows configuration
 - A recipient application retaining data after a paste
 
-The application requests exclusion flags where supported, but those flags are best-effort. Native Clipboard History and Cloud Clipboard behavior has not been validated on every supported Windows configuration.
+The application requests exclusion flags where supported. The 1.1.3 Windows CI verified that the flags were present, that synthetic clipboard content expired and that newer content was preserved. Clipboard History and Cloud Clipboard behavior in an interactive account remain unverified.
 
 SQLitePass is not designed to protect against:
 
@@ -290,8 +292,8 @@ These threats require endpoint and operational controls beyond the vault applica
 # Current Known Risks
 
 - Auto-Type validates the foreground window, process and title before and after injected events, but Windows `SendInput` uses the global keyboard stream. The target can change between validation and an input event; this remains a P1 risk.
-- The 1.1.3 candidate cancels Auto-Type when the vault window is minimized, including when lock-on-minimize is disabled. This narrows one scenario but does not remove the global-input race. Auto-Type is retained at the user's direction. KeePass documents a similar target-trust limitation: window titles are not unique, so users must verify the receiving window. Its documentation does not establish that KeePass has SQLitePass's specific check-to-`SendInput` race; the comparison does not make `SendInput` atomic or remove SQLitePass's race ([KeePass Auto-Type](https://keepass.info/help/base/autotype.html), [KeePass security analysis](https://keepass.info/help/kb/sec_issues.html)). Native Windows validation remains pending.
-- The application and installer are unsigned, as previously agreed. Windows may show reputation or publisher warnings.
+- Version 1.1.3 cancels Auto-Type when the vault window is minimized, including when lock-on-minimize is disabled. Dedicated desktop Auto-Type checks remain open. KeePass also advises users to verify the destination because window titles are not unique. [KeePass Auto-Type](https://keepass.info/help/base/autotype.html) · [KeePass security analysis](https://keepass.info/help/kb/sec_issues.html)
+- The application and installer are unsigned. Windows may show reputation or publisher warnings.
 - There has been no independent cryptographic audit or penetration test. Hardware-level power-loss and storage-failure behavior is not certified.
 
-For current release evidence and the complete manual test plan, see [the audit status](docs/AUDIT_STATUS.md) and [1.1.3 readiness report](docs/releases/RELEASE_READINESS_1.1.3.md).
+The current release evidence and open tests are recorded in the [1.1.3 outcome](docs/releases/RELEASE_OUTCOME_1.1.3.md) and the [audit status](docs/AUDIT_STATUS.md).

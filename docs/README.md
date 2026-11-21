@@ -20,7 +20,7 @@ The root [README](../README.md), [security policy](../SECURITY.md), [changelog](
 ## Audit evidence and findings
 
 - [Initial technical audit](audit/AUDIT_2026-11-16.md) — findings against the identified 1.0.2 commit.
-- [Remediation status](audit/REMEDIATION_2026-11-16.md) — historical finding map, published 1.1.2 status and current limitations.
+- [Remediation status](audit/REMEDIATION_2026-11-16.md) — finding map and remaining limitations after 1.1.3.
 - [Synthetic reproduction evidence](audit/AUDIT_EVIDENCE_2026-11-16.json).
 - [Synthetic benchmark evidence](evidence/).
 

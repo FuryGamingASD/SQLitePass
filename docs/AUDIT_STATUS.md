@@ -1,6 +1,6 @@
 # Audit Status
 
-Updated: 18 November 2026, after publication of SQLitePass 1.1.2 and during local 1.1.3 remediation. The minimize-cancels-Auto-Type change is not part of a published release. This is an internal evidence summary, not an independent audit.
+Updated on 21 November 2026 for the published SQLitePass 1.1.3. This document summarizes the project's internal evidence. [Release outcome](releases/RELEASE_OUTCOME_1.1.3.md)
 
 ## Purpose
 
@@ -24,15 +24,15 @@ It reflects the current state of publicly available evidence.
 
 | Area | Status |
 |---------|---------|
-| Source Code Review | Internal review completed against audit baseline; current branch changes reviewed, not independently audited |
+| Source Code Review | Internal review of the audit baseline and subsequent fixes. Independent review remains open. |
 | Architecture Review | Internal review completed; rework recommendations remain |
 | Cryptography Review | Internal Review Completed |
 | Backup & Recovery Review | Internal review and software fault tests; hardware durability unverified |
-| Session Security Review | Automated/internal review; native Windows lock checklist pending |
-| Clipboard Security Review | Code review and synthetic tests; native history/cloud behavior pending |
+| Session Security Review | Automated lock and editor cleanup checks passed. Manual lock and unlock passed in the VM. Win+L during dialogs and operations is deferred. |
+| Clipboard Security Review | Windows CI verified expiry, preservation of replacement content and exclusion flags. Interactive history and sync checks are deferred. |
 | Auto-Type Review | Mitigated; P1 race remains and native validation is pending |
 | Dependency Review | Completed |
-| Native Windows release checklist | Not completed |
+| Native Windows release checklist | V2–V4 passed with local VM data. V1 passed the expected UI responses. The V1 file integrity check and V5–V8 are deferred. |
 | Third-Party Audit | Not Performed |
 | Penetration Test | Not Performed |
 | Bug Bounty Program | Not Available |
@@ -382,7 +382,7 @@ Current reviewed dependencies:
 - Velopack
 - Hardcodet.NotifyIcon.Wpf
 
-On 18 November 2026, `dotnet list package --vulnerable --include-transitive` reported no known NuGet advisories across five solution projects. This scan does not cover non-NuGet components, every bundled native binary, the operating system or undisclosed vulnerabilities. See the [local 1.1.3 verification summary](evidence/release-readiness-1.1.3.json).
+The transitive scan in the published 1.1.3 build reported zero known NuGet advisories across five solution projects. Its scope is NuGet dependencies. [Release verification](releases/RELEASE_OUTCOME_1.1.3.md)
 
 Dependency monitoring should continue through routine maintenance.
 
@@ -390,13 +390,7 @@ Dependency monitoring should continue through routine maintenance.
 
 # Release Assessment
 
-Current release line:
-
-```text
-1.1.x
-```
-
-Assessment:
+The supported line is 1.1.x. The current stable version is **1.1.3**. CI for the published build passed 162 tests, 1,080 WPF layout cases and four Windows package scenarios. The eight public assets and the anonymous Velopack update package were verified. [Release outcome](releases/RELEASE_OUTCOME_1.1.3.md)
 
 The release line has internal source and automated-test evidence. It has not received an independent audit or penetration test. A07 remains a P1 Auto-Type race, and the native Windows checklist has not been completed. This document does not recommend SQLitePass as the sole store for high-value or privileged credentials.
 
@@ -431,8 +425,8 @@ Evidence scope by area (not a security score):
 | Cryptography | Internal source review; no independent protocol/implementation review |
 | Storage | Automated and synthetic integrity/recovery tests; no physical failure testing |
 | Recovery | Software fault tests; hardware durability not established |
-| Session Management | Automated WPF/session tests; native Windows lock checklist pending |
-| Clipboard | Implementation tests; Windows history/cloud behavior pending |
+| Session Management | Automated WPF lock and cleanup tests plus manual lock and unlock. Win+L during sensitive workflows remains open. |
+| Clipboard | Windows CI tests for expiry, replacement and exclusion flags. Interactive history and sync remain open. |
 | Auto-Type | Fake-input regressions; P1 check-to-input race remains, native checks pending |
 | UI Hardening | In-memory layout/contrast checks; native DPI and assistive-technology checks pending |
 | Memory Handling | Managed-buffer cleanup reviewed; complete string/runtime zeroization is not guaranteed |
@@ -448,7 +442,7 @@ The source review and automated suite provide evidence for specific controls, es
 The principal outstanding assurance limits are:
 
 - A07 remains a P1 mitigated Auto-Type risk.
-- Native Windows behavior for Auto-Type, clipboard, screen capture, locking, DPI and assistive technology is unverified.
+- Interactive Windows checks for Auto-Type, Clipboard History, cloud sync, screen capture, Win+L during sensitive workflows, DPI and assistive technology are deferred.
 - Hardware failure scenarios, independent cryptographic review and penetration testing are not covered.
 
-No critical cryptographic implementation flaw was identified in the cited internal source review. That statement is limited to its reviewed commit and scope; it is not a conclusion that no critical or other vulnerabilities exist in the current release. See [the 1.1.2 outcome](releases/RELEASE_OUTCOME_1.1.2.md) and [the 1.1.3 readiness checklist](releases/RELEASE_READINESS_1.1.3.md) for current release evidence.
+The earlier internal source review identified no critical cryptographic implementation flaw within its reviewed scope. The published build and the remaining verification work are recorded in the [1.1.3 outcome](releases/RELEASE_OUTCOME_1.1.3.md) and [desktop checklist](releases/RELEASE_READINESS_1.1.3.md).

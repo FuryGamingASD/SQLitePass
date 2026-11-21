@@ -417,9 +417,10 @@ When locking occurs:
 - dialogs are closed
 - drafts are cleared
 - Auto-Type is cancelled
-- the 1.1.3 candidate also cancels active Auto-Type when the vault window is minimized, including when lock-on-minimize is disabled
-- an unhandled dispatcher exception locks the active vault before being marked handled; the application shuts down if no vault window is active or the immediate lock state cannot be established
-- an unobserved task failure schedules the same lock-or-shutdown response on the dispatcher before being marked observed
+
+Version 1.1.3 also cancels active Auto-Type when the vault window is minimized, including when lock-on-minimize is disabled.
+
+An unhandled dispatcher exception locks the active vault before the exception is marked handled. The application shuts down if there is no active vault window or it cannot lock the vault immediately. An unobserved task failure schedules the same response on the dispatcher before being marked observed.
 
 ---
 

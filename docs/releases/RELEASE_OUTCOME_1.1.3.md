@@ -6,6 +6,7 @@ Published on 21 November 2026 at 00:07:15 CET. [GitHub release](https://github.c
 
 - Tag `v1.1.3` points to `72c43c5e3262d081d5dd217013889e0812134a25` on `main`. The published files came from BuildId `1.1.3-bcb674b45f3d486593be2ee42de60f0a` in [Verify run #140](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44487220560).
 - CI passed 162 automated tests, 1,080 WPF layout cases and four Windows package scenarios. The package checks covered install, startup, tray activation, update from an open 1.1.2 unlock window and uninstall. The transitive NuGet scan reported zero known advisories. Both the application and installer were unsigned.
+- Windows CI verified that synthetic clipboard content expired, newer content was preserved and the Windows exclusion formats were present. Interactive history and sync checks remain open.
 - The repository publisher uploaded the verified CI artifact and checked the size and SHA-256 of every GitHub asset before publication. After publication, the Velopack library used by the app read the public feed anonymously and downloaded the full package. Its SHA-256 matched the feed and the CI artifact.
 
 ## Verification on the Windows VM

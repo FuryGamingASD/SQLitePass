@@ -1,5 +1,7 @@
 {
   "verifiedAt": "2026-11-18",
+  "historicalSnapshot": true,
+  "publishedOutcome": "../releases/RELEASE_OUTCOME_1.1.3.md",
   "purpose": "Pre-release verification summary combining local checks and hosted pull-request CI; not a release attestation",
   "branch": "codex/1.1.3-audit-remediation",
   "baseCommit": "79533b27ec0436cbacae8a48f3f7947865da1d05",

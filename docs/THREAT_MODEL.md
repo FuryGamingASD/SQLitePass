@@ -355,7 +355,7 @@ Prevent accidental credential delivery.
 
 ### Residual Risk
 
-Auto-Type uses the global `SendInput` keyboard stream. The target can change between a check and an event; process identity and window title do not authenticate a website or the content of a window. The application cancels typing on focus changes and session lock; the 1.1.3 candidate also cancels typing on vault-window minimization. These checks do not remove the check-to-input race. The user chose to retain Auto-Type for 1.1.3. KeePass's official documentation describes title-based matching, warns that titles are not unique and leaves target legitimacy to the user. This is a similar target-trust limitation; those documents do not establish that KeePass has SQLitePass's specific check-to-`SendInput` race and do not remove SQLitePass's implementation-specific residual ([Auto-Type](https://keepass.info/help/base/autotype.html), [security analysis](https://keepass.info/help/kb/sec_issues.html)). Require explicit target confirmation and keep the P1 residual visible.
+Auto-Type sends events through the global Windows `SendInput` stream. The target can change between a check and an event. Process identity and window title are indicators, so users still need to verify the destination. Version 1.1.3 cancels typing on detected focus changes, session lock and vault window minimization. The race remains a P1 risk and explicit target confirmation is required. KeePass also documents the limits of matching by window title. [KeePass Auto-Type](https://keepass.info/help/base/autotype.html) · [KeePass security analysis](https://keepass.info/help/kb/sec_issues.html)
 
 ---
 

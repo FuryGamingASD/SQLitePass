@@ -13,7 +13,7 @@ Its objectives are to:
 - Validate recovery workflows
 - Reduce the likelihood of introducing vulnerabilities
 
-Automated security checks run in development and release workflows, but their scope varies by feature and release. This document defines the test strategy; it does not claim that every listed test is continuously run or that every control has passed native validation. For current, dated evidence, see the [audit status](AUDIT_STATUS.md) and [release readiness](releases/RELEASE_READINESS_1.1.3.md).
+Automated security checks run in development and release workflows. Their scope varies by feature and release. The [1.1.3 outcome](releases/RELEASE_OUTCOME_1.1.3.md) records the checks that passed in CI and the results from the Windows VM. The [audit status](AUDIT_STATUS.md) and [desktop checklist](releases/RELEASE_READINESS_1.1.3.md) list outstanding validation.
 
 Testing improves confidence but does not guarantee the absence of vulnerabilities.
 

@@ -383,7 +383,7 @@ SQLitePass attempts to:
 
 - minimize retention,
 - validate the destination window before and after input events,
-- cancel execution when the target changes; the 1.1.3 candidate also cancels it when the vault window is minimized.
+- cancel execution when the target changes or when the vault window is minimized.
 
 Credentials are not permanently cached by the Auto-Type subsystem.
 Because `SendInput` uses the global keyboard stream, a target change can race with an input event. Auto-Type is best-effort and does not authenticate a destination.

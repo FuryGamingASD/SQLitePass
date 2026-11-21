@@ -92,6 +92,8 @@ Advantages include:
 
 The backup process copies a validated SQLite state rather than an arbitrary file image.
 
+Version 1.1.3 removes the temporary SQLite database and its journals after the backup check finishes. The verified backup and its retained generations are kept.
+
 ---
 
 ## Atomic Publication
@@ -280,6 +282,8 @@ Recovery requires:
 - The correct key file (if configured)
 
 A recovery operation is not permitted merely because a backup file exists.
+
+For recovery, close the vault and copy the vault and its matching `.backup` side by side into a local working folder. Keep the original pair available. During 1.1.3 testing, a restore from a VirtualBox shared folder returned an I/O error, and the same files restored on the VM's local disk. SQLite's WAL mode requires local filesystem access. [SQLite WAL documentation](https://sqlite.org/wal.html)
 
 ---
 

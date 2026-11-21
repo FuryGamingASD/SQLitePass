@@ -138,7 +138,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🐛 Bug Fixes
 - **Password Generator Dialog Crash**: Fixed `NullReferenceException` caused by premature event triggers (`ValueChanged` on slider and `Checked` on checkboxes) during XAML component initialization.
-- **Auto-Type Selection Crash**: Fixed a crash when minimizing cleared the selected-entry reference. This did not eliminate the separate race inherent in global `SendInput`; the unreleased 1.1.3 work also cancels active Auto-Type on minimize.
+- **Auto-Type Selection Crash**: Fixed a crash when minimizing cleared the selected-entry reference. Version 1.1.3 also cancels active Auto-Type on minimize. The separate race with global `SendInput` remains open.
 - **Smart Context-Aware Action Buttons**: Top toolbar buttons (Copy User, Copy Password, Open URL, Auto-Type) and context menus are now dynamically enabled only when the selected entry actually contains that specific data, preventing misleading clickable states on empty fields.
 - **Silent Background Auto-Lock**: Prevented the unlock window from aggressively popping up and stealing focus over other applications when idle timeout or Windows session lock occurs while the app is in the background or minimized to the System Tray. Cancelling unlock no longer abruptly shuts down the application.
 
