@@ -391,7 +391,7 @@ Dependency monitoring should continue through routine maintenance.
 
 # Release Assessment
 
-The current stable version is **1.2.0**. Its rehearsal passed 168 shared tests on Windows and 168 on Linux, desktop integration probes on both platforms and the Windows and Linux upgrade workflows. See the [release outcome](releases/RELEASE_OUTCOME_1.2.0.md) for published package provenance.
+The current stable version is **1.2.0**. The tagged build passed 168 shared tests on Windows and 168 on Linux, desktop integration probes on both platforms and the Windows and Linux upgrade workflows. See the [release outcome](releases/RELEASE_OUTCOME_1.2.0.md) for published package provenance.
 
 The evidence covers internal review and project verification. An independent audit and penetration test remain open. A07 remains a P1 Windows Auto-Type race. The project does not recommend SQLitePass as the sole store for high-value or privileged credentials.
 
