@@ -26,6 +26,9 @@ try {
     $release = Join-Path $root "artifacts/avalonia/$candidateId/packages"
     dotnet publish $project -c Release -r $Runtime --self-contained -o $publish -p:RestoreLockedMode=true -warnaserror
     if ($LASTEXITCODE -ne 0) { throw 'Avalonia publish failed.' }
+    $nugetRoot = & dotnet msbuild $project -nologo -getProperty:NuGetPackageRoot
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $nugetRoot -PathType Container)) { throw 'Cannot resolve the NuGet package cache.' }
+    & (Join-Path $PSScriptRoot 'Copy-AvaloniaNotices.ps1') -PublishDirectory $publish -NuGetRoot $nugetRoot
 
     $channel = if ($IsWindows) { 'win' } else { 'linux' }
     $executable = if ($IsWindows) { 'SQLitePass.Desktop.exe' } else { 'SQLitePass.Desktop' }
@@ -60,6 +63,24 @@ try {
     if ($IsWindows -and [Convert]::ToHexString($header, 0, 2) -ne '4D5A') { throw 'Invalid Windows installer header.' }
     if ($IsLinux -and ([Convert]::ToHexString($header, 0, 4) -ne '7F454C46' -or
         [Convert]::ToHexString($header, 8, 3) -ne '414902')) { throw 'Invalid AppImage header.' }
+
+    $archive = [IO.Compression.ZipFile]::OpenRead($fullPackage.FullName)
+    try {
+        if ($IsWindows) {
+            foreach ($required in @($executable, 'LICENSE', 'SECURITY.md', 'THIRD_PARTY_LICENSES/dependency-metadata.json')) {
+                if ($null -eq $archive.GetEntry("lib/app/$required")) { throw "Windows update package is missing $required." }
+            }
+        } else {
+            $images = @($archive.Entries | Where-Object FullName -Match '^lib/app/[^/]+\.AppImage$')
+            if ($images.Count -ne 1) { throw 'The Linux update must contain one AppImage.' }
+            $image = $images[0].Open()
+            try { $embeddedHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($image)) }
+            finally { $image.Dispose() }
+            if ($embeddedHash -ne (Get-FileHash -LiteralPath $distribution.FullName -Algorithm SHA256).Hash) {
+                throw 'The Linux update and downloadable AppImage differ.'
+            }
+        }
+    } finally { $archive.Dispose() }
 
     if ($VerifyNativeLaunch) {
         $probe = [Diagnostics.ProcessStartInfo]::new()
