@@ -100,6 +100,10 @@ try {
                 $probe.Environment['SQLITEPASS_TRAY_PROBE_WATCHER'] = Join-Path $PSScriptRoot 'Verify-LinuxTrayWatcher.py'
             } else { $probe.FileName = 'xvfb-run' }
             $probe.ArgumentList.Add('-a')
+            if ($VerifyDesktopIntegrations) {
+                $probe.ArgumentList.Add('bash')
+                $probe.ArgumentList.Add((Join-Path $PSScriptRoot 'Start-LinuxVerificationDesktop.sh'))
+            }
             $probe.ArgumentList.Add($distribution.FullName)
             $probe.Environment['APPIMAGE_EXTRACT_AND_RUN'] = '1'
         } else {

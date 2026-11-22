@@ -12,16 +12,17 @@ internal static class NativeTrayVerification
         var token = timeout.Token;
         if (OperatingSystem.IsWindows())
         {
-            await WaitForAsync(() => window.TrayCanHide, token);
+            await WaitForAsync(() => window.TrayCanHide, "responsive Windows taskbar", token);
             window.WindowState = WindowState.Minimized;
-            await WaitForAsync(() => !window.IsVisible, token);
+            await WaitForAsync(() => !window.IsVisible, "window hidden after minimize", token);
             window.ShowFromTray();
-            await WaitForAsync(() => window.IsVisible && window.WindowState != WindowState.Minimized, token);
+            await WaitForAsync(() => window.IsVisible && window.WindowState != WindowState.Minimized, "window restored from tray", token);
         }
         else
         {
             if (window.TrayCanHide) throw new InvalidOperationException("The isolated session already has a tray host.");
             window.WindowState = WindowState.Minimized;
+            await WaitForAsync(() => window.WindowState == WindowState.Minimized, "window manager minimized the window", token);
             await Task.Delay(TimeSpan.FromSeconds(1.2), token);
             if (!window.IsVisible) throw new InvalidOperationException("The window was hidden without a tray host.");
             window.ShowFromTray();
@@ -33,16 +34,16 @@ internal static class NativeTrayVerification
             using var peer = Process.Start(start) ?? throw new InvalidOperationException("Could not run the tray watcher.");
             try
             {
-                await WaitForAsync(() => window.TrayCanHide, token);
+                await WaitForAsync(() => window.TrayCanHide, "item registered with the StatusNotifier host", token);
                 window.WindowState = WindowState.Minimized;
-                await WaitForAsync(() => !window.IsVisible, token);
+                await WaitForAsync(() => !window.IsVisible, "window hidden after minimize", token);
                 await ActivateStatusNotifierAsync(token);
-                await WaitForAsync(() => window.IsVisible && window.WindowState != WindowState.Minimized, token);
+                await WaitForAsync(() => window.IsVisible && window.WindowState != WindowState.Minimized, "window restored by StatusNotifier activation", token);
                 window.WindowState = WindowState.Minimized;
-                await WaitForAsync(() => !window.IsVisible, token);
+                await WaitForAsync(() => !window.IsVisible, "restored window hidden a second time", token);
                 peer.Kill(entireProcessTree: true);
                 await peer.WaitForExitAsync(token);
-                await WaitForAsync(() => !window.TrayCanHide && window.IsVisible, token);
+                await WaitForAsync(() => !window.TrayCanHide && window.IsVisible, "window restored after losing its tray host", token);
             }
             finally
             {
@@ -52,9 +53,16 @@ internal static class NativeTrayVerification
         Console.WriteLine("Verified desktop tray minimize and restore behavior.");
     }
 
-    private static async Task WaitForAsync(Func<bool> condition, CancellationToken token)
+    private static async Task WaitForAsync(Func<bool> condition, string stage, CancellationToken token)
     {
-        while (!condition()) await Task.Delay(40, token);
+        try
+        {
+            while (!condition()) await Task.Delay(40, token);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            throw new TimeoutException($"The tray probe timed out waiting for {stage}.");
+        }
     }
 
     private static async Task ActivateStatusNotifierAsync(CancellationToken token)

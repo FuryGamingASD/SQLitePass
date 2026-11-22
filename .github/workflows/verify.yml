@@ -97,7 +97,7 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y squashfs-tools xvfb xauth xclip dbus python3-dbus python3-gi
+          sudo apt-get install -y --no-install-recommends squashfs-tools xvfb xauth xclip dbus python3-dbus python3-gi openbox x11-utils
       - name: Build the Avalonia Linux candidate
         id: avalonia-linux
         run: ./scripts/Build-AvaloniaCandidate.ps1 -Runtime linux-x64 -VerifyNativeLaunch -VerifyDesktopIntegrations
