@@ -16,6 +16,7 @@
     <PackageReference Include="Tmds.DBus.Protocol" Version="0.94.1" />
     <PackageReference Include="Velopack" Version="1.2.161" />
     <Compile Include="../SQLitePass.UI/Services/TranslationCatalog.cs" Link="Localization/TranslationCatalog.cs" />
+    <Compile Include="../SQLitePass.UI/Services/SingleInstanceCoordinator.cs" Link="Services/WindowsSingleInstanceCoordinator.cs" />
     <EmbeddedResource Include="../SQLitePass.UI/Localization/*.json" LogicalName="SQLitePass.Localization.%(Filename)%(Extension)" WithCulture="false" />
     <AvaloniaResource Include="../SQLitePass.UI/Resources/app.ico" Link="Resources/app.ico" />
     <Content Include="../LICENSE" Link="LICENSE" CopyToPublishDirectory="PreserveNewest" />

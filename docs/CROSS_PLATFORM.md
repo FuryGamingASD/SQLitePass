@@ -19,7 +19,7 @@ The native jobs run `scripts/Build-AvaloniaCandidate.ps1` with `win-x64` and `li
 
 Set the shared version in `Directory.Build.props` and add one matching `# SQLitePass X.Y.Z` section to `RELEASE_NOTES.md`. For a version newer than 1.1.3, push its `vX.Y.Z` tag on a commit in `main`. Verify schedules the Windows and Linux builds in parallel. It assembles their verified assets, validates their hashes, and publishes the Windows installer, AppImage and both Velopack feeds in one GitHub release. The Windows package retains the `SQLitePass` package ID, `SQLitePass.exe` apphost and `win` channel. The Linux package uses the `linux` channel. After publication, the workflow compares both public feed files with the verified copies.
 
-To rehearse this from a branch, run Verify with the `release_rehearsal` input. This builds with the public package identity and retains the combined bundle as a CI artifact. Publication requires a pushed release tag. The rehearsal Windows installer uses the same installation identity as the public Windows build. Use it in an isolated test profile.
+To rehearse this from a branch, run Verify with the `release_rehearsal` input. This builds with the public package identity and retains the combined bundle as a CI artifact. Publication requires a pushed release tag. The Windows job verifies fresh installation, opening an existing tray instance, a clean shutdown before updating, upgrade from the WPF release, and uninstall with synthetic data outside the installation. A rehearsal at version 1.1.3 upgrades from 1.1.2. A newer version verifies upgrade from 1.1.3. The rehearsal Windows installer uses the public installation identity. Use it in an isolated test profile.
 
 ## Recovery in the shared app
 

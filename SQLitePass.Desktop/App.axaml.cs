@@ -27,6 +27,13 @@ public sealed partial class App : Application
             RequestedThemeVariant = settings.DarkMode ? ThemeVariant.Dark : ThemeVariant.Light;
             var window = new VaultWindow(settings, useNativeSession: true);
             desktop.MainWindow = window;
+            if (OperatingSystem.IsWindows() && Program.WindowsInstance is { } instance)
+            {
+                instance.RegisterActivationHandler(() => Dispatcher.UIThread.Post(window.ShowFromTray));
+                instance.RegisterShutdownHandler(() => Dispatcher.UIThread.Post(window.RequestExit));
+            }
+            if (desktop.Args?.Contains("--minimized", StringComparer.OrdinalIgnoreCase) == true)
+                window.StartInTray();
             if (AppContext.GetData("SQLitePass.StartupProbe") is true)
             {
                 window.Opened += (_, _) => Dispatcher.UIThread.Post(async () =>

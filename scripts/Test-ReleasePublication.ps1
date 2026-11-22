@@ -2,14 +2,13 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 $root=Join-Path ([IO.Path]::GetTempPath()) ('SQLitePass-release-test-'+[guid]::NewGuid().ToString('N'))
 $savedSha=$env:GITHUB_SHA; $savedRepo=$env:GITHUB_REPOSITORY
-$priorGh=Get-Item Function:\global:gh -ErrorAction SilentlyContinue
 try {
     New-Item -ItemType Directory -Path $root | Out-Null
     $env:GITHUB_SHA='0123456789012345678901234567890123456789'; $env:GITHUB_REPOSITORY='example/release-test'
     [ordered]@{Version='1.1.3';SourceCommit=$env:GITHUB_SHA;SourceDirty=$false} | ConvertTo-Json | Set-Content (Join-Path $root 'release-provenance.json') -Encoding utf8
     Set-Content (Join-Path $root 'payload.txt') 'synthetic release bytes' -Encoding utf8
     @(Get-ChildItem $root -File | ForEach-Object {[ordered]@{File=$_.Name;Hash=(Get-FileHash $_.FullName -Algorithm SHA256).Hash}}) | ConvertTo-Json | Set-Content (Join-Path $root 'checksums.json') -Encoding utf8
-    function global:gh {
+    function gh {
         $global:LASTEXITCODE=0
         $state=$global:SQLitePassReleaseTestState
         $command=@($args)
@@ -106,8 +105,6 @@ try {
     Write-Output 'Eight publication safety scenarios passed using an in-memory CLI.'
 } finally {
     $env:GITHUB_SHA=$savedSha;$env:GITHUB_REPOSITORY=$savedRepo
-    Remove-Item Function:\global:gh -ErrorAction SilentlyContinue
-    if($priorGh){Set-Item Function:\global:gh $priorGh.ScriptBlock}
     Remove-Variable SQLitePassReleaseTestState -Scope Global -ErrorAction SilentlyContinue
     $resolved=[IO.Path]::GetFullPath($root)
     if(-not $resolved.StartsWith([IO.Path]::GetFullPath([IO.Path]::GetTempPath()),[StringComparison]::OrdinalIgnoreCase) -or -not [IO.Path]::GetFileName($resolved).StartsWith('SQLitePass-release-test-')){throw 'Invalid test cleanup path.'}

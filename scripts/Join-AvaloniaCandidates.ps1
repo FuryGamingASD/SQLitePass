@@ -35,6 +35,12 @@ foreach ($platform in $platforms) {
         [IO.Path]::GetExtension($manifest.Distribution) -cne $platform.Extension) {
         throw "Unexpected package provenance for $($platform.Runtime)."
     }
+    if ($PackageIdentity -eq 'release' -and $platform.Runtime -eq 'win-x64') {
+        $previousVersion = if ([version]$Version -gt [version]'1.1.3') { '1.1.3' } else { '1.1.2' }
+        if ($manifest.InstallerVerified -ne $true -or $manifest.InstallerUpgradeFrom -cne $previousVersion) {
+            throw "The Windows setup and upgrade from $previousVersion require native verification."
+        }
+    }
     $versions += $manifest.Version
     $provenance += $manifest
     $manifestFiles = @($manifest.Assets | ForEach-Object Name)

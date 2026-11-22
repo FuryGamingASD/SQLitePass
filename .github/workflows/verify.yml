@@ -91,6 +91,19 @@ jobs:
       - name: Build the Avalonia Windows candidate
         id: avalonia-win
         run: ./scripts/Build-AvaloniaCandidate.ps1 -Runtime win-x64 -PackageIdentity $env:PACKAGE_IDENTITY -VerifyNativeLaunch -VerifyDesktopIntegrations
+      - name: Verify Windows installation and upgrade from the public WPF line
+        if: needs.release-plan.outputs.package_identity == 'release'
+        env:
+          CANDIDATE_PATH: ${{ steps.avalonia-win.outputs.candidate_path }}
+        run: ./scripts/Verify-AvaloniaWindowsSetup.ps1 -CandidateDirectory $env:CANDIDATE_PATH
+      - name: Preserve Avalonia Windows installation evidence
+        if: always() && needs.release-plan.outputs.package_identity == 'release'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verification-avalonia-win-x64-setup
+          path: artifacts/verification/avalonia-windows-setup/
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Preserve the Avalonia Windows candidate
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

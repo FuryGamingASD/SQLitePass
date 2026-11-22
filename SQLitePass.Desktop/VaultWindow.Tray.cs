@@ -54,7 +54,19 @@ public sealed partial class VaultWindow
 
     private void ExitApplication_Click(object? sender, RoutedEventArgs e) => RequestExit();
 
-    private void RequestExit()
+    internal void StartInTray()
+    {
+        WindowState = WindowState.Minimized;
+        Opened += HideAfterStartup;
+
+        void HideAfterStartup(object? sender, EventArgs args)
+        {
+            Opened -= HideAfterStartup;
+            if (!HideInTray()) ShowFromTray();
+        }
+    }
+
+    internal void RequestExit()
     {
         _exitRequested = true;
         Close();

@@ -1,14 +1,23 @@
+using System.Runtime.Versioning;
 using Avalonia;
+using SQLitePass.Core.Services;
+using SQLitePass.UI.Services;
 using Velopack;
 
 namespace SQLitePass.Desktop;
 
 internal static class Program
 {
+    internal static SingleInstanceCoordinator? WindowsInstance { get; private set; }
+
     [STAThread]
     public static int Main(string[] args)
     {
-        VelopackApp.Build().Run();
+        var velopack = VelopackApp.Build();
+        string applicationName = string.Equals(Path.GetFileName(Environment.ProcessPath), "SQLitePass.exe", StringComparison.OrdinalIgnoreCase)
+            ? "SQLitePass" : "SQLitePass.Desktop";
+        if (OperatingSystem.IsWindows()) ConfigureWindowsUpdateHooks(velopack, applicationName);
+        velopack.Run();
         if (args is ["--verify-autotype-peer", var resultPath, var scenario])
         {
             if (Environment.GetEnvironmentVariable("RUNNER_ENVIRONMENT") != "github-hosted") return 2;
@@ -16,7 +25,14 @@ internal static class Program
             return BuildAvaloniaApp().StartWithClassicDesktopLifetime([]);
         }
         if (args is not (["--verify-startup"] or ["--verify-startup-and-clipboard"] or ["--verify-desktop"]))
-            return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        {
+            if (!OperatingSystem.IsWindows()) return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+            using var instance = SingleInstanceCoordinator.StartOrSignalExisting(out bool shouldStart, applicationName);
+            if (!shouldStart) return 0;
+            WindowsInstance = instance;
+            try { return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args); }
+            finally { WindowsInstance = null; }
+        }
         bool verifyTray = args is ["--verify-desktop"];
         bool verifyClipboard = verifyTray || args is ["--verify-startup-and-clipboard"];
         if (verifyClipboard && Environment.GetEnvironmentVariable("RUNNER_ENVIRONMENT") != "github-hosted") return 2;
@@ -33,6 +49,17 @@ internal static class Program
             return BuildAvaloniaApp().StartWithClassicDesktopLifetime([]);
         }
         finally { directory.Delete(recursive: true); }
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static void ConfigureWindowsUpdateHooks(VelopackApp velopack, string applicationName)
+    {
+        velopack.OnBeforeUpdateFastCallback(_ => SingleInstanceCoordinator.ShutdownForUpdateOrUninstall(applicationName));
+        velopack.OnBeforeUninstallFastCallback(_ =>
+        {
+            SingleInstanceCoordinator.ShutdownForUpdateOrUninstall(applicationName);
+            AppSettingsManager.RemoveStartupRegistrationForUninstall();
+        });
     }
 
     public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<App>().UsePlatformDetect();
