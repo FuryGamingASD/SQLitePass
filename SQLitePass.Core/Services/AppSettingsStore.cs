@@ -22,7 +22,7 @@ public sealed class AppSettingsStore(string directory)
         while (true)
         {
             try { return new FileStream(_path + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
-            catch (IOException ex) when ((ex.HResult & 0xffff) is 32 or 33)
+            catch (IOException ex) when (FileLease.IsContended(ex))
             {
                 if (timer.Elapsed >= LeaseTimeout)
                     throw new IOException("Timed out waiting for the application settings lock.", ex);

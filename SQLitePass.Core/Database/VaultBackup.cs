@@ -36,7 +36,7 @@ public sealed partial class SqliteStorageProvider
         {
             if (_locked) throw new OperationCanceledException("Backup annullato dal blocco del vault.");
             try { return new FileStream(BackupFilePath + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
-            catch (IOException ex) when ((ex.HResult & 0xffff) is 32 or 33 && timer.Elapsed < TimeSpan.FromSeconds(5))
+            catch (IOException ex) when (FileLease.IsContended(ex) && timer.Elapsed < TimeSpan.FromSeconds(5))
             { Thread.Sleep(50); }
         }
     }
