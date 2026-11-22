@@ -16,6 +16,7 @@ The root [README](../README.md), [security policy](../SECURITY.md), [changelog](
 - [Security testing strategy](SECURITY_TESTING.md)
 - [Performance measurements and limits](PERFORMANCE_2026-11-16.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)
+- [Windows and Linux desktop migration](CROSS_PLATFORM.md)
 
 ## Audit evidence and findings
 

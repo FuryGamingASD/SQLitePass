@@ -108,6 +108,32 @@ jobs:
           path: ${{ steps.avalonia-linux.outputs.candidate_path }}/
           if-no-files-found: error
           retention-days: 14
+  avalonia-candidate:
+    name: Assemble the shared Avalonia candidate
+    needs: [windows, linux-core]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: Avalonia-candidate-win-x64
+          path: artifacts/candidates/windows
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: Avalonia-candidate-linux-x64
+          path: artifacts/candidates/linux
+      - name: Verify and join both package sets
+        shell: pwsh
+        run: ./scripts/Join-AvaloniaCandidates.ps1 -Windows artifacts/candidates/windows -Linux artifacts/candidates/linux -OutputDirectory artifacts/avalonia-candidate -Commit $env:GITHUB_SHA
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Avalonia-candidate-win-x64-linux-x64
+          path: artifacts/avalonia-candidate/
+          if-no-files-found: error
+          retention-days: 7
   release:
     needs: [windows, linux-core]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release]')
