@@ -4,7 +4,7 @@ using static SQLitePass.Desktop.Services.X11AutoTypeNative;
 
 namespace SQLitePass.Desktop.Services;
 
-internal sealed class AutoTypeLayoutException : Exception;
+internal sealed class AutoTypeLayoutException(string message) : Exception(message);
 
 internal sealed class X11AutoTypeInput : IAutoTypeInput, IDisposable
 {
@@ -16,8 +16,7 @@ internal sealed class X11AutoTypeInput : IAutoTypeInput, IDisposable
     private const uint NumLock = 0xff7f;
     private readonly IntPtr _display;
     private readonly X11AutoTypeWindows _windows;
-    private readonly Dictionary<char, Stroke> _characters = [];
-    private readonly Dictionary<ushort, Stroke> _keys = [];
+    private TypingPlan _plan = new([], []);
     private Target? _target;
     private uint _keyboardState;
 
@@ -70,8 +69,15 @@ internal sealed class X11AutoTypeInput : IAutoTypeInput, IDisposable
 
     public void Prepare(IReadOnlyList<AutoTypeStep> steps)
     {
+        RefreshKeyboardMap();
         _keyboardState = ReadKeyboardState();
-        if (XPending(_display) != 0) throw new AutoTypeLayoutException();
+        var wantedCharacters = steps.SelectMany(step => step.Text).ToHashSet();
+        var wantedKeys = steps.Where(step => step.Key != 0).Select(step => step.Key).ToHashSet();
+        _plan = BuildPlan(wantedCharacters, wantedKeys);
+    }
+
+    private TypingPlan BuildPlan(IReadOnlySet<char> wantedCharacters, IReadOnlySet<ushort> wantedKeys)
+    {
         XDisplayKeycodes(_display, out int min, out int max);
         byte shiftCode = XKeysymToKeycode(_display, ShiftLeft);
         byte levelThreeCode = XKeysymToKeycode(_display, LevelThreeShift);
@@ -84,10 +90,7 @@ internal sealed class X11AutoTypeInput : IAutoTypeInput, IDisposable
             if (shiftCode != 0) modifiers.Add(new(ShiftMask | levelThreeMask, shiftCode, levelThreeCode));
         }
 
-        var wantedCharacters = steps.SelectMany(step => step.Text).ToHashSet();
-        var wantedKeys = steps.Where(step => step.Key != 0).Select(step => step.Key).ToHashSet();
-        _characters.Clear();
-        _keys.Clear();
+        var plan = new TypingPlan([], []);
         foreach (var modifier in modifiers)
         {
             for (int code = min; code <= max; ++code)
@@ -99,25 +102,43 @@ internal sealed class X11AutoTypeInput : IAutoTypeInput, IDisposable
                 var stroke = new Stroke((uint)code, modifier.First, modifier.Second);
                 uint scalar = xkb_keysym_to_utf32((uint)symbol);
                 if (scalar is >= ' ' and <= char.MaxValue && !char.IsControl((char)scalar) && wantedCharacters.Contains((char)scalar))
-                    _characters.TryAdd((char)scalar, stroke);
+                    plan.Characters.TryAdd((char)scalar, stroke);
                 ushort key = symbol switch { 0xff09 => 9, 0xff0d => 13, 0x20 => 32, _ => 0 };
-                if (modifier.Mask == 0 && wantedKeys.Contains(key)) _keys.TryAdd(key, stroke);
+                if (modifier.Mask == 0 && wantedKeys.Contains(key)) plan.Keys.TryAdd(key, stroke);
             }
         }
-        if (_characters.Count != wantedCharacters.Count || _keys.Count != wantedKeys.Count)
-            throw new AutoTypeLayoutException();
+        if (plan.Characters.Count != wantedCharacters.Count || plan.Keys.Count != wantedKeys.Count)
+            throw new AutoTypeLayoutException("The active X11 keymap cannot produce the full Auto-Type sequence.");
+        return plan;
     }
 
-    public void Character(char character) => Send(_characters[character]);
-    public void Key(ushort key) => Send(_keys[key]);
+    public void Character(char character) => Send(_plan.Characters[character]);
+    public void Key(ushort key) => Send(_plan.Keys[key]);
 
     private uint ReadKeyboardState()
     {
         uint allowedLocks = 2 | XkbKeysymToModifiers(_display, NumLock);
-        if (XkbGetState(_display, CoreKeyboard, out var state) != 0 ||
-            state.BaseModifiers != 0 || state.LatchedModifiers != 0 || (state.LockedModifiers & ~allowedLocks) != 0)
-            throw new AutoTypeLayoutException();
+        if (XkbGetState(_display, CoreKeyboard, out var state) != 0)
+            throw new AutoTypeLayoutException("The X11 keyboard state is unavailable.");
+        if (state.BaseModifiers != 0 || state.LatchedModifiers != 0 || (state.LockedModifiers & ~allowedLocks) != 0)
+            throw new AutoTypeLayoutException("Keyboard modifiers are active during Auto-Type.");
         return ((uint)state.Group << 13) | state.LookupModifiers;
+    }
+
+    private bool RefreshKeyboardMap()
+    {
+        if (XPending(_display) == 0) return false;
+        IntPtr message = Marshal.AllocHGlobal(24 * IntPtr.Size); // XEvent is a union padded to 24 longs.
+        try
+        {
+            while (XPending(_display) != 0)
+            {
+                XNextEvent(_display, message);
+                XkbRefreshKeyboardMapping(message);
+            }
+            return true;
+        }
+        finally { Marshal.FreeHGlobal(message); }
     }
 
     private void Send(Stroke stroke)
@@ -128,8 +149,16 @@ internal sealed class X11AutoTypeInput : IAutoTypeInput, IDisposable
         {
             if (!_windows.IsFocused(target.Window, target.Process) || _windows.GetTitle(target.Window) != target.Title)
                 throw new OperationCanceledException();
-            if (ReadKeyboardState() != _keyboardState || XPending(_display) != 0)
-                throw new AutoTypeLayoutException();
+            if (ReadKeyboardState() != _keyboardState)
+                throw new AutoTypeLayoutException("The active X11 keyboard group or modifier locks changed during Auto-Type.");
+            if (RefreshKeyboardMap())
+            {
+                // Switching to the XTEST device may signal a change even if every planned key is identical.
+                var refreshed = BuildPlan(_plan.Characters.Keys.ToHashSet(), _plan.Keys.Keys.ToHashSet());
+                if (_plan.Characters.Any(pair => refreshed.Characters[pair.Key] != pair.Value) ||
+                    _plan.Keys.Any(pair => refreshed.Keys[pair.Key] != pair.Value))
+                    throw new AutoTypeLayoutException("The X11 keymap changed during Auto-Type.");
+            }
 
             // An active keyboard grab can redirect the global keyboard stream even with the expected window focused.
             if (XGrabKeyboard(_display, target.Window, 0, 1, 1, 0) != 0) throw new OperationCanceledException();
@@ -162,12 +191,13 @@ internal sealed class X11AutoTypeInput : IAutoTypeInput, IDisposable
 
     public void Dispose()
     {
-        _characters.Clear();
-        _keys.Clear();
+        _plan.Characters.Clear();
+        _plan.Keys.Clear();
         XCloseDisplay(_display);
     }
 
     private sealed record Target(uint Window, uint Process, string Title);
+    private sealed record TypingPlan(Dictionary<char, Stroke> Characters, Dictionary<ushort, Stroke> Keys);
     private readonly record struct Stroke(uint Keycode, byte FirstModifier, byte SecondModifier);
     private readonly record struct Modifiers(uint Mask, byte First, byte Second);
 }

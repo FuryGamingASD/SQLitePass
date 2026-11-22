@@ -18,11 +18,13 @@ internal static class X11AutoTypeNative
     [DllImport(X11)] internal static extern int XUngrabServer(IntPtr display);
     [DllImport(X11)] internal static extern int XFlush(IntPtr display);
     [DllImport(X11)] internal static extern int XPending(IntPtr display);
+    [DllImport(X11)] internal static extern int XNextEvent(IntPtr display, IntPtr message);
     [DllImport(X11)] internal static extern int XGrabKeyboard(IntPtr display, nuint window, int ownerEvents, int pointerMode, int keyboardMode, nuint time);
     [DllImport(X11)] internal static extern int XUngrabKeyboard(IntPtr display, nuint time);
     [DllImport(X11)] internal static extern int XDisplayKeycodes(IntPtr display, out int min, out int max);
     [DllImport(X11)] internal static extern byte XKeysymToKeycode(IntPtr display, nuint symbol);
     [DllImport(X11)] internal static extern int XkbSelectEvents(IntPtr display, uint device, uint change, uint values);
+    [DllImport(X11)] internal static extern int XkbRefreshKeyboardMapping(IntPtr message);
     [DllImport(X11)] internal static extern int XkbGetState(IntPtr display, uint device, out KeyboardState state);
     [DllImport(X11)] internal static extern uint XkbKeysymToModifiers(IntPtr display, nuint symbol);
     [DllImport(X11)] internal static extern int XkbLookupKeySym(IntPtr display, byte code, uint state, out uint remainingModifiers, out nuint symbol);
