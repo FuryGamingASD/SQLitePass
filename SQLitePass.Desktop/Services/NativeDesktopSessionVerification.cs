@@ -22,17 +22,19 @@ internal static class NativeDesktopSessionVerification
         else await VerifyLogindAsync(window, timeout.Token);
     }
 
-    internal static async Task VerifyWindowsLockInteractivelyAsync(VaultWindow window)
+    internal static async Task<bool> VerifySessionLockInteractivelyAsync(VaultWindow window)
     {
+        bool windows = OperatingSystem.IsWindows();
+        string platform = windows ? "Windows" : "Linux";
         using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(4));
         var token = deadline.Token;
-        window.Title = "SQLitePass Win+L verification";
+        window.Title = windows ? "SQLitePass Win+L verification" : "SQLitePass logind session verification";
         var status = window.FindControl<TextBlock>("StatusText")!;
         var vault = window.FindControl<Grid>("VaultPanel")!;
         var login = window.FindControl<ScrollViewer>("UnlockPanel")!;
         string profile = (string)AppContext.GetData("SQLitePass.SettingsDirectory")!;
-        string vaultPath = Path.Combine(profile, "windows-lock-fixture.kpd");
-        const string credential = "Synthetic-Windows-session-lock!";
+        string vaultPath = Path.Combine(profile, "desktop-lock-fixture.kpd");
+        const string credential = "Synthetic-desktop-session-lock!";
         bool lockObserved = false;
         bool unlockObserved = false;
         bool passed = false;
@@ -46,39 +48,44 @@ internal static class NativeDesktopSessionVerification
             window.FindControl<TextBox>("MasterPassword")!.Text = credential;
             await window.OpenVaultAsync().WaitAsync(token);
             if (!vault.IsVisible) throw new InvalidOperationException("The synthetic verification vault did not open.");
-            stage = "waiting for Windows session lock";
-            status.Text = "Press Win+L now, then unlock Windows to see the result.";
+            stage = $"waiting for {platform} session lock";
+            status.Text = windows ? "Press Win+L now, then unlock Windows to see the result."
+                : "Lock the test desktop session now, then unlock it to see the result.";
+            if (!windows) Console.WriteLine("SQLitePass session probe ready.");
             await WaitForAsync(() => !vault.IsVisible && login.IsVisible && !login.IsEnabled, token);
             lockObserved = true;
-            stage = "waiting for Windows session unlock";
+            stage = $"waiting for {platform} session unlock";
+            if (!windows) Console.WriteLine("SQLitePass observed the test session lock.");
             await WaitForAsync(() => login.IsEnabled, token);
             unlockObserved = true;
             if (vault.IsVisible || !string.IsNullOrEmpty(window.FindControl<TextBox>("MasterPassword")!.Text))
-                throw new InvalidOperationException("The vault was available after Windows unlocked.");
+                throw new InvalidOperationException("The vault was available after the desktop session unlocked.");
             passed = true;
             stage = "completed";
-            status.Text = "Passed. Win+L locked the synthetic vault and Windows unlock left it locked.";
+            status.Text = "Passed. The desktop lock closed the synthetic vault and desktop unlock left it locked.";
         }
         catch (Exception error)
         {
             await window.LockVaultAsync();
             status.Text = error is OperationCanceledException
-                ? "Verification timed out while waiting for Windows lock and unlock."
+                ? $"Verification timed out while waiting for {platform} lock and unlock."
                 : $"Verification failed. {error.Message}";
         }
         finally
         {
-            if (AppContext.GetData("SQLitePass.WindowsSessionLockReport") is string reportPath)
+            if (AppContext.GetData("SQLitePass.InteractiveSessionLockReport") is string reportPath)
             {
                 await using var report = new FileStream(reportPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
                 await JsonSerializer.SerializeAsync(report, new
                 {
                     Passed = passed, SessionLockObserved = lockObserved, SessionUnlockObserved = unlockObserved,
-                    Stage = stage, CompletedAtUtc = DateTimeOffset.UtcNow,
+                    Stage = stage, CompletedAtUtc = DateTimeOffset.UtcNow, Platform = platform,
+                    SessionId = windows ? null : Environment.GetEnvironmentVariable("XDG_SESSION_ID"),
                     Version = typeof(App).Assembly.GetName().Version?.ToString()
                 });
             }
         }
+        return passed;
     }
 
     [SupportedOSPlatform("windows")]

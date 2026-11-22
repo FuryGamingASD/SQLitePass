@@ -25,8 +25,8 @@ public sealed partial class App : Application
             var settings = AppSettingsManager.Load();
             if (AppContext.GetData("SQLitePass.TrayProbe") is true && NativeTrayVerification.UsesXWaylandCloseProbe)
                 settings.CloseToTray = true;
-            bool windowsLockProbe = AppContext.GetData("SQLitePass.WindowsSessionLockProbe") is true;
-            if (windowsLockProbe)
+            bool sessionLockProbe = AppContext.GetData("SQLitePass.InteractiveSessionLockProbe") is true;
+            if (sessionLockProbe)
             {
                 settings.AutoLockMinutes = 0;
                 settings.EnableDualFileBackup = false;
@@ -60,9 +60,10 @@ public sealed partial class App : Application
                                 await NativeAppImageUpdateVerification.VerifyAsync(window, updateProbe);
                                 return;
                             }
-                            if (windowsLockProbe)
+                            if (sessionLockProbe)
                             {
-                                await NativeDesktopSessionVerification.VerifyWindowsLockInteractivelyAsync(window);
+                                bool passed = await NativeDesktopSessionVerification.VerifySessionLockInteractivelyAsync(window);
+                                if (OperatingSystem.IsLinux()) desktop.Shutdown(passed ? 0 : 1);
                                 return;
                             }
                             if (AppContext.GetData("SQLitePass.ClipboardProbe") is true) await NativeClipboardVerification.VerifyAsync(window);
