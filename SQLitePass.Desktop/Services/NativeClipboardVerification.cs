@@ -26,8 +26,11 @@ internal static class NativeClipboardVerification
             if (await ReadFromPeerAsync(token) != InitialText)
                 throw new InvalidOperationException("An external process did not receive the copied text intact.");
             await VerifyPrivacyFormatsAsync(window, token);
-            if (await expired.Task.WaitAsync(token) != ClipboardClearResult.Cleared || !string.IsNullOrEmpty(await read.TryGetTextAsync()))
-                throw new InvalidOperationException("The session clipboard did not clear at its deadline.");
+            var result = await expired.Task.WaitAsync(token);
+            if (result != ClipboardClearResult.Cleared)
+                throw new InvalidOperationException($"The session clipboard did not clear at its deadline. Result: {result}.");
+            if (!string.IsNullOrEmpty(await read.TryGetTextAsync()))
+                throw new InvalidOperationException("The native clipboard still held text after the deadline.");
         }
         finally { clipboard.Expired -= OnExpired; }
 
