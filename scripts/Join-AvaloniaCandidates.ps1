@@ -21,7 +21,7 @@ foreach ($platform in $platforms) {
     $manifestName = 'candidate-verification.json'
     $manifest = Get-Content -LiteralPath (Join-Path $directory $manifestName) -Raw | ConvertFrom-Json
     if ($manifest.SourceCommit -ne $Commit -or $manifest.SourceTree -ne $sourceTree -or $manifest.SourceDirty -ne $false -or
-        $manifest.NativeStartupVerified -ne $true -or $manifest.NativeClipboardVerified -ne $true -or
+        $manifest.NativeStartupVerified -ne $true -or $manifest.NativeClipboardVerified -ne $true -or $manifest.NativeTrayVerified -ne $true -or
         $manifest.Runtime -cne $platform.Runtime -or
         $manifest.Channel -cne $platform.Channel -or $manifest.Version -notmatch '^\d+\.\d+\.\d+$' -or
         $manifest.Feed -cne "releases.$($platform.Channel).json" -or

@@ -52,6 +52,7 @@ public sealed partial class VaultWindow : Window
         _settings = settings;
         _language = TranslationCatalog.ResolveLanguage(settings.Language, CultureInfo.CurrentUICulture);
         InitializeComponent();
+        Topmost = settings.AlwaysOnTop;
 
         VaultPathLabel.Text = Text("LoginDatabaseFile");
         VaultPath.Text = settings.LastOpenedVaultPath;
@@ -79,12 +80,19 @@ public sealed partial class VaultWindow : Window
         _idleTimer.Tick += IdleTimer_Tick;
         Opened += (_, _) => MasterPassword.Focus();
         Opened += (_, _) => _idleTimer.Start();
-        if (useNativeSession) Opened += (_, _) => InitializeClipboard();
+        if (useNativeSession) Opened += (_, _) =>
+        {
+            if (_nativeIntegrationsStarted) return;
+            _nativeIntegrationsStarted = true;
+            InitializeClipboard();
+            InitializeTray();
+        };
         Closed += (_, _) =>
         {
             _idleTimer.Stop();
             _desktopSession?.Dispose();
             _clipboard?.Dispose();
+            _tray?.Dispose();
         };
     }
 
@@ -102,10 +110,12 @@ public sealed partial class VaultWindow : Window
     {
         if (_closing || _systemLocked) return;
         bool minimized = WindowState == WindowState.Minimized;
-        bool lockOnMinimize = minimized && !_minimized && _settings.AutoLockOnMinimize;
+        bool justMinimized = minimized && !_minimized;
+        bool lockOnMinimize = justMinimized && _settings.AutoLockOnMinimize;
         _minimized = minimized;
         bool idle = _settings.AutoLockMinutes > 0 && Stopwatch.GetElapsedTime(_lastInput) >= TimeSpan.FromMinutes(_settings.AutoLockMinutes);
         if ((idle || lockOnMinimize) && (_session != null || _operation != null)) await LockVaultAsync();
+        if (justMinimized && _settings.MinimizeToTray && WindowState == WindowState.Minimized) HideInTray();
     }
 
     private void OnSystemLockStateChanged(bool locked) => Dispatcher.UIThread.Post(async () =>
@@ -360,6 +370,17 @@ public sealed partial class VaultWindow : Window
     {
         base.OnClosing(e);
         if (_permitClose) return;
+        if (e.CloseReason == WindowCloseReason.WindowClosing && !_exitRequested && _settings.CloseToTray && _tray?.CanHide == true)
+        {
+            e.Cancel = true;
+            if (_settings.AutoLockOnMinimize) await LockVaultAsync();
+            if (HideInTray()) return;
+            // The tray host may have disappeared while the vault was locking.
+            _exitRequested = true;
+            await Task.Yield();
+            Close();
+            return;
+        }
         e.Cancel = true;
         if (_closing) return;
         _closing = true;

@@ -30,6 +30,7 @@ public sealed partial class App : Application
                         if (!window.IsVisible || window.TryGetPlatformHandle() is not { Handle: var handle } || handle == IntPtr.Zero)
                             throw new InvalidOperationException("The native window did not open.");
                         if (AppContext.GetData("SQLitePass.ClipboardProbe") is true) await NativeClipboardVerification.VerifyAsync(window);
+                        if (AppContext.GetData("SQLitePass.TrayProbe") is true) await NativeTrayVerification.VerifyAsync(window);
                         window.Close();
                     }
                     catch (Exception error)

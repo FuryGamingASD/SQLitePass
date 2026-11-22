@@ -41,6 +41,7 @@
                         <MenuItem x:Name="ExportKeePass" Click="ExportKeePass_Click" />
                         <Separator />
                         <MenuItem x:Name="ClearClipboard" Click="ClearClipboard_Click" />
+                        <MenuItem x:Name="ExitApplication" Click="ExitApplication_Click" />
                     </MenuItem>
                 </Menu>
                 <Button x:Name="LockVault" Grid.Column="2" Click="LockVault_Click" />

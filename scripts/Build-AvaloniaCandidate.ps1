@@ -1,7 +1,7 @@
 param(
     [Parameter(Mandatory)][ValidateSet('win-x64','linux-x64')][string]$Runtime,
     [switch]$VerifyNativeLaunch,
-    [switch]$VerifyNativeClipboard
+    [switch]$VerifyDesktopIntegrations
 )
 
 Set-StrictMode -Version Latest
@@ -9,8 +9,8 @@ $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).ProviderPath
 Push-Location -LiteralPath $root
 try {
-    if ($VerifyNativeClipboard -and (-not $VerifyNativeLaunch -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted')) {
-        throw 'The native clipboard probe requires an isolated GitHub-hosted desktop.'
+    if ($VerifyDesktopIntegrations -and (-not $VerifyNativeLaunch -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted')) {
+        throw 'The desktop integration probes require an isolated GitHub-hosted desktop.'
     }
     if (($Runtime -eq 'win-x64' -and -not $IsWindows) -or ($Runtime -eq 'linux-x64' -and -not $IsLinux)) {
         throw "Package $Runtime on its native operating system."
@@ -93,19 +93,24 @@ try {
         if ($IsLinux) {
             & chmod +x -- $distribution.FullName
             if ($LASTEXITCODE -ne 0) { throw 'Cannot mark the AppImage executable.' }
-            $probe.FileName = 'xvfb-run'
+            if ($VerifyDesktopIntegrations) {
+                $probe.FileName = 'dbus-run-session'
+                $probe.ArgumentList.Add('--')
+                $probe.ArgumentList.Add('xvfb-run')
+                $probe.Environment['SQLITEPASS_TRAY_PROBE_WATCHER'] = Join-Path $PSScriptRoot 'Verify-LinuxTrayWatcher.py'
+            } else { $probe.FileName = 'xvfb-run' }
             $probe.ArgumentList.Add('-a')
             $probe.ArgumentList.Add($distribution.FullName)
             $probe.Environment['APPIMAGE_EXTRACT_AND_RUN'] = '1'
         } else {
             $probe.FileName = Join-Path $publish $executable
         }
-        $probe.ArgumentList.Add($(if ($VerifyNativeClipboard) { '--verify-startup-and-clipboard' } else { '--verify-startup' }))
+        $probe.ArgumentList.Add($(if ($VerifyDesktopIntegrations) { '--verify-desktop' } else { '--verify-startup' }))
         $probe.RedirectStandardError = $true
         $process = [Diagnostics.Process]::Start($probe)
         try {
             $errors = $process.StandardError.ReadToEndAsync()
-            if (-not $process.WaitForExit(45000)) {
+            if (-not $process.WaitForExit(75000)) {
                 $process.Kill($true)
                 throw 'The native Avalonia startup probe timed out.'
             }
@@ -119,7 +124,8 @@ try {
         Version = $version; Runtime = $Runtime; Channel = $channel
         Distribution = $distribution.Name; Feed = $feedName; UpdatePackage = $asset.FileName
         NativeStartupVerified = [bool]$VerifyNativeLaunch
-        NativeClipboardVerified = [bool]$VerifyNativeClipboard
+        NativeClipboardVerified = [bool]$VerifyDesktopIntegrations
+        NativeTrayVerified = [bool]$VerifyDesktopIntegrations
         Assets = @(Get-ChildItem -LiteralPath $release -File | ForEach-Object {
             [ordered]@{ Name = $_.Name; SHA256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash }
         })
