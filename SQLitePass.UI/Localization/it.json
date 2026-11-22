@@ -250,6 +250,8 @@
   "TrayTooltip": "SQLitePass · Password manager locale",
   "TrayStillRunning": "SQLitePass è ancora attivo nell'area di notifica.",
   "RestoreTitle": "Ripristino",
+  "RecoveryCopyConfirm": "Verificare il backup con le credenziali inserite e salvarlo come nuovo vault? Scegli un percorso libero per la copia recuperata.",
+  "RecoveryCopyComplete": "Il vault recuperato è pronto per lo sblocco.",
   "RestoreConfirm": "Il backup sarà verificato con la credenziale inserita. Il file attuale e i suoi journal saranno conservati per recupero. Continuare?",
   "RestoreComplete": "Ripristino verificato completato. Copia precedente: {0}",
   "RestoreFailed": "Ripristino non eseguito",

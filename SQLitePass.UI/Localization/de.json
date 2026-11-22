@@ -250,6 +250,8 @@
   "TrayTooltip": "SQLitePass · Lokaler Passwortmanager",
   "TrayStillRunning": "SQLitePass läuft weiterhin im Infobereich.",
   "RestoreTitle": "Wiederherstellung",
+  "RecoveryCopyConfirm": "Die Sicherung mit den eingegebenen Zugangsdaten prüfen und als neuen Tresor speichern? Wählen Sie einen freien Pfad für die wiederhergestellte Kopie.",
+  "RecoveryCopyComplete": "Der wiederhergestellte Tresor kann jetzt entsperrt werden.",
   "RestoreConfirm": "Die Sicherung wird mit den angegebenen Zugangsdaten geprüft. Die aktuelle Datei und ihre Journale bleiben erhalten. Fortfahren?",
   "RestoreComplete": "Geprüfte Wiederherstellung abgeschlossen. Vorherige Kopie: {0}",
   "RestoreFailed": "Wiederherstellung nicht ausgeführt",

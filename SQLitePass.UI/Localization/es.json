@@ -250,6 +250,8 @@
   "TrayTooltip": "SQLitePass · Gestor local de contraseñas",
   "TrayStillRunning": "SQLitePass sigue activo en el área de notificación.",
   "RestoreTitle": "Restauración",
+  "RecoveryCopyConfirm": "¿Verificar la copia de seguridad con las credenciales indicadas y guardarla como una nueva bóveda? Elige una ruta libre para la copia recuperada.",
+  "RecoveryCopyComplete": "La bóveda recuperada está lista para desbloquearse.",
   "RestoreConfirm": "Se verificará la copia con la credencial introducida. Se conservarán el archivo actual y sus diarios para recuperación. ¿Continuar?",
   "RestoreComplete": "Restauración verificada completada. Copia anterior: {0}",
   "RestoreFailed": "Restauración no realizada",

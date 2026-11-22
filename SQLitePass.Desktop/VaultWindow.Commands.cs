@@ -13,6 +13,8 @@ public sealed partial class VaultWindow
 
     private void SetVaultCommandLabels()
     {
+        FileMenu.Header = Text("MenuFile");
+        ChangeCredential.Header = Text("MenuChangeMasterPassword");
         FolderMenu.Header = Text("FoldersAndGroups");
         CreateFolder.Header = Text("MenuAddGroup");
         RenameFolder.Header = Text("MenuRenameGroup");
@@ -33,6 +35,7 @@ public sealed partial class VaultWindow
         var folder = SelectedFolder;
         bool writable = _session is { Storage.IsReadOnly: false };
         bool hasEntry = Entries.SelectedItem is EntryRow;
+        ChangeCredential.IsEnabled = writable;
         bool editableFolder = writable && folder is { IsRoot: false, IsRecycleBin: false };
         CreateFolder.IsEnabled = writable && !_query.OnlyRecycleBin;
         RenameFolder.IsEnabled = writable && folder is { IsRecycleBin: false };

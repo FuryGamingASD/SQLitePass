@@ -250,6 +250,8 @@
   "TrayTooltip": "SQLitePass · Local password manager",
   "TrayStillRunning": "SQLitePass is still running in the notification area.",
   "RestoreTitle": "Recovery",
+  "RecoveryCopyConfirm": "Verify the backup with the supplied credential and save it as a new vault? Choose an unused path for the recovered copy.",
+  "RecoveryCopyComplete": "The recovered vault is ready to unlock.",
   "RestoreConfirm": "The backup will be checked with the supplied credential. The current file and its journals will be preserved for recovery. Continue?",
   "RestoreComplete": "Verified recovery completed. Previous copy: {0}",
   "RestoreFailed": "Recovery not performed",

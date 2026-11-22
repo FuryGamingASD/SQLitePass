@@ -59,6 +59,7 @@ public sealed partial class VaultWindow : Window
         KeyFileLabel.Text = Text("LoginUseKeyFile");
         Unlock.Content = Text("LoginUnlock");
         NewVault.Content = Text("LoginNewVault");
+        RestoreBackup.Content = Text("LoginRestoreBackup");
         LockVault.Content = Text("MenuLockVault").Replace("_", "", StringComparison.Ordinal);
         SearchBox.PlaceholderText = Text("SearchPlaceholder");
         Search.Content = Text("SearchActiveScope");
@@ -180,6 +181,8 @@ public sealed partial class VaultWindow : Window
             await LoadPageAsync(session, _query, null, token);
             token.ThrowIfCancellationRequested();
             _session = session;
+            session.Storage.BackupStatusChanged += OnBackupStatusChanged;
+            UpdateBackupStatus();
             ResetIdleTime();
             VaultName.Text = session.Metadata.VaultName;
             UnlockPanel.IsVisible = false;
@@ -330,11 +333,15 @@ public sealed partial class VaultWindow : Window
         var session = _session;
         _session = null;
         VaultPanel.IsVisible = false;
-        VaultName.Text = EntryCount.Text = SearchBox.Text = MasterPassword.Text = KeyFilePath.Text = "";
+        VaultName.Text = EntryCount.Text = BackupStatus.Text = SearchBox.Text = MasterPassword.Text = KeyFilePath.Text = "";
         Entries.ItemsSource = null;
         Groups.ItemsSource = null;
         _previous = _next = null;
-        if (session != null) await session.DisposeAsync();
+        if (session != null)
+        {
+            session.Storage.BackupStatusChanged -= OnBackupStatusChanged;
+            await session.DisposeAsync();
+        }
         if (finished != null) await finished;
         UnlockPanel.IsVisible = true;
         StatusText.Text = Text("VaultLocked");
@@ -386,6 +393,7 @@ public sealed partial class VaultWindow : Window
             _operation = null;
             _operationFinished = null;
             UpdateControls();
+            UpdateBackupStatus();
             finished.SetResult();
         }
     }
@@ -393,7 +401,7 @@ public sealed partial class VaultWindow : Window
     private void UpdateControls()
     {
         bool idle = _operation == null && !_closing && !_systemLocked;
-        UnlockPanel.IsEnabled = QueryPanel.IsEnabled = GroupPanel.IsEnabled = idle;
+        UnlockPanel.IsEnabled = QueryPanel.IsEnabled = GroupPanel.IsEnabled = VaultMenu.IsEnabled = idle;
         Search.Content = Text(_query.OnlyRecycleBin ? "SearchRecycleBinScope" : "SearchActiveScope");
         UpdateVaultCommands();
         PreviousPage.IsEnabled = idle && _previous != null;

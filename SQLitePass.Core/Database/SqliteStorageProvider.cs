@@ -536,25 +536,39 @@ public sealed partial class SqliteStorageProvider : IDisposable
         foreach (var id in ids) Execute(c, tx, "DELETE FROM sp_entries WHERE group_id=$id", ("$id", id.ToString()));
         foreach (var id in ids) Execute(c, tx, "DELETE FROM sp_groups WHERE id=$id", ("$id", id.ToString()));
     }, preservedBackupPurpose: "pre-delete-group");
-    public async Task ChangeMasterKeyAsync(CryptoEngine oldCrypto, CryptoEngine newCrypto, string salt, int iterations, int memoryKb, int parallelism, bool encryptUsernameUrl, bool usesKeyFile = false)
+    public Task ChangeMasterKeyAsync(CryptoEngine oldCrypto, CryptoEngine newCrypto, string salt, int iterations, int memoryKb, int parallelism, bool encryptUsernameUrl, bool usesKeyFile = false) =>
+        RotateMasterKeyAsync(oldCrypto, newCrypto, salt, iterations, memoryKb, parallelism, usesKeyFile);
+
+    internal async Task<VaultMetadata> RotateMasterKeyAsync(CryptoEngine oldCrypto, CryptoEngine newCrypto, string salt,
+        int iterations, int memoryKb, int parallelism, bool usesKeyFile, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         CheckCrypto(oldCrypto); CryptoEngine.ValidateKdf(Convert.FromBase64String(salt), iterations, memoryKb, parallelism);
+        VaultMetadata? updated = null;
         await WriteAsync((c, tx, key, m) =>
         {
+            if (!ReferenceEquals(key, oldCrypto)) throw new VaultConflictException("The vault credential has already changed.");
             var groups = ReadGroups(c, tx, key, m); var entries = EntryIdentities(c, tx);
             var originalMetadata = JsonSerializer.Deserialize<VaultMetadata>(JsonSerializer.Serialize(m))!;
             CreateSnapshot(PreservedBackupPath("pre-rekey"));
             m.SaltBase64 = salt; m.KdfIterations = iterations; m.KdfMemoryKb = memoryKb; m.KdfParallelism = parallelism;
             m.VerificationCanary = newCrypto.GenerateCanaryToken(); m.KeyEpoch = Guid.NewGuid(); m.UsesKeyFile = newCrypto.DerivedWithKeyFile ?? usesKeyFile; m.EncryptUsernameUrl = true;
-            foreach (var group in groups) WriteGroup(c, tx, group, newCrypto, m);
+            foreach (var group in groups)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                WriteGroup(c, tx, group, newCrypto, m);
+            }
             foreach (var (id, _) in entries)
             {
-                var entry = ReadEntries(c, tx, key, originalMetadata, entryId: id).Single();
+                cancellationToken.ThrowIfCancellationRequested();
+                var entry = ReadEntries(c, tx, key, originalMetadata, entryId: id, cancellationToken: cancellationToken).Single();
                 try { WriteEntry(c, tx, entry, newCrypto, m); }
                 finally { entry.ClearSecrets(); }
             }
             _crypto = newCrypto;
-        }).ConfigureAwait(false);
+            updated = m;
+        }, cancellationToken).ConfigureAwait(false);
+        return updated!;
     }
     public Task VacuumAsync() => Task.CompletedTask;
     public void Dispose()

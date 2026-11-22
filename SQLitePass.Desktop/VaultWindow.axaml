@@ -25,12 +25,18 @@
                     <Button x:Name="Unlock" Classes="accent" IsDefault="True" Click="Unlock_Click" />
                     <Button x:Name="NewVault" Click="NewVault_Click" />
                 </StackPanel>
+                <Button x:Name="RestoreBackup" Click="RestoreBackup_Click" />
             </StackPanel>
         </ScrollViewer>
         <Grid x:Name="VaultPanel" RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="12" IsVisible="False">
-            <Grid ColumnDefinitions="*,Auto">
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                 <TextBlock x:Name="VaultName" FontSize="23" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                <Button x:Name="LockVault" Grid.Column="1" Click="LockVault_Click" />
+                <Menu x:Name="VaultMenu" Grid.Column="1" VerticalAlignment="Center">
+                    <MenuItem x:Name="FileMenu">
+                        <MenuItem x:Name="ChangeCredential" Click="ChangeCredential_Click" />
+                    </MenuItem>
+                </Menu>
+                <Button x:Name="LockVault" Grid.Column="2" Click="LockVault_Click" />
             </Grid>
             <Grid x:Name="QueryPanel" Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
                 <TextBox x:Name="SearchBox" KeyDown="SearchBox_KeyDown" MaxLength="4096" />
@@ -72,7 +78,10 @@
                 </ListBox.ItemTemplate>
             </ListBox>
             <Grid x:Name="PagePanel" Grid.Row="4" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-                <TextBlock x:Name="EntryCount" VerticalAlignment="Center" />
+                <StackPanel Spacing="2">
+                    <TextBlock x:Name="EntryCount" />
+                    <TextBlock x:Name="BackupStatus" TextWrapping="Wrap" />
+                </StackPanel>
                 <Button x:Name="PreviousPage" Grid.Column="1" Click="PreviousPage_Click" />
                 <Button x:Name="NextPage" Grid.Column="2" Click="NextPage_Click" />
             </Grid>

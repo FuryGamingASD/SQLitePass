@@ -4,17 +4,21 @@ The Avalonia application in `SQLitePass.Desktop` uses `SQLitePass.Core` for the 
 
 ## Verification builds
 
-The Verify workflow runs the same `SQLitePass.Tests` suite on Windows x64 and Ubuntu x64. Its Avalonia tests open synthetic vaults, reject a wrong credential, search entries, save an edit with history, exercise folder changes and recovery from the recycle bin, and check that a vault lock closes the editor and empties the visible list. They use the headless backend, which exercises the application's controls without testing the operating system's window, clipboard, or lock behavior.
+The Verify workflow runs the same `SQLitePass.Tests` suite on Windows x64 and Ubuntu x64. Its Avalonia tests use synthetic vaults to cover unlock, search, editing and history, folder changes, the recycle bin, credential rotation and recovery. They use the headless backend, which exercises the application's controls without testing the operating system's window, clipboard, or lock behavior.
 
 The native jobs run `scripts/Build-AvaloniaCandidate.ps1` with `win-x64` and `linux-x64`. Each produces a verification package and its own Velopack manifest. Package notices come from the dependencies in each published runtime. Windows checks startup of the published executable. Linux checks startup through the AppImage under Xvfb. Both checks use a temporary profile and exit on opening the window. The assembly job checks the artifacts came from the same clean source tree and version, verifies their hashes, and stores both distributions in one Actions artifact. The verification packages use the `SQLitePassAvaloniaPreview` application identifier and are intended for synthetic vaults in isolated test environments.
 
 ## Before switching the release
 
-- Finish migrating the vault browser and dialogs, including credential changes, recovery from vault backups, import and export, and entry custom fields, attachments, and history.
+- Finish migrating the vault browser and dialogs, including import and export, and entry custom fields, attachments, and history.
 - Verify Windows session lock and capture protection on a native desktop. The Linux adapter listens for logind lock hints and suspend signals. Verify these signals on the supported Linux desktops and verify the inactivity fallback when logind is unavailable on the system bus.
 - Port and test the clipboard, tray, and Auto-Type adapters. Clipboard clearing must preserve data subsequently copied by another application. Auto-Type must preserve target confirmation and abort when the target changes. Validate Linux capabilities per supported desktop session.
 - Verify launch after Windows installation and from the AppImage on supported desktops, upgrade from the installed Windows line, update discovery and application on both platforms, and package notices for all shipped dependencies.
 - Switch the publish job to a single version tag and the two verified package sets. Keep the existing Windows `win` feed compatible and publish the Linux `linux` feed in the same GitHub release with notes from `RELEASE_NOTES.md`.
+
+## Recovery in the shared app
+
+On the locked screen, **Restore from .backup** authenticates a backup using the entered password or key file. Choose an unused destination for the recovered vault. The backup, source vault and its journals stay available while the copy is verified. To recover a backup created before a credential change, use the credential that was valid when the backup was created.
 
 ## Package license sources
 

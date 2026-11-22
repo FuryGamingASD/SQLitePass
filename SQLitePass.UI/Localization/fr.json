@@ -250,6 +250,8 @@
   "TrayTooltip": "SQLitePass · Gestionnaire local de mots de passe",
   "TrayStillRunning": "SQLitePass reste actif dans la zone de notification.",
   "RestoreTitle": "Restauration",
+  "RecoveryCopyConfirm": "Vérifier la sauvegarde avec les identifiants saisis et l’enregistrer dans un nouveau coffre ? Choisissez un emplacement libre pour la copie récupérée.",
+  "RecoveryCopyComplete": "Le coffre récupéré peut maintenant être déverrouillé.",
   "RestoreConfirm": "La sauvegarde sera vérifiée avec les identifiants saisis. Le fichier actuel et ses journaux seront conservés. Continuer ?",
   "RestoreComplete": "Restauration vérifiée terminée. Copie précédente : {0}",
   "RestoreFailed": "Restauration non effectuée",

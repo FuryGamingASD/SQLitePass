@@ -219,6 +219,105 @@ public sealed class AvaloniaVaultTests
         await operation;
     }
 
+    [Fact]
+    public async Task SharedDesktopRotatesToKeyFileOnlyAndRecoversAnEarlierBackupIntoANewVault()
+    {
+        const string password = "Test-only-credential-@#€";
+        var directory = Directory.CreateTempSubdirectory("SQLitePass-Avalonia-");
+        string path = Path.Combine(directory.FullName, "credential.kpd");
+        string earlier = Path.Combine(directory.FullName, "earlier.kpd");
+        string recovered = Path.Combine(directory.FullName, "recovered.kpd");
+        string keyFile = Path.Combine(directory.FullName, "synthetic.key");
+        var settings = new AppSettings { Language = "en", LastOpenedVaultPath = path, EnableDualFileBackup = true };
+        try
+        {
+            File.WriteAllBytes(keyFile, Enumerable.Repeat((byte)0x42, 32).ToArray());
+            using var initial = new MasterKey(password);
+            await using (var vault = await VaultSession.CreateAsync(path, initial, settings, "General", "Recycle bin"))
+            {
+                var entry = new PwEntry { Title = "Recovery fixture", GroupId = vault.Metadata.RootGroupId!.Value, Password = "sample-data" };
+                try { await vault.Storage.SaveEntryAsync(entry, vault.Crypto); }
+                finally { entry.ClearSecrets(); }
+                File.Copy(vault.Storage.BackupFilePath, earlier + ".backup");
+            }
+            byte[] originalBackup = File.ReadAllBytes(earlier + ".backup");
+
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+            await using var desktop = HeadlessUnitTestSession.StartNew(typeof(HeadlessStartup));
+            await desktop.Dispatch(async () =>
+            {
+                var window = new VaultWindow(settings);
+                var vaultPath = window.FindControl<TextBox>("VaultPath")!;
+                var passwordBox = window.FindControl<TextBox>("MasterPassword")!;
+                var keyFileBox = window.FindControl<TextBox>("KeyFilePath")!;
+                var status = window.FindControl<TextBlock>("StatusText")!;
+                var vaultPanel = window.FindControl<Grid>("VaultPanel")!;
+                window.Show();
+                try
+                {
+                    passwordBox.Text = password;
+                    await window.OpenVaultAsync();
+                    Assert.True(vaultPanel.IsVisible);
+
+                    var rotation = window.ChangeCredentialAsync();
+                    var dialog = await FindDialogAsync<CredentialChangeDialog>(window, rotation, timeout.Token);
+                    dialog.FindControl<TextBox>("CurrentPassword")!.Text = "incorrect";
+                    dialog.FindControl<TextBox>("ReplacementFile")!.Text = keyFile;
+                    dialog.FindControl<TextBox>("ReplacementPassword")!.Text = "mismatch";
+                    dialog.Save_Click(null, new RoutedEventArgs());
+                    Assert.True(dialog.FindControl<TextBlock>("ValidationMessage")!.IsVisible);
+                    dialog.FindControl<TextBox>("ReplacementPassword")!.Clear();
+                    dialog.Save_Click(null, new RoutedEventArgs());
+                    await rotation;
+                    Assert.Contains("incorrect", status.Text, StringComparison.OrdinalIgnoreCase);
+
+                    rotation = window.ChangeCredentialAsync();
+                    dialog = await FindDialogAsync<CredentialChangeDialog>(window, rotation, timeout.Token);
+                    dialog.FindControl<TextBox>("CurrentPassword")!.Text = password;
+                    dialog.FindControl<TextBox>("ReplacementFile")!.Text = keyFile;
+                    dialog.Save_Click(null, new RoutedEventArgs());
+                    await rotation;
+                    Assert.Contains("credential was updated", status.Text, StringComparison.OrdinalIgnoreCase);
+                    Assert.Empty(dialog.FindControl<TextBox>("CurrentPassword")!.Text ?? "");
+                    await window.LockVaultAsync();
+
+                    passwordBox.Text = password;
+                    await window.OpenVaultAsync();
+                    Assert.False(vaultPanel.IsVisible);
+                    keyFileBox.Text = keyFile;
+                    await window.OpenVaultAsync();
+                    Assert.True(vaultPanel.IsVisible);
+                    await window.LockVaultAsync();
+
+                    vaultPath.Text = earlier;
+                    passwordBox.Text = "incorrect";
+                    await ConfirmAsync(window, window.RecoverBackupAsync(_ => Task.FromResult<string?>(recovered)), true, timeout.Token);
+                    Assert.False(File.Exists(recovered));
+                    passwordBox.Text = password;
+                    await ConfirmAsync(window, window.RecoverBackupAsync(_ => Task.FromResult<string?>(recovered)), true, timeout.Token);
+                    Assert.Equal(recovered, vaultPath.Text);
+                    Assert.True(File.Exists(recovered));
+                    Assert.False(File.Exists(earlier));
+                    Assert.Equal(originalBackup, File.ReadAllBytes(earlier + ".backup"));
+                    Assert.Empty(Directory.EnumerateDirectories(directory.FullName, ".sqlitepass-recovery-*"));
+                    passwordBox.Text = password;
+                    await window.OpenVaultAsync();
+                    Assert.True(vaultPanel.IsVisible);
+                    Assert.Equal("Recovery fixture", Assert.IsType<EntryRow>(Assert.Single(window.FindControl<ListBox>("Entries")!.Items)).Title);
+                }
+                finally
+                {
+                    var closed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                    window.Closed += (_, _) => closed.TrySetResult();
+                    window.Close();
+                    await closed.Task.WaitAsync(timeout.Token);
+                }
+                return true;
+            }, timeout.Token);
+        }
+        finally { directory.Delete(recursive: true); }
+    }
+
     private static async Task ChooseFolderAsync(VaultWindow window, Task operation, string name, CancellationToken token)
     {
         var dialog = await FindDialogAsync<FolderDialog>(window, operation, token);

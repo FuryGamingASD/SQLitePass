@@ -107,32 +107,21 @@ public sealed partial class SqliteStorageProvider
         finally { _gate.Release(); }
     }
 
-    // Authenticated candidate + OS-exclusive main handle: old WAL/SHM are preserved together.
+    // The original vault and its journals are preserved together when replaced in place.
     public Task<string> RestoreBackupAsync(MasterKey masterKey) => Task.Run(async () =>
     {
         if (!_locked) throw new InvalidOperationException("Bloccare il vault prima del ripristino.");
         using var lease = new FileStream(FilePath + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-        string candidate = FilePath + ".restore-" + Guid.NewGuid().ToString("N") + ".tmp";
+        string stagingDirectory = CreateRecoveryDirectory(FilePath);
+        string candidate = Path.Combine(stagingDirectory, "candidate.kpd");
         string preserved = FilePath + ".recovery-" + DateTime.UtcNow.ToString("yyyyMMddHHmmssfff") + "-" + Guid.NewGuid().ToString("N");
         var movedSidecars = new List<(string source, string preserved)>();
         bool installed = false;
         try
         {
-            if (!File.Exists(BackupFilePath)) throw new FileNotFoundException("Backup non trovato.", BackupFilePath);
-            using (var source = Open(true, BackupFilePath))
-            using (var target = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = candidate, Pooling = false }.ToString()))
-            { target.Open(); source.BackupDatabase(target); }
-            // Migrates only the temporary candidate if it uses the old format.
-            using (var probe = new SqliteStorageProvider(candidate, enableBackup: false))
-            {
-                if (!await probe.CheckDatabaseIntegrityAsync().ConfigureAwait(false)) throw new InvalidDataException("Il backup non è integro.");
-                var metadata = await probe.LoadVaultMetadataAsync().ConfigureAwait(false) ?? throw new InvalidDataException("Backup incompleto.");
-                using var key = CryptoEngine.FromMasterKey(masterKey, Convert.FromBase64String(metadata.SaltBase64), metadata.KdfIterations, metadata.KdfMemoryKb, metadata.KdfParallelism);
-                await probe.AuthenticateAsync(key).ConfigureAwait(false);
-                await probe.ValidateContentsAsync(key).ConfigureAwait(false);
-            }
+            await AuthenticateRecoveryCopyAsync(BackupFilePath, candidate, masterKey, CancellationToken.None).ConfigureAwait(false);
             SimulateIoFailure?.Invoke(VaultIoStage.RecoveryValidated);
-            // FileShare.Delete permits atomic replacement, while denying SQLite readers/writers.
+            // Windows can also deny access to the main file through sharing flags. The app lease protects SQLitePass sessions on both systems.
             using var original = File.Exists(FilePath)
                 ? new FileStream(FilePath, FileMode.Open, FileAccess.ReadWrite, FileShare.Delete) : null;
             foreach (string suffix in new[] { "-wal", "-shm" })
@@ -144,7 +133,6 @@ public sealed partial class SqliteStorageProvider
                     movedSidecars.Add((sidecar, preserved + suffix));
                 }
             }
-            using (var flush = new FileStream(candidate, FileMode.Open, FileAccess.ReadWrite, FileShare.Read)) flush.Flush(true);
             SimulateIoFailure?.Invoke(VaultIoStage.BeforeRecoveryReplacement);
             if (File.Exists(FilePath)) File.Replace(candidate, FilePath, preserved);
             else File.Move(candidate, FilePath);
@@ -155,9 +143,72 @@ public sealed partial class SqliteStorageProvider
         {
             if (!installed)
                 foreach (var (source, saved) in movedSidecars.AsEnumerable().Reverse()) if (File.Exists(saved)) File.Move(saved, source);
-            DeleteTemporary(candidate);
+            RemoveRecoveryDirectory(stagingDirectory);
         }
     });
+
+    public static Task RecoverBackupCopyAsync(string backupPath, string destination, MasterKey masterKey,
+        CancellationToken cancellationToken = default) => Task.Run(async () =>
+    {
+        string final = Path.GetFullPath(destination);
+        if (!Directory.Exists(Path.GetDirectoryName(final))) throw new DirectoryNotFoundException("The recovery directory does not exist.");
+        RequireUnusedRecoveryPath(final);
+        using var storage = new SqliteStorageProvider(backupPath, enableBackup: false);
+        string stagingDirectory = CreateRecoveryDirectory(final);
+        string candidate = Path.Combine(stagingDirectory, "candidate.kpd");
+        try
+        {
+            await storage.AuthenticateRecoveryCopyAsync(storage.FilePath, candidate, masterKey, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            RequireUnusedRecoveryPath(final);
+            File.Move(candidate, final, overwrite: false);
+        }
+        finally { RemoveRecoveryDirectory(stagingDirectory); }
+    }, cancellationToken);
+
+    private static string CreateRecoveryDirectory(string destination) => Directory.CreateDirectory(
+        Path.Combine(Path.GetDirectoryName(destination)!, ".sqlitepass-recovery-" + Guid.NewGuid().ToString("N"))).FullName;
+
+    private static void RemoveRecoveryDirectory(string stagingDirectory)
+    {
+        try { Directory.Delete(stagingDirectory, recursive: true); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        { AppLogger.LogWarning("The temporary recovery copy could not be removed."); }
+    }
+
+    private static void RequireUnusedRecoveryPath(string destination)
+    {
+        foreach (string suffix in new[] { "", "-wal", "-shm", "-journal", ".lock" })
+        {
+            if (File.Exists(destination + suffix) || Directory.Exists(destination + suffix))
+                throw new IOException("Choose a new path for the recovered vault. The destination is already in use.");
+        }
+    }
+
+    private async Task AuthenticateRecoveryCopyAsync(string backup, string candidate, MasterKey masterKey, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        if (!File.Exists(backup)) throw new FileNotFoundException("Backup non trovato.", backup);
+        using (var source = Open(true, backup))
+        using (var target = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = candidate, Pooling = false }.ToString()))
+        {
+            target.Open();
+            source.BackupDatabase(target);
+        }
+        token.ThrowIfCancellationRequested();
+        // A legacy backup is migrated only inside the private staging directory.
+        using (var probe = new SqliteStorageProvider(candidate, enableBackup: false))
+        {
+            if (!await probe.CheckDatabaseIntegrityAsync().ConfigureAwait(false)) throw new InvalidDataException("Il backup non è integro.");
+            var metadata = await probe.LoadVaultMetadataAsync().ConfigureAwait(false) ?? throw new InvalidDataException("Backup incompleto.");
+            using var key = CryptoEngine.FromMasterKey(masterKey, Convert.FromBase64String(metadata.SaltBase64), metadata.KdfIterations, metadata.KdfMemoryKb, metadata.KdfParallelism);
+            token.ThrowIfCancellationRequested();
+            await probe.AuthenticateAsync(key).ConfigureAwait(false);
+            await probe.ValidateContentsAsync(key, token).ConfigureAwait(false);
+        }
+        using var flush = new FileStream(candidate, FileMode.Open, FileAccess.ReadWrite, FileShare.Read);
+        flush.Flush(flushToDisk: true);
+    }
 
     private static void DeleteTemporary(string path)
     {
