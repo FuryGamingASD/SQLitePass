@@ -15,6 +15,10 @@ try {
     if ($LASTEXITCODE -ne 0 -or $version -notmatch '^\d+\.\d+\.\d+$') { throw 'Cannot resolve the shared application version.' }
     $commit = & git rev-parse HEAD
     if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve the source commit.' }
+    $tree = & git rev-parse 'HEAD^{tree}'
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve the source tree.' }
+    $sourceChanges = @(& git status --porcelain)
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot inspect the source tree.' }
 
     $candidateId = "$version-$([Guid]::NewGuid().ToString('N'))"
     $publish = Join-Path $root "artifacts/avalonia/$candidateId/publish"
@@ -56,7 +60,8 @@ try {
     if ($IsLinux -and ([Convert]::ToHexString($header, 0, 4) -ne '7F454C46' -or
         [Convert]::ToHexString($header, 8, 3) -ne '414902')) { throw 'Invalid AppImage header.' }
     $evidence = [ordered]@{
-        SourceCommit = $commit; Version = $version; Runtime = $Runtime; Channel = $channel
+        SourceCommit = $commit; SourceTree = $tree; SourceDirty = ($sourceChanges.Count -gt 0)
+        Version = $version; Runtime = $Runtime; Channel = $channel
         Distribution = $distribution.Name; Feed = $feedName; UpdatePackage = $asset.FileName
         Assets = @(Get-ChildItem -LiteralPath $release -File | ForEach-Object {
             [ordered]@{ Name = $_.Name; SHA256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash }
