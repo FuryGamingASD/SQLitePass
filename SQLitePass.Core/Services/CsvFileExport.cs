@@ -31,7 +31,9 @@ public static partial class ImportExportService
             string temporary = Path.Combine(Path.GetDirectoryName(destination)!, ".SQLitePass-export-" + Guid.NewGuid().ToString("N") + ".tmp");
             try
             {
-                using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, 65536))
+                var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write, Share = FileShare.None, BufferSize = 65536 };
+                if (OperatingSystem.IsLinux()) options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+                using (var stream = new FileStream(temporary, options))
                 {
                     using (var writer = new StreamWriter(stream, new UTF8Encoding(false), 65536, leaveOpen: true))
                     {

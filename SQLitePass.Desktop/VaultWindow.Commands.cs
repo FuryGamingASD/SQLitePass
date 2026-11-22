@@ -15,6 +15,10 @@ public sealed partial class VaultWindow
     {
         FileMenu.Header = Text("MenuFile");
         ChangeCredential.Header = Text("MenuChangeMasterPassword");
+        ImportKeePass.Header = Text("MenuImportCsv");
+        ImportBitwarden.Header = Text("MenuImportBitwardenJson");
+        ImportBrowser.Header = Text("MenuImportBrowserCsv");
+        ExportKeePass.Header = Text("MenuExportCsv");
         FolderMenu.Header = Text("FoldersAndGroups");
         CreateFolder.Header = Text("MenuAddGroup");
         RenameFolder.Header = Text("MenuRenameGroup");
@@ -36,6 +40,8 @@ public sealed partial class VaultWindow
         bool writable = _session is { Storage.IsReadOnly: false };
         bool hasEntry = Entries.SelectedItem is EntryRow;
         ChangeCredential.IsEnabled = writable;
+        ImportKeePass.IsEnabled = ImportBitwarden.IsEnabled = ImportBrowser.IsEnabled = writable;
+        ExportKeePass.IsEnabled = _session != null;
         bool editableFolder = writable && folder is { IsRoot: false, IsRecycleBin: false };
         CreateFolder.IsEnabled = writable && !_query.OnlyRecycleBin;
         RenameFolder.IsEnabled = writable && folder is { IsRecycleBin: false };

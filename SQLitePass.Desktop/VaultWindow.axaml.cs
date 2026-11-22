@@ -42,6 +42,7 @@ public sealed partial class VaultWindow : Window
     private bool _permitClose;
     private bool _minimized;
     private bool _systemLocked;
+    private bool _canCancelOperation;
     private long _lastInput = Stopwatch.GetTimestamp();
 
     public VaultWindow() : this(new AppSettings()) { }
@@ -70,6 +71,7 @@ public sealed partial class VaultWindow : Window
         Avalonia.Automation.AutomationProperties.SetName(Groups, Text("FoldersAndGroups"));
         PreviousPage.Content = Text("PreviousEntryPage");
         NextPage.Content = Text("NextEntryPage");
+        CancelOperation.Content = Text("Cancel");
         if (useNativeSession) _desktopSession = DesktopSession.Create(OnSystemLockStateChanged, settings.ProtectScreenCapture);
         ProtectDialog(this);
         _idleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
@@ -362,17 +364,27 @@ public sealed partial class VaultWindow : Window
         Close();
     }
 
-    private async Task RunOperationAsync(Func<CancellationToken, Task> action)
+    private void CancelOperation_Click(object? sender, RoutedEventArgs e)
+    {
+        _operation?.Cancel();
+        CancelOperation.IsEnabled = false;
+    }
+
+    private async Task RunOperationAsync(Func<CancellationToken, Task> action, bool canCancel = false)
     {
         if (_operation != null || _closing || _systemLocked) return;
         using var operation = new CancellationTokenSource();
         var finished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _operation = operation;
         _operationFinished = finished;
+        _canCancelOperation = canCancel;
         UpdateControls();
         StatusText.Text = "";
         try { await action(operation.Token); }
-        catch (OperationCanceledException) when (operation.IsCancellationRequested) { }
+        catch (OperationCanceledException) when (operation.IsCancellationRequested)
+        {
+            if (_session != null && !_closing) StatusText.Text = Text("ErrorCancelled");
+        }
         catch (Exception ex)
         {
             AppLogger.LogError("Operation did not complete", ex);
@@ -392,6 +404,7 @@ public sealed partial class VaultWindow : Window
         {
             _operation = null;
             _operationFinished = null;
+            _canCancelOperation = false;
             UpdateControls();
             UpdateBackupStatus();
             finished.SetResult();
@@ -402,6 +415,8 @@ public sealed partial class VaultWindow : Window
     {
         bool idle = _operation == null && !_closing && !_systemLocked;
         UnlockPanel.IsEnabled = QueryPanel.IsEnabled = GroupPanel.IsEnabled = VaultMenu.IsEnabled = idle;
+        CancelOperation.IsVisible = _canCancelOperation && !_closing && !_systemLocked;
+        CancelOperation.IsEnabled = _operation?.IsCancellationRequested == false;
         Search.Content = Text(_query.OnlyRecycleBin ? "SearchRecycleBinScope" : "SearchActiveScope");
         UpdateVaultCommands();
         PreviousPage.IsEnabled = idle && _previous != null;

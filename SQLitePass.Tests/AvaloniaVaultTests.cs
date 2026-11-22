@@ -318,6 +318,82 @@ public sealed class AvaloniaVaultTests
         finally { directory.Delete(recursive: true); }
     }
 
+    [Fact]
+    public async Task SharedDesktopImportsAllSupportedFormatsAndExportsOnlyActiveEntries()
+    {
+        const string password = "Synthetic-transfer-workflow!";
+        var directory = Directory.CreateTempSubdirectory("SQLitePass-Avalonia-");
+        string path = Path.Combine(directory.FullName, "transfer.kpd");
+        string export = Path.Combine(directory.FullName, "export.csv");
+        var settings = new AppSettings { Language = "en", LastOpenedVaultPath = path, EnableDualFileBackup = false };
+        try
+        {
+            (VaultImportFormat Format, string Name, string Content)[] sources =
+            [
+                (VaultImportFormat.KeePassCsv, "keepass.csv", "Group,Title,Username,Password,URL,Notes\nAccounts,Imported KeePass,fixture,keepass-test,https://example.invalid,test\n"),
+                (VaultImportFormat.BitwardenJson, "bitwarden.json", """{"items":[{"type":1,"name":"Imported Bitwarden","login":{"username":"fixture","password":"bitwarden-test"}}]}"""),
+                (VaultImportFormat.BrowserCsv, "browser.csv", "name,url,username,password\nImported Browser,https://example.invalid,fixture,browser-test\n")
+            ];
+            foreach (var source in sources) File.WriteAllText(Path.Combine(directory.FullName, source.Name), source.Content);
+            using var initial = new MasterKey(password);
+            await using (var vault = await VaultSession.CreateAsync(path, initial, settings, "General", "Recycle bin"))
+            {
+                var deleted = new PwEntry { Title = "Trashed fixture", Password = "excluded", GroupId = vault.Metadata.RecycleBinGroupId!.Value };
+                try { await vault.Storage.SaveEntryAsync(deleted, vault.Crypto); }
+                finally { deleted.ClearSecrets(); }
+            }
+
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(35));
+            await using var desktop = HeadlessUnitTestSession.StartNew(typeof(HeadlessStartup));
+            await desktop.Dispatch(async () =>
+            {
+                var window = new VaultWindow(settings);
+                var entries = window.FindControl<ListBox>("Entries")!;
+                window.Show();
+                try
+                {
+                    window.FindControl<TextBox>("MasterPassword")!.Text = password;
+                    await window.OpenVaultAsync();
+                    Assert.Empty(entries.Items);
+
+                    var rejected = window.ImportVaultFileAsync(sources[0].Format, _ => Task.FromResult<string?>(Path.Combine(directory.FullName, sources[0].Name)));
+                    await ConfirmAsync(window, rejected, false, timeout.Token);
+                    Assert.Empty(entries.Items);
+
+                    foreach (var source in sources)
+                    {
+                        var import = window.ImportVaultFileAsync(source.Format, _ => Task.FromResult<string?>(Path.Combine(directory.FullName, source.Name)));
+                        await ConfirmAsync(window, import, true, timeout.Token);
+                        Assert.Contains("Imported 1 entries", window.FindControl<TextBlock>("StatusText")!.Text, StringComparison.Ordinal);
+                    }
+                    var scope = window.FindControl<ComboBox>("Groups")!.Items.OfType<GroupChoice>().Single(choice => choice.Id == null);
+                    await window.SelectGroupAsync(scope);
+                    Assert.Equal(3, entries.Items.Count);
+
+                    await ConfirmAsync(window, window.ExportVaultFileAsync(() => Task.FromResult<string?>(export)), false, timeout.Token);
+                    Assert.False(File.Exists(export));
+                    await ConfirmAsync(window, window.ExportVaultFileAsync(() => Task.FromResult<string?>(export)), true, timeout.Token);
+                    var decoded = await ImportExportService.ImportFromFileAsync(export, VaultImportFormat.KeePassCsv, Guid.NewGuid(), timeout.Token);
+                    try
+                    {
+                        Assert.Equal(new[] { "bitwarden-test", "browser-test", "keepass-test" }, decoded.Select(item => item.Password).Order());
+                        Assert.DoesNotContain(decoded, item => item.Title == "Trashed fixture");
+                    }
+                    finally { foreach (var item in decoded) item.ClearSecrets(); }
+                }
+                finally
+                {
+                    var closed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                    window.Closed += (_, _) => closed.TrySetResult();
+                    window.Close();
+                    await closed.Task.WaitAsync(timeout.Token);
+                }
+                return true;
+            }, timeout.Token);
+        }
+        finally { directory.Delete(recursive: true); }
+    }
+
     private static async Task ChooseFolderAsync(VaultWindow window, Task operation, string name, CancellationToken token)
     {
         var dialog = await FindDialogAsync<FolderDialog>(window, operation, token);
