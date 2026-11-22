@@ -28,6 +28,7 @@
                 <WrapPanel>
                     <Button x:Name="RestoreBackup" Margin="0,0,8,4" Click="RestoreBackup_Click" />
                     <Button x:Name="LoginGenerator" Margin="0,0,8,4" Click="PasswordGenerator_Click" />
+                    <Button x:Name="LoginCheckUpdates" Margin="0,0,8,4" Click="CheckUpdates_Click" />
                 </WrapPanel>
             </StackPanel>
         </ScrollViewer>
@@ -45,6 +46,7 @@
                         <Separator />
                         <MenuItem x:Name="PasswordGeneratorCommand" Click="PasswordGenerator_Click" />
                         <MenuItem x:Name="ClearClipboard" Click="ClearClipboard_Click" />
+                        <MenuItem x:Name="CheckUpdates" Click="CheckUpdates_Click" />
                         <MenuItem x:Name="ExitApplication" Click="ExitApplication_Click" />
                     </MenuItem>
                 </Menu>

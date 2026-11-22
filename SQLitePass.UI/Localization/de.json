@@ -305,6 +305,8 @@
   "AboutText": "SQLitePass {0}\n\nLokaler Passwortmanager für Windows.\nAuthentifiziertes Format v2 · Argon2id · AES-256-GCM.\nGeprüfte Sicherungen mit früheren Versionen.\n\nKeine Garantie gegen Schadsoftware, Ausfälle oder Datenverlust. Bewahren Sie eine unabhängige Kopie auf und lesen Sie SECURITY.md.",
   "GeneratedPassword": "Erzeugtes Passwort",
   "UpdateUnavailable": "Diese Kopie wurde nicht mit Velopack installiert. Aktualisieren Sie portable Kopien mit einem geprüften Paket.",
+  "UpdatePublicPackageRequired": "Öffentliche Updates sind für das offizielle SQLitePass-Paket verfügbar.",
+  "UpdateDownloading": "Update wird heruntergeladen ({0} %).",
   "UpdateCurrent": "Version {0} ist laut konfiguriertem Feed aktuell.",
   "UpdateConfirm": "Version {0} verfügbar. Herunterladen und neu starten? Der Tresor wird zuvor gesperrt.",
   "UpdateFailed": "Prüfung oder Installation des Updates fehlgeschlagen. Prüfen Sie Netzwerk und Release-Feed.",

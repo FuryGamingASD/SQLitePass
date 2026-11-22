@@ -13,7 +13,7 @@ internal static class Program
     [STAThread]
     public static int Main(string[] args)
     {
-        var velopack = VelopackApp.Build();
+        var velopack = VelopackApp.Build().SetAutoApplyOnStartup(false);
         string applicationName = string.Equals(Path.GetFileName(Environment.ProcessPath), "SQLitePass.exe", StringComparison.OrdinalIgnoreCase)
             ? "SQLitePass" : "SQLitePass.Desktop";
         if (OperatingSystem.IsWindows()) ConfigureWindowsUpdateHooks(velopack, applicationName);

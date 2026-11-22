@@ -63,6 +63,7 @@ public sealed partial class VaultWindow : Window
         NewVault.Content = Text("LoginNewVault");
         RestoreBackup.Content = Text("LoginRestoreBackup");
         LoginGenerator.Content = Text("GeneratorTitle");
+        LoginCheckUpdates.Content = Text("MenuCheckUpdates").Replace("_", "", StringComparison.Ordinal);
         LockVault.Content = Text("MenuLockVault").Replace("_", "", StringComparison.Ordinal);
         SearchBox.PlaceholderText = Text("SearchPlaceholder");
         Search.Content = Text("SearchActiveScope");

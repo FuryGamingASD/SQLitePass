@@ -21,6 +21,7 @@ public sealed partial class VaultWindow
         ExportKeePass.Header = Text("MenuExportCsv");
         ClearClipboard.Header = Text("MenuClearClipboard");
         PasswordGeneratorCommand.Header = Text("MenuPasswordGenerator");
+        CheckUpdates.Header = Text("MenuCheckUpdates");
         ExitApplication.Header = Text("MenuExit");
         FolderMenu.Header = Text("FoldersAndGroups");
         CreateFolder.Header = Text("MenuAddGroup");
