@@ -16,6 +16,12 @@ public sealed partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            if (AppContext.GetData("SQLitePass.AutoTypeProbePeer") is string[] { Length: 2 } peer)
+            {
+                desktop.MainWindow = NativeAutoTypeVerification.CreatePeerWindow(peer[0], peer[1]);
+                base.OnFrameworkInitializationCompleted();
+                return;
+            }
             var settings = AppSettingsManager.Load();
             AppLogger.Configure(settings.EnableDiagnosticLogging);
             RequestedThemeVariant = settings.DarkMode ? ThemeVariant.Dark : ThemeVariant.Light;
@@ -31,6 +37,7 @@ public sealed partial class App : Application
                             throw new InvalidOperationException("The native window did not open.");
                         if (AppContext.GetData("SQLitePass.ClipboardProbe") is true) await NativeClipboardVerification.VerifyAsync(window);
                         if (AppContext.GetData("SQLitePass.TrayProbe") is true) await NativeTrayVerification.VerifyAsync(window);
+                        if (AppContext.GetData("SQLitePass.AutoTypeProbe") is true) await NativeAutoTypeVerification.VerifyAsync();
                         window.Close();
                     }
                     catch (Exception error)

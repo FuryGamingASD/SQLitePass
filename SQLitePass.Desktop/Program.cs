@@ -9,6 +9,12 @@ internal static class Program
     public static int Main(string[] args)
     {
         VelopackApp.Build().Run();
+        if (args is ["--verify-autotype-peer", var resultPath, var scenario])
+        {
+            if (Environment.GetEnvironmentVariable("RUNNER_ENVIRONMENT") != "github-hosted") return 2;
+            AppContext.SetData("SQLitePass.AutoTypeProbePeer", new[] { resultPath, scenario });
+            return BuildAvaloniaApp().StartWithClassicDesktopLifetime([]);
+        }
         if (args is not (["--verify-startup"] or ["--verify-startup-and-clipboard"] or ["--verify-desktop"]))
             return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
         bool verifyTray = args is ["--verify-desktop"];
@@ -23,6 +29,7 @@ internal static class Program
             AppContext.SetData("SQLitePass.StartupProbe", true);
             AppContext.SetData("SQLitePass.ClipboardProbe", verifyClipboard);
             AppContext.SetData("SQLitePass.TrayProbe", verifyTray);
+            AppContext.SetData("SQLitePass.AutoTypeProbe", verifyTray);
             return BuildAvaloniaApp().StartWithClassicDesktopLifetime([]);
         }
         finally { directory.Delete(recursive: true); }

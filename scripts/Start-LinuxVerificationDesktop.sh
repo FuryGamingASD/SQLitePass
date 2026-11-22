@@ -8,6 +8,7 @@ trap 'kill "$window_manager" 2>/dev/null || true' EXIT
 
 for ((attempt = 0; attempt < 50; attempt++)); do
     if xprop -root _NET_SUPPORTING_WM_CHECK | grep -Eq 'window id # 0x[0-9a-f]+'; then
+        setxkbmap -layout it
         "$@"
         exit
     fi

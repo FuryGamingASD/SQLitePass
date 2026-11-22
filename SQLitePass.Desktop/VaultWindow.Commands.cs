@@ -31,6 +31,7 @@ public sealed partial class VaultWindow
         EntryMenu.Header = Text("EntriesList");
         CopyUser.Header = Text("TbCopyUser");
         CopyPassword.Header = Text("TbCopyPassword");
+        AutoTypeEntry.Header = Text("MenuAutoType");
         DuplicateEntry.Header = Text("MenuDuplicateEntry");
         MoveEntryCommand.Header = Text("MoveEntryToFolder");
         DeleteEntry.Header = Text("MenuDeleteEntry");
@@ -46,6 +47,7 @@ public sealed partial class VaultWindow
         ChangeCredential.IsEnabled = writable;
         ClearClipboard.IsEnabled = _clipboard != null;
         CopyUser.IsEnabled = CopyPassword.IsEnabled = _clipboard != null && hasEntry && !_query.OnlyRecycleBin;
+        AutoTypeEntry.IsEnabled = _autoTypeAvailable && hasEntry && !_query.OnlyRecycleBin;
         ImportKeePass.IsEnabled = ImportBitwarden.IsEnabled = ImportBrowser.IsEnabled = writable;
         ExportKeePass.IsEnabled = _session != null;
         bool editableFolder = writable && folder is { IsRoot: false, IsRecycleBin: false };

@@ -86,6 +86,7 @@ public sealed partial class VaultWindow : Window
             _nativeIntegrationsStarted = true;
             InitializeClipboard();
             InitializeTray();
+            InitializeAutoType();
         };
         Closed += (_, _) =>
         {
@@ -122,6 +123,7 @@ public sealed partial class VaultWindow : Window
     {
         if (_closing) return;
         _systemLocked = locked;
+        if (locked) StopAutoType();
         if (locked && (_session == null || _settings.AutoLockOnWindowsLock)) await LockVaultAsync();
         if (!locked) ResetIdleTime();
         UpdateControls();
@@ -450,7 +452,7 @@ public sealed partial class VaultWindow : Window
         NextPage.IsEnabled = idle && _next != null;
     }
 
-    private async Task<bool> ConfirmAsync(string title, string message, string? password = null)
+    private async Task<bool> ConfirmAsync(string title, string message, string? password = null, string? acceptLabel = null)
     {
         var label = new TextBlock { Text = message, TextWrapping = Avalonia.Media.TextWrapping.Wrap };
         var contents = new StackPanel { Margin = new Avalonia.Thickness(20), Spacing = 12, Children = { label } };
@@ -470,7 +472,7 @@ public sealed partial class VaultWindow : Window
             dialog.Opened += (_, _) => confirmation.Focus();
         }
 
-        var accept = new Button { Content = Text("Ok"), IsDefault = password != null };
+        var accept = new Button { Content = acceptLabel ?? Text("Ok"), IsDefault = password != null };
         var cancel = new Button { Content = Text("Cancel"), IsCancel = true };
         cancel.Click += (_, _) => dialog.Close(false);
         accept.Click += (_, _) =>
