@@ -39,6 +39,8 @@
                         <MenuItem x:Name="ImportBitwarden" Click="ImportBitwarden_Click" />
                         <MenuItem x:Name="ImportBrowser" Click="ImportBrowser_Click" />
                         <MenuItem x:Name="ExportKeePass" Click="ExportKeePass_Click" />
+                        <Separator />
+                        <MenuItem x:Name="ClearClipboard" Click="ClearClipboard_Click" />
                     </MenuItem>
                 </Menu>
                 <Button x:Name="LockVault" Grid.Column="2" Click="LockVault_Click" />
@@ -71,6 +73,9 @@
                         <MenuItem x:Name="DeleteFolder" Click="DeleteFolder_Click" />
                     </MenuItem>
                     <MenuItem x:Name="EntryMenu">
+                        <MenuItem x:Name="CopyUser" Click="CopyUser_Click" />
+                        <MenuItem x:Name="CopyPassword" Click="CopyPassword_Click" />
+                        <Separator />
                         <MenuItem x:Name="DuplicateEntry" Click="DuplicateEntry_Click" />
                         <MenuItem x:Name="MoveEntryCommand" Click="MoveEntry_Click" />
                         <MenuItem x:Name="DeleteEntry" Click="DeleteEntry_Click" />

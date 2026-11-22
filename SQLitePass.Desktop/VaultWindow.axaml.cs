@@ -79,10 +79,12 @@ public sealed partial class VaultWindow : Window
         _idleTimer.Tick += IdleTimer_Tick;
         Opened += (_, _) => MasterPassword.Focus();
         Opened += (_, _) => _idleTimer.Start();
+        if (useNativeSession) Opened += (_, _) => InitializeClipboard();
         Closed += (_, _) =>
         {
             _idleTimer.Stop();
             _desktopSession?.Dispose();
+            _clipboard?.Dispose();
         };
     }
 
@@ -341,14 +343,16 @@ public sealed partial class VaultWindow : Window
         Groups.ItemsSource = null;
         ResetBrowseOptions();
         _previous = _next = null;
+        var clipboardClear = _clipboard?.ClearAsync();
         if (session != null)
         {
             session.Storage.BackupStatusChanged -= OnBackupStatusChanged;
             await session.DisposeAsync();
         }
         if (finished != null) await finished;
+        var clipboardResult = clipboardClear == null ? ClipboardClearResult.Replaced : await clipboardClear;
         UnlockPanel.IsVisible = true;
-        StatusText.Text = Text("VaultLocked");
+        StatusText.Text = clipboardResult == ClipboardClearResult.Busy ? Text("VaultLocked") + " · " + Text("ClipboardClearFailed") : Text("VaultLocked");
         if (!_closing) MasterPassword.Focus();
     }
 

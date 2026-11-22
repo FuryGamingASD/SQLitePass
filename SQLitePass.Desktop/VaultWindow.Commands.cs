@@ -19,6 +19,7 @@ public sealed partial class VaultWindow
         ImportBitwarden.Header = Text("MenuImportBitwardenJson");
         ImportBrowser.Header = Text("MenuImportBrowserCsv");
         ExportKeePass.Header = Text("MenuExportCsv");
+        ClearClipboard.Header = Text("MenuClearClipboard");
         FolderMenu.Header = Text("FoldersAndGroups");
         CreateFolder.Header = Text("MenuAddGroup");
         RenameFolder.Header = Text("MenuRenameGroup");
@@ -27,6 +28,8 @@ public sealed partial class VaultWindow
         MoveFolderDown.Header = Text("MenuMoveGroupDown");
         DeleteFolder.Header = Text("MenuDeleteGroup");
         EntryMenu.Header = Text("EntriesList");
+        CopyUser.Header = Text("TbCopyUser");
+        CopyPassword.Header = Text("TbCopyPassword");
         DuplicateEntry.Header = Text("MenuDuplicateEntry");
         MoveEntryCommand.Header = Text("MoveEntryToFolder");
         DeleteEntry.Header = Text("MenuDeleteEntry");
@@ -40,6 +43,8 @@ public sealed partial class VaultWindow
         bool writable = _session is { Storage.IsReadOnly: false };
         bool hasEntry = Entries.SelectedItem is EntryRow;
         ChangeCredential.IsEnabled = writable;
+        ClearClipboard.IsEnabled = _clipboard != null;
+        CopyUser.IsEnabled = CopyPassword.IsEnabled = _clipboard != null && hasEntry && !_query.OnlyRecycleBin;
         ImportKeePass.IsEnabled = ImportBitwarden.IsEnabled = ImportBrowser.IsEnabled = writable;
         ExportKeePass.IsEnabled = _session != null;
         bool editableFolder = writable && folder is { IsRoot: false, IsRecycleBin: false };

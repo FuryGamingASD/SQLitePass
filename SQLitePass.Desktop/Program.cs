@@ -9,7 +9,10 @@ internal static class Program
     public static int Main(string[] args)
     {
         VelopackApp.Build().Run();
-        if (args is not ["--verify-startup"]) return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        if (args is not (["--verify-startup"] or ["--verify-startup-and-clipboard"]))
+            return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        bool verifyClipboard = args is ["--verify-startup-and-clipboard"];
+        if (verifyClipboard && Environment.GetEnvironmentVariable("RUNNER_ENVIRONMENT") != "github-hosted") return 2;
 
         // The packaged executable can prove startup without opening a vault or loading a user's profile.
         var directory = Directory.CreateTempSubdirectory("SQLitePass-startup-");
@@ -17,6 +20,7 @@ internal static class Program
         {
             AppContext.SetData("SQLitePass.SettingsDirectory", directory.FullName);
             AppContext.SetData("SQLitePass.StartupProbe", true);
+            AppContext.SetData("SQLitePass.ClipboardProbe", verifyClipboard);
             return BuildAvaloniaApp().StartWithClassicDesktopLifetime([]);
         }
         finally { directory.Delete(recursive: true); }

@@ -35,6 +35,12 @@ public partial class VaultSecurityTests
         var overview = Assert.Single((await vault.Storage.LoadSnapshotAsync(vault.Crypto, includeDetails: false)).Entries);
         Assert.False(overview.HasLoadedDetails); Assert.Empty(overview.Attachments); Assert.Empty(overview.History); Assert.Empty(overview.CustomFields);
         Assert.Equal(original.Password, overview.Password); Assert.Equal(original.Notes, overview.Notes); Assert.Equal(original.Revision, overview.Revision);
+        var selected = await vault.Storage.LoadEntryOverviewAsync(original.Id, vault.Crypto, original.Revision);
+        Assert.False(selected.HasLoadedDetails);
+        Assert.Equal(original.Password, selected.Password);
+        Assert.Empty(selected.Attachments);
+        await Assert.ThrowsAsync<VaultConflictException>(() => vault.Storage.LoadEntryOverviewAsync(original.Id, vault.Crypto, original.Revision - 1));
+        selected.ClearSecrets();
         var full = await vault.Storage.LoadEntryAsync(overview.Id, vault.Crypto, overview.Revision);
         Assert.True(full.HasLoadedDetails); Assert.Single(full.CustomFields); Assert.Single(full.History);
         Assert.Equal(original.Attachments[0].Data, Assert.Single(full.Attachments).Data);

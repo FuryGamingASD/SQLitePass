@@ -399,12 +399,18 @@ public sealed partial class SqliteStorageProvider : IDisposable
     public Task<List<PwEntry>> LoadEntriesAsync(Guid? groupId, CryptoEngine crypto)
     { CheckCrypto(crypto); return ReadAsync((c, tx, key, m) => ReadEntries(c, tx, key, m, groupId)); }
     public Task<PwEntry> LoadEntryAsync(Guid entryId, CryptoEngine crypto, long? expectedRevision = null,
+        CancellationToken cancellationToken = default) => LoadEntryAsync(entryId, crypto, expectedRevision, includeDetails: true, cancellationToken);
+
+    public Task<PwEntry> LoadEntryOverviewAsync(Guid entryId, CryptoEngine crypto, long expectedRevision,
+        CancellationToken cancellationToken = default) => LoadEntryAsync(entryId, crypto, expectedRevision, includeDetails: false, cancellationToken);
+
+    private Task<PwEntry> LoadEntryAsync(Guid entryId, CryptoEngine crypto, long? expectedRevision, bool includeDetails,
         CancellationToken cancellationToken = default)
     {
         CheckCrypto(crypto);
         return ReadAsync((c, tx, key, m) =>
         {
-            var entry = ReadEntries(c, tx, key, m, entryId: entryId, cancellationToken: cancellationToken).SingleOrDefault()
+            var entry = ReadEntries(c, tx, key, m, includeDetails: includeDetails, entryId: entryId, cancellationToken: cancellationToken).SingleOrDefault()
                 ?? throw new VaultConflictException("La voce non esiste più. Aggiornare il vault.");
             if (expectedRevision.HasValue && entry.Revision != expectedRevision.Value)
             { entry.ClearSecrets(); throw new VaultConflictException("La voce è cambiata in un'altra sessione. Aggiornare e riprovare."); }
