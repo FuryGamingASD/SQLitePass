@@ -12,6 +12,9 @@ export WLR_RENDERER=pixman
 export LIBGL_ALWAYS_SOFTWARE=1
 export DBUS_SYSTEM_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS"
 export SQLITEPASS_VERIFY_WAYLAND_CLIPBOARD=1
+export SQLITEPASS_VERIFY_XWAYLAND_DESKTOP=1
+export XDG_SESSION_ID=sqlitepass-verification
+export XKB_DEFAULT_LAYOUT=it
 export SQLITEPASS_WAYLAND_DESKTOP_FILE="$runtime/display.env"
 unset DISPLAY WAYLAND_DISPLAY SWAYSOCK
 
@@ -19,14 +22,18 @@ cat > "$runtime/sway.conf" <<'CONFIG'
 xwayland force
 swaynag_command -
 output * resolution 1280x800
+input * xkb_layout it
 exec sh -c 'printf "%s\n%s\n" "$DISPLAY" "$WAYLAND_DISPLAY" > "$SQLITEPASS_WAYLAND_DESKTOP_FILE"'
 CONFIG
 
 sway --config "$runtime/sway.conf" --debug > "$runtime/sway.log" 2>&1 &
 compositor=$!
+/usr/bin/python3 "$SQLITEPASS_LOGIN_SESSION_PROBE" &
+login_service=$!
 cleanup() {
     result=$?
     kill "$compositor" 2>/dev/null || true
+    kill "$login_service" 2>/dev/null || true
     wait "$compositor" 2>/dev/null || true
     if ((result != 0)); then tail -n 45 "$runtime/sway.log" >&2; fi
 }
@@ -39,6 +46,7 @@ for ((attempt = 0; attempt < 100; attempt++)); do
         if ((${#desktop[@]} == 2)) && [[ ${desktop[0]} =~ ^:[0-9]+$ && -S "$runtime/${desktop[1]}" ]]; then
             export DISPLAY=${desktop[0]} WAYLAND_DISPLAY=${desktop[1]}
             if xdpyinfo >/dev/null 2>&1; then
+                setxkbmap -layout it
                 "$@"
                 exit
             fi

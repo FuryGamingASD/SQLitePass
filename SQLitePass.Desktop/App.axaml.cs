@@ -23,6 +23,8 @@ public sealed partial class App : Application
                 return;
             }
             var settings = AppSettingsManager.Load();
+            if (AppContext.GetData("SQLitePass.TrayProbe") is true && NativeTrayVerification.UsesXWaylandCloseProbe)
+                settings.CloseToTray = true;
             bool windowsLockProbe = AppContext.GetData("SQLitePass.WindowsSessionLockProbe") is true;
             if (windowsLockProbe)
             {

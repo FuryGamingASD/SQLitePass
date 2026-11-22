@@ -37,6 +37,11 @@ foreach ($platform in $platforms) {
     }
     $sessionVerified = if ($platform.Runtime -eq 'win-x64') { $manifest.NativeWindowsCaptureAffinityVerified } else { $manifest.NativeLinuxLogindTransportVerified }
     if ($sessionVerified -ne $true) { throw "Native desktop session evidence is missing for $($platform.Runtime)." }
+    if ($platform.Runtime -eq 'linux-x64' -and
+        ($manifest.NativeXWaylandClipboardVerified -ne $true -or $manifest.NativeXWaylandTrayVerified -ne $true -or
+            $manifest.NativeXWaylandAutoTypeVerified -ne $true -or $manifest.NativeXWaylandLogindTransportVerified -ne $true)) {
+        throw 'The Linux candidate requires XWayland clipboard, tray, Auto-Type and session transport verification.'
+    }
     if ($PackageIdentity -eq 'release' -and $platform.Runtime -eq 'win-x64') {
         $previousVersion = if ([version]$Version -gt [version]'1.1.3') { '1.1.3' } else { '1.1.2' }
         if ($manifest.InstallerVerified -ne $true -or $manifest.InstallerUpgradeFrom -cne $previousVersion) {
@@ -44,9 +49,8 @@ foreach ($platform in $platforms) {
         }
     }
     if ($PackageIdentity -eq 'release' -and $platform.Runtime -eq 'linux-x64' -and
-        ($manifest.AppImageUpgradeVerified -ne $true -or $manifest.AppImageUpgradeFrom -cne '1.1.3' -or
-            $manifest.NativeXWaylandClipboardVerified -ne $true)) {
-        throw 'The Linux release requires AppImage upgrade and XWayland clipboard verification.'
+        ($manifest.AppImageUpgradeVerified -ne $true -or $manifest.AppImageUpgradeFrom -cne '1.1.3')) {
+        throw 'The Linux release requires AppImage upgrade verification.'
     }
     $versions += $manifest.Version
     $provenance += $manifest

@@ -6,6 +6,9 @@ namespace SQLitePass.Desktop.Services;
 
 internal static class NativeTrayVerification
 {
+    internal static bool UsesXWaylandCloseProbe => OperatingSystem.IsLinux() &&
+        Environment.GetEnvironmentVariable("SQLITEPASS_VERIFY_XWAYLAND_DESKTOP") == "1";
+
     internal static async Task VerifyAsync(VaultWindow window)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
@@ -21,9 +24,12 @@ internal static class NativeTrayVerification
         else
         {
             if (window.TrayCanHide) throw new InvalidOperationException("The isolated session already has a tray host.");
-            window.WindowState = WindowState.Minimized;
-            await WaitForAsync(() => window.WindowState == WindowState.Minimized, "window manager minimized the window", token);
-            await Task.Delay(TimeSpan.FromSeconds(1.2), token);
+            if (!UsesXWaylandCloseProbe)
+            {
+                window.WindowState = WindowState.Minimized;
+                await WaitForAsync(() => window.WindowState == WindowState.Minimized, "window manager minimized the window", token);
+                await Task.Delay(TimeSpan.FromSeconds(1.2), token);
+            }
             if (!window.IsVisible) throw new InvalidOperationException("The window was hidden without a tray host.");
             window.ShowFromTray();
 
@@ -35,11 +41,11 @@ internal static class NativeTrayVerification
             try
             {
                 await WaitForAsync(() => window.TrayCanHide, "item registered with the StatusNotifier host", token);
-                window.WindowState = WindowState.Minimized;
-                await WaitForAsync(() => !window.IsVisible, "window hidden after minimize", token);
+                RequestHide();
+                await WaitForAsync(() => !window.IsVisible, "window hidden in the tray", token);
                 await ActivateStatusNotifierAsync(token);
                 await WaitForAsync(() => window.IsVisible && window.WindowState != WindowState.Minimized, "window restored by StatusNotifier activation", token);
-                window.WindowState = WindowState.Minimized;
+                RequestHide();
                 await WaitForAsync(() => !window.IsVisible, "restored window hidden a second time", token);
                 peer.Kill(entireProcessTree: true);
                 await peer.WaitForExitAsync(token);
@@ -50,7 +56,16 @@ internal static class NativeTrayVerification
                 if (!peer.HasExited) peer.Kill(entireProcessTree: true);
             }
         }
-        Console.WriteLine("Verified desktop tray minimize and restore behavior.");
+        Console.WriteLine(UsesXWaylandCloseProbe
+            ? "Verified XWayland close-to-tray, StatusNotifier activation and restoration after host loss."
+            : "Verified desktop tray minimize and restore behavior.");
+
+        void RequestHide()
+        {
+            // Exercise the close-to-tray preference on Sway; Openbox covers minimization.
+            if (UsesXWaylandCloseProbe) window.Close();
+            else window.WindowState = WindowState.Minimized;
+        }
     }
 
     private static async Task WaitForAsync(Func<bool> condition, string stage, CancellationToken token)
