@@ -9,6 +9,8 @@ internal static class NativeClipboardVerification
 {
     private const string InitialText = "SQLitePass clipboard fixture Ω 🎛";
     private const string ReplacementText = "Synthetic clipboard from another application";
+    private static bool UseWaylandPeer => OperatingSystem.IsLinux() &&
+        Environment.GetEnvironmentVariable("SQLITEPASS_VERIFY_WAYLAND_CLIPBOARD") == "1";
 
     internal static async Task VerifyAsync(VaultWindow window)
     {
@@ -23,7 +25,13 @@ internal static class NativeClipboardVerification
         {
             if (!await clipboard.CopyAsync(InitialText, TimeSpan.FromSeconds(18), token))
                 throw new InvalidOperationException("The native clipboard rejected a synthetic copy.");
-            if (await ReadFromPeerAsync(token) != InitialText)
+            string copied = await ReadFromPeerAsync(token);
+            while (UseWaylandPeer && copied.Length == 0)
+            {
+                await Task.Delay(40, token);
+                copied = await ReadFromPeerAsync(token);
+            }
+            if (copied != InitialText)
                 throw new InvalidOperationException("An external process did not receive the copied text intact.");
             await VerifyPrivacyFormatsAsync(window, token);
             clipboard.ShortenTimeout(TimeSpan.FromSeconds(6));
@@ -32,6 +40,7 @@ internal static class NativeClipboardVerification
                 throw new InvalidOperationException($"The session clipboard did not clear at its deadline. Result: {result}.");
             if (!string.IsNullOrEmpty(await read.TryGetTextAsync()))
                 throw new InvalidOperationException("The native clipboard still held text after the deadline.");
+            await VerifyWaylandPeerClearedAsync(token);
         }
         finally { clipboard.Expired -= OnExpired; }
 
@@ -52,7 +61,17 @@ internal static class NativeClipboardVerification
         await window.LockVaultAsync();
         if (!string.IsNullOrEmpty(await read.TryGetTextAsync()))
             throw new InvalidOperationException("Locking the vault did not clear its clipboard item.");
+        await VerifyWaylandPeerClearedAsync(token);
         Console.WriteLine("Verified native clipboard round-trip, privacy formats, shortened expiry, replacement and vault lock.");
+        if (UseWaylandPeer) Console.WriteLine("Verified clipboard round-trip and clearing between XWayland and a Wayland-native peer.");
+    }
+
+    private static async Task VerifyWaylandPeerClearedAsync(CancellationToken token)
+    {
+        if (!UseWaylandPeer) return;
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
+        deadline.CancelAfter(TimeSpan.FromSeconds(3));
+        while ((await ReadFromPeerAsync(deadline.Token)).Length != 0) await Task.Delay(40, deadline.Token);
     }
 
     private static async Task VerifyPrivacyFormatsAsync(VaultWindow window, CancellationToken token)
@@ -70,9 +89,13 @@ internal static class NativeClipboardVerification
         }
     }
 
-    private static Task<string> ReadFromPeerAsync(CancellationToken token) => OperatingSystem.IsWindows()
-        ? RunPeerAsync("pwsh", ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", "[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false); [Console]::Write((Get-Clipboard -Raw))"], token)
-        : RunPeerAsync("xclip", ["-selection", "clipboard", "-out"], token);
+    private static Task<string> ReadFromPeerAsync(CancellationToken token)
+    {
+        if (OperatingSystem.IsWindows())
+            return RunPeerAsync("pwsh", ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", "[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false); [Console]::Write((Get-Clipboard -Raw))"], token);
+        if (UseWaylandPeer) return RunPeerAsync("wl-paste", ["--no-newline", "--type", "text"], token, allowEmptySelection: true);
+        return RunPeerAsync("xclip", ["-selection", "clipboard", "-out"], token);
+    }
 
     private static async Task<Process?> ReplaceFromPeerAsync(CancellationToken token)
     {
@@ -82,7 +105,9 @@ internal static class NativeClipboardVerification
             return null;
         }
 
-        var start = Peer("xclip", ["-selection", "clipboard", "-in", "-quiet"]);
+        var start = UseWaylandPeer
+            ? Peer("wl-copy", ["--foreground", "--type", "text/plain;charset=utf-8"])
+            : Peer("xclip", ["-selection", "clipboard", "-in", "-quiet"]);
         start.RedirectStandardInput = true;
         start.StandardInputEncoding = new UTF8Encoding(false);
         var process = Process.Start(start) ?? throw new InvalidOperationException("Could not run the X11 clipboard peer.");
@@ -100,17 +125,24 @@ internal static class NativeClipboardVerification
         }
     }
 
-    private static async Task<string> RunPeerAsync(string executable, string[] arguments, CancellationToken token)
+    private static async Task<string> RunPeerAsync(string executable, string[] arguments, CancellationToken token, bool allowEmptySelection = false)
     {
         var start = Peer(executable, arguments);
         start.RedirectStandardOutput = true;
         start.StandardOutputEncoding = Encoding.UTF8;
+        start.RedirectStandardError = true;
         using var process = Process.Start(start) ?? throw new InvalidOperationException("Could not start the external clipboard probe.");
         try
         {
             var output = process.StandardOutput.ReadToEndAsync(token);
+            var errors = process.StandardError.ReadToEndAsync(token);
             await process.WaitForExitAsync(token);
-            if (process.ExitCode != 0) throw new InvalidOperationException("The external clipboard probe returned a failure.");
+            if (process.ExitCode != 0)
+            {
+                string error = (await errors).Trim();
+                if (allowEmptySelection && process.ExitCode == 1 && error.EndsWith("Nothing is copied", StringComparison.Ordinal)) return "";
+                throw new InvalidOperationException($"The external clipboard probe {executable} returned {process.ExitCode}. {error}");
+            }
             return await output;
         }
         finally { await StopPeerAsync(process); }

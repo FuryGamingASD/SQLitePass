@@ -11,8 +11,8 @@ The native jobs run `scripts/Build-AvaloniaCandidate.ps1` with `win-x64` and `li
 ## Before switching the release
 
 - Verify Windows session lock with Win+L on a native desktop, and Linux lock and suspend with the supported desktop environments and their installed logind. CI checks Windows capture-affinity flags on the actual app window. The Linux AppImage test sends logind-compatible lock and suspend events over a private D-Bus and tests inactivity fallback when that service disappears.
-- Verify clipboard, tray and Auto-Type on the supported Linux desktop sessions, including XWayland. The selected-entry Auto-Type flow uses two user-directed focus changes and works without a global shortcut.
-- Verify launch after Windows installation and from the AppImage on supported desktops, upgrade from the installed Windows line, update discovery and application on both platforms, and package notices for all shipped dependencies.
+- Verify tray and Auto-Type under XWayland on the supported desktop sessions. The selected-entry Auto-Type flow uses two user-directed focus changes and works without a global shortcut. The Linux release workflow tests clipboard exchange between the XWayland app and a separate Wayland client under Sway.
+- Check a tagged publication and verify that both public update feeds are reachable. The rehearsal verifies upgrade from the public Windows 1.1.3 installer and in-place replacement and restart of a mounted synthetic AppImage using the Linux release feed staged in CI.
 
 ## Shared preferences
 

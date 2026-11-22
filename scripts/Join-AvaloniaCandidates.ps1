@@ -44,8 +44,9 @@ foreach ($platform in $platforms) {
         }
     }
     if ($PackageIdentity -eq 'release' -and $platform.Runtime -eq 'linux-x64' -and
-        ($manifest.AppImageUpgradeVerified -ne $true -or $manifest.AppImageUpgradeFrom -cne '1.1.3')) {
-        throw 'The Linux release requires native AppImage replacement and restart verification.'
+        ($manifest.AppImageUpgradeVerified -ne $true -or $manifest.AppImageUpgradeFrom -cne '1.1.3' -or
+            $manifest.NativeXWaylandClipboardVerified -ne $true)) {
+        throw 'The Linux release requires AppImage upgrade and XWayland clipboard verification.'
     }
     $versions += $manifest.Version
     $provenance += $manifest
