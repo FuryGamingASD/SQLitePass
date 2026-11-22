@@ -1,0 +1,30 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="SQLitePass.Desktop.EntryEditor"
+        Width="520" Height="590" MinWidth="420" MinHeight="420"
+        WindowStartupLocation="CenterOwner">
+    <Grid RowDefinitions="*,Auto" RowSpacing="12" Margin="20">
+        <ScrollViewer>
+            <StackPanel Spacing="8">
+                <TextBlock x:Name="TitleLabel" />
+                <TextBox x:Name="EntryTitle" IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #TitleLabel}" />
+                <TextBlock x:Name="UserLabel" />
+                <TextBox x:Name="UserName" IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #UserLabel}" />
+                <TextBlock x:Name="PasswordLabel" />
+                <TextBox x:Name="Password" PasswordChar="●" IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #PasswordLabel}" />
+                <TextBlock x:Name="UrlLabel" />
+                <TextBox x:Name="Url" IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #UrlLabel}" />
+                <TextBlock x:Name="TagsLabel" />
+                <TextBox x:Name="Tags" IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #TagsLabel}" />
+                <TextBlock x:Name="NotesLabel" />
+                <TextBox x:Name="Notes" MinHeight="75" AcceptsReturn="True" TextWrapping="Wrap"
+                         IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #NotesLabel}" />
+                <TextBlock x:Name="ValidationMessage" IsVisible="False" TextWrapping="Wrap" />
+            </StackPanel>
+        </ScrollViewer>
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+            <Button x:Name="Cancel" IsCancel="True" Click="Cancel_Click" />
+            <Button x:Name="Save" Classes="accent" Click="Save_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

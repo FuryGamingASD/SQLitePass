@@ -58,7 +58,12 @@ foreach ($project in $scan.projects) {
         }
     }
 }
-if ($vulnerabilities -ne 0 -or $scan.projects.Count -ne 5) { throw 'Unexpected vulnerability scan result.' }
+$solution = [xml](Get-Content -LiteralPath (Join-Path $root 'SQLitePass.slnx') -Raw)
+$expectedProjects = @($solution.SelectNodes('//Project[@Path]') | ForEach-Object { [IO.Path]::GetFullPath($_.Path, $root) })
+$scannedProjects = @($scan.projects | ForEach-Object { [IO.Path]::GetFullPath($_.path, $root) })
+if ($vulnerabilities -ne 0 -or @((Compare-Object $expectedProjects $scannedProjects)).Count -ne 0) {
+    throw 'Unexpected vulnerability scan result.'
+}
 [xml]$trx = Get-Content (Join-Path $output $TestResults) -Raw
 $counters = $trx.TestRun.ResultSummary.Counters
 if ([int]$counters.total -ne $ExpectedTests -or [int]$counters.passed -ne $ExpectedTests -or [int]$counters.failed -ne 0) { throw 'Unexpected regression suite result.' }

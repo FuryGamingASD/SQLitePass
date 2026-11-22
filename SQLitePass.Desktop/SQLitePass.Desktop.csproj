@@ -12,6 +12,7 @@
     <ProjectReference Include="../SQLitePass.Core/SQLitePass.Core.csproj" />
     <PackageReference Include="Avalonia.Desktop" Version="12.1.6" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.6" />
+    <PackageReference Include="Microsoft.Win32.SystemEvents" Version="10.0.15" />
     <PackageReference Include="Velopack" Version="1.2.161" />
     <Compile Include="../SQLitePass.UI/Services/TranslationCatalog.cs" Link="Localization/TranslationCatalog.cs" />
     <EmbeddedResource Include="../SQLitePass.UI/Localization/*.json" LogicalName="SQLitePass.Localization.%(Filename)%(Extension)" WithCulture="false" />

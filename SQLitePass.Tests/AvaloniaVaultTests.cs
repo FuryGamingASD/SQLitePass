@@ -22,6 +22,7 @@ public sealed class AvaloniaVaultTests
         string directory = Directory.CreateTempSubdirectory("SQLitePass-Avalonia-").FullName;
         string path = Path.Combine(directory, "synthetic.kpd");
         var settings = new AppSettings { Language = "en", LastOpenedVaultPath = path, EnableDualFileBackup = false };
+        Guid editedEntryId = Guid.Empty;
         try
         {
             using var master = new MasterKey(password);
@@ -57,10 +58,27 @@ public sealed class AvaloniaVaultTests
                     Assert.Equal(2, entryList.Items.Count);
                     window.FindControl<TextBox>("SearchBox")!.Text = "portal";
                     await window.SearchAsync();
-                    Assert.Equal("Synthetic portal", Assert.IsType<EntryRow>(Assert.Single(entryList.Items)).Title);
+                    var row = Assert.IsType<EntryRow>(Assert.Single(entryList.Items));
+                    Assert.Equal("Synthetic portal", row.Title);
+                    editedEntryId = row.Id;
+
+                    var editing = window.OpenEditorAsync(row);
+                    var editor = await FindEditorAsync(window, editing, timeout.Token);
+                    editor.FindControl<TextBox>("UserName")!.Text = "edited-portal-user";
+                    editor.Save_Click(null, new Avalonia.Interactivity.RoutedEventArgs());
+                    await editing;
+                    Assert.Equal("edited-portal-user", Assert.IsType<EntryRow>(Assert.Single(entryList.Items)).UserName);
+                    Assert.True(string.IsNullOrEmpty(editor.FindControl<TextBox>("Password")!.Text));
+
+                    row = Assert.IsType<EntryRow>(Assert.Single(entryList.Items));
+                    editing = window.OpenEditorAsync(row);
+                    editor = await FindEditorAsync(window, editing, timeout.Token);
+                    editor.FindControl<TextBox>("UserName")!.Text = "discarded-user";
 
                     await window.LockVaultAsync();
+                    await editing;
                     Assert.False(vaultPanel.IsVisible);
+                    Assert.False(editor.IsVisible);
                     Assert.Empty(entryList.Items);
                     Assert.True(string.IsNullOrEmpty(passwordBox.Text));
                     Assert.True(string.IsNullOrEmpty(window.FindControl<TextBox>("SearchBox")!.Text));
@@ -74,7 +92,27 @@ public sealed class AvaloniaVaultTests
                 }
                 return true;
             }, timeout.Token);
+
+            await using var reopened = await VaultSession.OpenAsync(path, master, settings, () => Task.FromResult(false));
+            Assert.NotNull(reopened);
+            var saved = await reopened.Storage.LoadEntryAsync(editedEntryId, reopened.Crypto);
+            try
+            {
+                Assert.Equal("edited-portal-user", saved.UserName);
+                Assert.Equal("portal-user", Assert.Single(saved.History).UserName);
+            }
+            finally { saved.ClearSecrets(); }
         }
         finally { Directory.Delete(directory, recursive: true); }
+    }
+
+    private static async Task<EntryEditor> FindEditorAsync(VaultWindow owner, Task operation, CancellationToken token)
+    {
+        while (true)
+        {
+            if (owner.OwnedWindows.OfType<EntryEditor>().SingleOrDefault() is { } editor) return editor;
+            if (operation.IsCompleted) throw new InvalidOperationException("The editor operation ended before opening.");
+            await Task.Delay(10, token);
+        }
     }
 }

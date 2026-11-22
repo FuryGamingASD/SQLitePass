@@ -17,7 +17,7 @@ public sealed partial class App : Application
             var settings = AppSettingsManager.Load();
             AppLogger.Configure(settings.EnableDiagnosticLogging);
             RequestedThemeVariant = settings.DarkMode ? ThemeVariant.Dark : ThemeVariant.Light;
-            desktop.MainWindow = new VaultWindow(settings);
+            desktop.MainWindow = new VaultWindow(settings, useNativeSession: true);
         }
         base.OnFrameworkInitializationCompleted();
     }

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using System.Security.Cryptography;
 using Avalonia.Controls;
@@ -5,34 +6,41 @@ using Avalonia.Interactivity;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using Microsoft.Data.Sqlite;
 using SQLitePass.Core.Crypto;
 using SQLitePass.Core.Models;
 using SQLitePass.Core.Services;
+using SQLitePass.Desktop.Services;
 using SQLitePass.UI.Services;
 
 namespace SQLitePass.Desktop;
 
-internal sealed record EntryRow(string Title, string UserName, string Url);
+internal sealed record EntryRow(Guid Id, long Revision, string Title, string UserName, string Url);
 
 public sealed partial class VaultWindow : Window
 {
     private static readonly FilePickerFileType VaultFileType = new("SQLitePass") { Patterns = ["*.kpd", "*.db"] };
     private readonly AppSettings _settings;
     private readonly string _language;
+    private readonly DispatcherTimer _idleTimer;
+    private readonly IDesktopSession? _desktopSession;
     private VaultSession? _session;
     private CancellationTokenSource? _operation;
     private TaskCompletionSource? _operationFinished;
-    private Window? _confirmation;
+    private Window? _ownedDialog;
     private EntryPageQuery _query = new();
     private EntryPageCursor? _previous;
     private EntryPageCursor? _next;
     private bool _closing;
     private bool _permitClose;
+    private bool _minimized;
+    private bool _systemLocked;
+    private long _lastInput = Stopwatch.GetTimestamp();
 
     public VaultWindow() : this(new AppSettings()) { }
 
-    public VaultWindow(AppSettings settings)
+    public VaultWindow(AppSettings settings, bool useNativeSession = false)
     {
         _settings = settings;
         _language = TranslationCatalog.ResolveLanguage(settings.Language, CultureInfo.CurrentUICulture);
@@ -48,10 +56,52 @@ public sealed partial class VaultWindow : Window
         LockVault.Content = Text("MenuLockVault").Replace("_", "", StringComparison.Ordinal);
         SearchBox.PlaceholderText = Text("SearchPlaceholder");
         Search.Content = Text("SearchActiveScope");
+        AddEntry.Content = Text("TbNewEntry");
+        EditEntry.Content = Text("TbEdit");
+        Avalonia.Automation.AutomationProperties.SetName(Entries, Text("AllActiveEntries"));
         PreviousPage.Content = Text("PreviousEntryPage");
         NextPage.Content = Text("NextEntryPage");
+        if (useNativeSession) _desktopSession = DesktopSession.Create(OnSystemLockStateChanged, settings.ProtectScreenCapture);
+        ProtectDialog(this);
+        _idleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _idleTimer.Tick += IdleTimer_Tick;
         Opened += (_, _) => MasterPassword.Focus();
+        Opened += (_, _) => _idleTimer.Start();
+        Closed += (_, _) =>
+        {
+            _idleTimer.Stop();
+            _desktopSession?.Dispose();
+        };
     }
+
+    private void ProtectDialog(Window window)
+    {
+        _desktopSession?.Protect(window);
+        window.AddHandler(KeyDownEvent, (_, _) => ResetIdleTime(), RoutingStrategies.Tunnel, handledEventsToo: true);
+        window.AddHandler(PointerPressedEvent, (_, _) => ResetIdleTime(), RoutingStrategies.Tunnel, handledEventsToo: true);
+        window.AddHandler(PointerWheelChangedEvent, (_, _) => ResetIdleTime(), RoutingStrategies.Tunnel, handledEventsToo: true);
+    }
+
+    private void ResetIdleTime() => _lastInput = Stopwatch.GetTimestamp();
+
+    private async void IdleTimer_Tick(object? sender, EventArgs e)
+    {
+        if (_closing || _systemLocked) return;
+        bool minimized = WindowState == WindowState.Minimized;
+        bool lockOnMinimize = minimized && !_minimized && _settings.AutoLockOnMinimize;
+        _minimized = minimized;
+        bool idle = _settings.AutoLockMinutes > 0 && Stopwatch.GetElapsedTime(_lastInput) >= TimeSpan.FromMinutes(_settings.AutoLockMinutes);
+        if ((idle || lockOnMinimize) && (_session != null || _operation != null)) await LockVaultAsync();
+    }
+
+    private void OnSystemLockStateChanged(bool locked) => Dispatcher.UIThread.Post(async () =>
+    {
+        if (_closing) return;
+        _systemLocked = locked;
+        if (locked && (_session == null || _settings.AutoLockOnWindowsLock)) await LockVaultAsync();
+        if (!locked) ResetIdleTime();
+        UpdateControls();
+    });
 
     private string Text(string key, params object[] args) => TranslationCatalog.Format(_language, key, CultureInfo.CurrentCulture, args);
 
@@ -122,6 +172,7 @@ public sealed partial class VaultWindow : Window
             await LoadPageAsync(session, _query, null, token);
             token.ThrowIfCancellationRequested();
             _session = session;
+            ResetIdleTime();
             VaultName.Text = session.Metadata.VaultName;
             UnlockPanel.IsVisible = false;
             VaultPanel.IsVisible = true;
@@ -170,7 +221,7 @@ public sealed partial class VaultWindow : Window
         try
         {
             token.ThrowIfCancellationRequested();
-            Entries.ItemsSource = page.Entries.Select(entry => new EntryRow(entry.Title, entry.UserName, entry.Url)).ToArray();
+            Entries.ItemsSource = page.Entries.Select(entry => new EntryRow(entry.Id, entry.Revision, entry.Title, entry.UserName, entry.Url)).ToArray();
             EntryCount.Text = Text("EntriesPageRange", page.FirstIndex, page.Entries.Count == 0 ? 0 : page.FirstIndex + page.Entries.Count - 1, page.MatchedCount);
             _previous = page.PreviousCursor;
             _next = page.NextCursor;
@@ -181,13 +232,46 @@ public sealed partial class VaultWindow : Window
         }
     }
 
+    private void Entries_SelectionChanged(object? sender, SelectionChangedEventArgs e) =>
+        EditEntry.IsEnabled = Entries.SelectedItem is EntryRow;
+
+    private async void AddEntry_Click(object? sender, RoutedEventArgs e) => await OpenEditorAsync(null);
+
+    private async void EditEntry_Click(object? sender, RoutedEventArgs e)
+    {
+        if (Entries.SelectedItem is EntryRow row) await OpenEditorAsync(row);
+    }
+
+    internal Task OpenEditorAsync(EntryRow? row) => RunOperationAsync(async token =>
+    {
+        if (_session is not { } session) return;
+        var source = row == null
+            ? new PwEntry { GroupId = session.Metadata.RootGroupId ?? throw new VaultConflictException("A vault root is required.") }
+            : await session.Storage.LoadEntryAsync(row.Id, session.Crypto, row.Revision, token);
+        EntryEditDraft draft;
+        try { draft = await Task.Run(() => EntryEditDraft.Create(source), token); }
+        finally { source.ClearSecrets(); }
+        using (draft)
+        {
+            token.ThrowIfCancellationRequested();
+            var editor = new EntryEditor(draft.Current, Text);
+            ProtectDialog(editor);
+            var saved = await ShowOwnedAsync(editor);
+            token.ThrowIfCancellationRequested();
+            if (!saved || !await draft.PrepareForSaveAsync(token)) return;
+            token.ThrowIfCancellationRequested();
+            await session.Storage.SaveEntryAsync(draft.Current, session.Crypto);
+        }
+        await LoadPageAsync(session, _query, null, token);
+    });
+
     private async void LockVault_Click(object? sender, RoutedEventArgs e) => await LockVaultAsync();
 
     internal async Task LockVaultAsync()
     {
         var finished = _operationFinished?.Task;
         _operation?.Cancel();
-        _confirmation?.Close(false);
+        _ownedDialog?.Close(false);
         var session = _session;
         _session = null;
         VaultPanel.IsVisible = false;
@@ -217,7 +301,7 @@ public sealed partial class VaultWindow : Window
 
     private async Task RunOperationAsync(Func<CancellationToken, Task> action)
     {
-        if (_operation != null || _closing) return;
+        if (_operation != null || _closing || _systemLocked) return;
         using var operation = new CancellationTokenSource();
         var finished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _operation = operation;
@@ -252,7 +336,7 @@ public sealed partial class VaultWindow : Window
 
     private void UpdateControls()
     {
-        bool idle = _operation == null && !_closing;
+        bool idle = _operation == null && !_closing && !_systemLocked;
         UnlockPanel.IsEnabled = QueryPanel.IsEnabled = idle;
         PreviousPage.IsEnabled = idle && _previous != null;
         NextPage.IsEnabled = idle && _next != null;
@@ -291,12 +375,15 @@ public sealed partial class VaultWindow : Window
             dialog.Close(true);
         };
         contents.Children.Add(new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 8, Children = { accept, cancel } });
-        _confirmation = dialog;
+        ProtectDialog(dialog);
+        try { return await ShowOwnedAsync(dialog); }
+        finally { confirmation?.Clear(); }
+    }
+
+    private async Task<bool> ShowOwnedAsync(Window dialog)
+    {
+        _ownedDialog = dialog;
         try { return await dialog.ShowDialog<bool>(this); }
-        finally
-        {
-            confirmation?.Clear();
-            _confirmation = null;
-        }
+        finally { _ownedDialog = null; }
     }
 }
