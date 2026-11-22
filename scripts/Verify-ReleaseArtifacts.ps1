@@ -58,7 +58,7 @@ foreach ($project in $scan.projects) {
         }
     }
 }
-$solution = [xml](Get-Content -LiteralPath (Join-Path $root 'SQLitePass.slnx') -Raw)
+$solution = [xml](Get-Content -LiteralPath (Join-Path $root 'SQLitePass.LegacyWpf.slnx') -Raw)
 $expectedProjects = @($solution.SelectNodes('//Project[@Path]') | ForEach-Object { [IO.Path]::GetFullPath($_.Path, $root) })
 $scannedProjects = @($scan.projects | ForEach-Object { [IO.Path]::GetFullPath($_.path, $root) })
 if ($vulnerabilities -ne 0 -or @((Compare-Object $expectedProjects $scannedProjects)).Count -ne 0) {

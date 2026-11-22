@@ -4,6 +4,8 @@ SQLitePass is a modern local password manager for Windows built with .NET 10, WP
 
 The latest stable release is **1.1.3**. It includes a Windows x64 installer and a portable build. [Download on GitHub](https://github.com/FuryGamingASD/SQLitePass/releases/tag/v1.1.3) · [Release verification and remaining checks](docs/releases/RELEASE_OUTCOME_1.1.3.md)
 
+The development application is now shared between Windows x64 and Linux x64 using Avalonia. Build `SQLitePass.slnx` with the SDK pinned in `global.json`, or run `scripts/Invoke-Ci.ps1` for the common build, test and dependency checks on either platform. Run the app with `dotnet run --project SQLitePass.Desktop`. A single version tag produces the Windows installer and Linux AppImage in the same release. See [migration status and desktop verification](docs/CROSS_PLATFORM.md) for current evidence and remaining release checks. The historical WPF application is retained in `SQLitePass.LegacyWpf.slnx`.
+
 SQLitePass stores vault records in SQLite. Vault Format 2 combines AES-256-GCM authenticated encryption, Argon2id key derivation, authenticated integrity verification, validated backup recovery and session controls. These mechanisms reduce specific risks but do not establish immunity to data loss, endpoint compromise or hardware failure.
 
 SQLitePass is designed around four primary goals:

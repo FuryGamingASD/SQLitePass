@@ -40,8 +40,6 @@ jobs:
     needs: release-plan
     runs-on: windows-latest
     timeout-minutes: 40
-    outputs:
-      build_id: ${{ steps.verify.outputs.build_id }}
     defaults:
       run:
         shell: pwsh
@@ -59,33 +57,14 @@ jobs:
           global-json-file: global.json
           cache: true
           cache-dependency-path: '**/packages.lock.json'
-      - name: Build, test, audit, package and installer verification
-        if: needs.release-plan.outputs.package_identity == 'preview'
-        id: verify
+      - name: Build, test and audit the shared application
         run: ./scripts/Invoke-Ci.ps1
-      - name: Verify the shared suite for the Windows release
-        if: needs.release-plan.outputs.package_identity == 'release'
-        run: |
-          ./scripts/Test-ReleasePublication.ps1
-          dotnet restore SQLitePass.Tests/SQLitePass.Tests.csproj --locked-mode
-          if ($LASTEXITCODE -ne 0) { throw 'Locked restore failed.' }
-          dotnet build SQLitePass.Tests/SQLitePass.Tests.csproj -c Release --no-restore --warnaserror
-          if ($LASTEXITCODE -ne 0) { throw 'Shared test build failed.' }
-          ./scripts/Invoke-CoreTests.ps1
       - name: Preserve verification evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: verification-${{ github.sha }}
           path: artifacts/verification/
-          if-no-files-found: error
-          retention-days: 14
-      - name: Preserve verified release files
-        if: needs.release-plan.outputs.package_identity == 'preview'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: SQLitePass-win-x64
-          path: artifacts/releases/${{ steps.verify.outputs.build_id }}/
           if-no-files-found: error
           retention-days: 14
       - name: Build the Avalonia Windows candidate
@@ -133,14 +112,8 @@ jobs:
           global-json-file: global.json
           cache: true
           cache-dependency-path: '**/packages.lock.json'
-      - name: Restore and build the shared test suite
-        run: |
-          dotnet restore SQLitePass.Tests/SQLitePass.Tests.csproj --locked-mode
-          if ($LASTEXITCODE -ne 0) { throw 'Locked restore failed.' }
-          dotnet build SQLitePass.Tests/SQLitePass.Tests.csproj -c Release --no-restore --warnaserror
-          if ($LASTEXITCODE -ne 0) { throw 'Shared test build failed.' }
-      - name: Run the shared test suite on Linux
-        run: ./scripts/Invoke-CoreTests.ps1
+      - name: Build, test and audit the shared application
+        run: ./scripts/Invoke-Ci.ps1
       - name: Preserve Linux verification evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
