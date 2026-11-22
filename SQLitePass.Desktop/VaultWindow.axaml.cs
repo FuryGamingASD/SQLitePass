@@ -17,8 +17,10 @@ using SQLitePass.UI.Services;
 namespace SQLitePass.Desktop;
 
 internal sealed record EntryRow(Guid Id, long Revision, string Title, string UserName, string Url);
-internal sealed record GroupChoice(Guid? Id, string Name, bool IsRecycleBin = false)
+internal sealed record GroupChoice(PwGroup? Folder, string Name)
 {
+    public Guid? Id => Folder?.Id;
+    public bool IsRecycleBin => Folder?.IsRecycleBin == true;
     public override string ToString() => Name;
 }
 
@@ -62,6 +64,7 @@ public sealed partial class VaultWindow : Window
         Search.Content = Text("SearchActiveScope");
         AddEntry.Content = Text("TbNewEntry");
         EditEntry.Content = Text("TbEdit");
+        SetVaultCommandLabels();
         Avalonia.Automation.AutomationProperties.SetName(Entries, Text("AllActiveEntries"));
         Avalonia.Automation.AutomationProperties.SetName(Groups, Text("FoldersAndGroups"));
         PreviousPage.Content = Text("PreviousEntryPage");
@@ -271,15 +274,22 @@ public sealed partial class VaultWindow : Window
                 parts.Push(parent.Name);
             return string.Join(" / ", parts);
         }
-        GroupChoice[] choices = [new(null, Text("AllActiveEntries")), .. groups
-            .Select(group => new GroupChoice(group.Id, GroupPath(group), group.IsRecycleBin))
-            .OrderBy(choice => choice.Name, StringComparer.CurrentCultureIgnoreCase)];
+        var children = groups.ToLookup(group => group.ParentId);
+        var choices = new List<GroupChoice> { new(null, Text("AllActiveEntries")) };
+        void AddChildren(Guid? parent)
+        {
+            foreach (var child in children[parent])
+            {
+                choices.Add(new GroupChoice(child, GroupPath(child)));
+                AddChildren(child.Id);
+            }
+        }
+        AddChildren(null);
         Groups.ItemsSource = choices;
         Groups.SelectedItem = choices.FirstOrDefault(choice => choice.Id == selected) ?? choices[0];
     }
 
-    private void Entries_SelectionChanged(object? sender, SelectionChangedEventArgs e) =>
-        EditEntry.IsEnabled = !_query.OnlyRecycleBin && Entries.SelectedItem is EntryRow;
+    private void Entries_SelectionChanged(object? sender, SelectionChangedEventArgs e) => UpdateVaultCommands();
 
     private async void AddEntry_Click(object? sender, RoutedEventArgs e) => await OpenEditorAsync(null);
 
@@ -292,7 +302,7 @@ public sealed partial class VaultWindow : Window
     {
         if (_session is not { } session || _query.OnlyRecycleBin) return;
         var source = row == null
-            ? new PwEntry { GroupId = _query.GroupId ?? session.Metadata.RootGroupId ?? throw new VaultConflictException("A vault root is required.") }
+            ? new PwEntry { GroupId = _query.GroupId ?? RootFolderId ?? throw new VaultConflictException("A vault root is required.") }
             : await session.Storage.LoadEntryAsync(row.Id, session.Crypto, row.Revision, token);
         EntryEditDraft draft;
         try { draft = await Task.Run(() => EntryEditDraft.Create(source), token); }
@@ -301,7 +311,6 @@ public sealed partial class VaultWindow : Window
         {
             token.ThrowIfCancellationRequested();
             var editor = new EntryEditor(draft.Current, Text);
-            ProtectDialog(editor);
             var saved = await ShowOwnedAsync(editor);
             token.ThrowIfCancellationRequested();
             if (!saved || !await draft.PrepareForSaveAsync(token)) return;
@@ -386,8 +395,7 @@ public sealed partial class VaultWindow : Window
         bool idle = _operation == null && !_closing && !_systemLocked;
         UnlockPanel.IsEnabled = QueryPanel.IsEnabled = GroupPanel.IsEnabled = idle;
         Search.Content = Text(_query.OnlyRecycleBin ? "SearchRecycleBinScope" : "SearchActiveScope");
-        AddEntry.IsEnabled = !_query.OnlyRecycleBin;
-        EditEntry.IsEnabled = !_query.OnlyRecycleBin && Entries.SelectedItem is EntryRow;
+        UpdateVaultCommands();
         PreviousPage.IsEnabled = idle && _previous != null;
         NextPage.IsEnabled = idle && _next != null;
     }
@@ -425,13 +433,13 @@ public sealed partial class VaultWindow : Window
             dialog.Close(true);
         };
         contents.Children.Add(new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 8, Children = { accept, cancel } });
-        ProtectDialog(dialog);
         try { return await ShowOwnedAsync(dialog); }
         finally { confirmation?.Clear(); }
     }
 
     private async Task<bool> ShowOwnedAsync(Window dialog)
     {
+        ProtectDialog(dialog);
         _ownedDialog = dialog;
         try { return await dialog.ShowDialog<bool>(this); }
         finally { _ownedDialog = null; }

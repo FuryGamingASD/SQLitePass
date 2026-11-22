@@ -36,10 +36,29 @@
                 <TextBox x:Name="SearchBox" KeyDown="SearchBox_KeyDown" MaxLength="4096" />
                 <Button x:Name="Search" Grid.Column="1" Click="Search_Click" />
             </Grid>
-            <Grid x:Name="GroupPanel" Grid.Row="2" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+            <Grid x:Name="GroupPanel" Grid.Row="2" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
                 <ComboBox x:Name="Groups" HorizontalAlignment="Stretch" SelectionChanged="Group_SelectionChanged" />
                 <Button x:Name="AddEntry" Grid.Column="1" Click="AddEntry_Click" />
                 <Button x:Name="EditEntry" Grid.Column="2" Click="EditEntry_Click" IsEnabled="False" />
+                <Menu Grid.Column="3" VerticalAlignment="Center">
+                    <MenuItem x:Name="FolderMenu">
+                        <MenuItem x:Name="CreateFolder" Click="CreateFolder_Click" />
+                        <MenuItem x:Name="RenameFolder" Click="RenameFolder_Click" />
+                        <MenuItem x:Name="MoveFolder" Click="MoveFolder_Click" />
+                        <MenuItem x:Name="MoveFolderUp" Click="MoveFolderUp_Click" />
+                        <MenuItem x:Name="MoveFolderDown" Click="MoveFolderDown_Click" />
+                        <Separator />
+                        <MenuItem x:Name="DeleteFolder" Click="DeleteFolder_Click" />
+                    </MenuItem>
+                    <MenuItem x:Name="EntryMenu">
+                        <MenuItem x:Name="DuplicateEntry" Click="DuplicateEntry_Click" />
+                        <MenuItem x:Name="MoveEntryCommand" Click="MoveEntry_Click" />
+                        <MenuItem x:Name="DeleteEntry" Click="DeleteEntry_Click" />
+                        <MenuItem x:Name="RestoreEntry" Click="RestoreEntry_Click" />
+                        <Separator />
+                        <MenuItem x:Name="EmptyRecycleBin" Click="EmptyRecycleBin_Click" />
+                    </MenuItem>
+                </Menu>
             </Grid>
             <ListBox x:Name="Entries" Grid.Row="3" SelectionChanged="Entries_SelectionChanged">
                 <ListBox.ItemTemplate>

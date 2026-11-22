@@ -536,20 +536,6 @@ public sealed partial class SqliteStorageProvider : IDisposable
         foreach (var id in ids) Execute(c, tx, "DELETE FROM sp_entries WHERE group_id=$id", ("$id", id.ToString()));
         foreach (var id in ids) Execute(c, tx, "DELETE FROM sp_groups WHERE id=$id", ("$id", id.ToString()));
     }, preservedBackupPurpose: "pre-delete-group");
-    public Task TrashGroupAsync(Guid groupId, CryptoEngine crypto)
-    {
-        CheckCrypto(crypto);
-        return WriteAsync((c, tx, key, m) =>
-        {
-            if (groupId == m.RootGroupId || groupId == m.RecycleBinGroupId || !m.RecycleBinGroupId.HasValue)
-                throw new InvalidOperationException("Gruppo di sistema protetto o cestino mancante.");
-            var groups = ReadGroups(c, tx, key, m); var ids = new HashSet<Guid> { groupId }; bool added;
-            do { added = false; foreach (var g in groups) if (g.ParentId.HasValue && ids.Contains(g.ParentId.Value)) added |= ids.Add(g.Id); } while (added);
-            if (ids.Contains(m.RecycleBinGroupId.Value)) throw new InvalidOperationException("Il gruppo contiene il cestino di sistema.");
-            foreach (var (id, revision) in EntryIdentities(c, tx, ids)) MoveEntry(c, tx, id, revision, m.RecycleBinGroupId.Value, key, m);
-            foreach (var id in ids) Execute(c, tx, "DELETE FROM sp_groups WHERE id=$id", ("$id", id.ToString()));
-        }, preservedBackupPurpose: "pre-trash-group");
-    }
     public async Task ChangeMasterKeyAsync(CryptoEngine oldCrypto, CryptoEngine newCrypto, string salt, int iterations, int memoryKb, int parallelism, bool encryptUsernameUrl, bool usesKeyFile = false)
     {
         CheckCrypto(oldCrypto); CryptoEngine.ValidateKdf(Convert.FromBase64String(salt), iterations, memoryKb, parallelism);
