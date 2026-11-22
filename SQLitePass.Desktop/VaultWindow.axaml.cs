@@ -348,6 +348,14 @@ public sealed partial class VaultWindow : Window
 
     private async void LockVault_Click(object? sender, RoutedEventArgs e) => await LockVaultAsync();
 
+    internal async Task<bool> LockAfterUnexpectedErrorAsync()
+    {
+        bool hadVault = _session != null && !_closing;
+        await LockVaultAsync();
+        if (hadVault) StatusText.Text = Text("ErrorUnexpected");
+        return hadVault;
+    }
+
     internal async Task LockVaultAsync()
     {
         var finished = _operationFinished?.Task;

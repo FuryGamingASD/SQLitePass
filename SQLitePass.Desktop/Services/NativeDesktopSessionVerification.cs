@@ -4,6 +4,7 @@ using System.Text.Json;
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using SQLitePass.Core.Crypto;
 using SQLitePass.Core.Services;
 using Tmds.DBus.Protocol;
@@ -20,6 +21,30 @@ internal static class NativeDesktopSessionVerification
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
         if (OperatingSystem.IsWindows()) await VerifyCaptureAsync(window, timeout.Token);
         else await VerifyLogindAsync(window, timeout.Token);
+    }
+
+    internal static async Task VerifyUnexpectedDispatcherErrorAsync(VaultWindow window)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        var token = timeout.Token;
+        string profile = (string)AppContext.GetData("SQLitePass.SettingsDirectory")!;
+        string path = Path.Combine(profile, "dispatcher-error-fixture.kpd");
+        const string credential = "Synthetic-dispatcher-error-probe!";
+        using var master = new MasterKey(credential);
+        await using (var seed = await VaultSession.CreateAsync(path, master, new AppSettings { EnableDualFileBackup = false },
+            "General", "Recycle bin", token)) { }
+
+        var vault = window.FindControl<Grid>("VaultPanel")!;
+        var login = window.FindControl<ScrollViewer>("UnlockPanel")!;
+        var password = window.FindControl<TextBox>("MasterPassword")!;
+        window.FindControl<TextBox>("VaultPath")!.Text = path;
+        password.Text = credential;
+        await window.OpenVaultAsync().WaitAsync(token);
+        if (!vault.IsVisible) throw new InvalidOperationException("The synthetic dispatcher error vault did not open.");
+
+        Dispatcher.UIThread.Post(static () => throw new InvalidOperationException("Synthetic dispatcher error."));
+        await WaitForAsync(() => !vault.IsVisible && login.IsVisible && login.IsEnabled && string.IsNullOrEmpty(password.Text), token);
+        Console.WriteLine("Verified an unhandled dispatcher error closes the synthetic vault.");
     }
 
     internal static async Task<bool> VerifySessionLockInteractivelyAsync(VaultWindow window)

@@ -35,6 +35,7 @@ public sealed partial class App : Application
             RequestedThemeVariant = settings.DarkMode ? ThemeVariant.Dark : ThemeVariant.Light;
             var window = new VaultWindow(settings, useNativeSession: true);
             desktop.MainWindow = window;
+            RegisterUnexpectedErrorHandlers(desktop, window);
             if (OperatingSystem.IsWindows() && Program.WindowsInstance is { } instance)
             {
                 instance.RegisterActivationHandler(() => Dispatcher.UIThread.Post(window.ShowFromTray));
@@ -69,7 +70,11 @@ public sealed partial class App : Application
                             if (AppContext.GetData("SQLitePass.ClipboardProbe") is true) await NativeClipboardVerification.VerifyAsync(window);
                             if (AppContext.GetData("SQLitePass.TrayProbe") is true) await NativeTrayVerification.VerifyAsync(window);
                             if (AppContext.GetData("SQLitePass.AutoTypeProbe") is true) await NativeAutoTypeVerification.VerifyAsync();
-                            if (AppContext.GetData("SQLitePass.TrayProbe") is true) await NativeDesktopSessionVerification.VerifyAsync(window);
+                            if (AppContext.GetData("SQLitePass.TrayProbe") is true)
+                            {
+                                await NativeDesktopSessionVerification.VerifyAsync(window);
+                                await NativeDesktopSessionVerification.VerifyUnexpectedDispatcherErrorAsync(window);
+                            }
                             window.Close();
                         }
                         catch (Exception error)
@@ -83,5 +88,52 @@ public sealed partial class App : Application
             }
         }
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private static void RegisterUnexpectedErrorHandlers(IClassicDesktopStyleApplicationLifetime desktop, VaultWindow window)
+    {
+        bool recovering = false;
+        bool exiting = false;
+        Dispatcher.UIThread.UnhandledException += OnDispatcherError;
+        TaskScheduler.UnobservedTaskException += OnUnobservedTaskError;
+        desktop.Exit += (_, _) =>
+        {
+            Volatile.Write(ref exiting, true);
+            Dispatcher.UIThread.UnhandledException -= OnDispatcherError;
+            TaskScheduler.UnobservedTaskException -= OnUnobservedTaskError;
+        };
+
+        void OnDispatcherError(object? sender, DispatcherUnhandledExceptionEventArgs args)
+        {
+            if (recovering) return;
+            args.Handled = true;
+            _ = RecoverAsync(args.Exception);
+        }
+
+        void OnUnobservedTaskError(object? sender, UnobservedTaskExceptionEventArgs args)
+        {
+            if (Volatile.Read(ref exiting)) return;
+            var error = args.Exception;
+            Dispatcher.UIThread.Post(() => _ = RecoverAsync(error), DispatcherPriority.Send);
+            args.SetObserved();
+        }
+
+        async Task RecoverAsync(Exception error)
+        {
+            if (recovering) return;
+            recovering = true;
+            try
+            {
+                AppLogger.LogError("Unexpected desktop error", error);
+                if (await window.LockAfterUnexpectedErrorAsync()) return;
+            }
+            catch (Exception lockError)
+            {
+                AppLogger.LogError("Could not lock the vault after an unexpected desktop error", lockError);
+            }
+            finally { recovering = false; }
+
+            desktop.Shutdown(1);
+        }
     }
 }
