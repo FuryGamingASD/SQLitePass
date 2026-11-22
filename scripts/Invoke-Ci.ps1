@@ -10,8 +10,7 @@ try {
     if($LASTEXITCODE -ne 0){throw 'Locked restore failed.'}
     dotnet build SQLitePass.slnx -c Release --no-restore --warnaserror
     if($LASTEXITCODE -ne 0){throw 'Release build failed.'}
-    dotnet test SQLitePass.Tests -c Release --no-build --no-restore --logger 'trx;LogFileName=ci-tests.trx' --collect 'XPlat Code Coverage' --results-directory artifacts/verification
-    if($LASTEXITCODE -ne 0){throw 'Regression tests failed.'}
+    & (Join-Path $PSScriptRoot 'Invoke-CoreTests.ps1')
     dotnet run --project SQLitePass.UI.Verification -c Release --no-build --no-restore -- artifacts/verification/ui-ci
     if($LASTEXITCODE -ne 0){throw 'Isolated WPF verification failed.'}
     dotnet list SQLitePass.slnx package --vulnerable --include-transitive --format json --no-restore > artifacts/verification/ci-nuget-vulnerabilities.json
