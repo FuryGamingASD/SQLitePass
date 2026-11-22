@@ -8,19 +8,19 @@ namespace SQLitePass.Desktop.Services;
 
 internal interface IDesktopSession : IDisposable
 {
-    void Protect(Window window);
+    void Protect(Window window, bool protectCapture);
 }
 
 internal sealed class DesktopSession : IDesktopSession
 {
-    public static IDesktopSession Create(Action<bool> lockStateChanged, bool protectCapture)
+    public static IDesktopSession Create(Action<bool> lockStateChanged)
     {
-        if (OperatingSystem.IsWindows()) return new WindowsDesktopSession(lockStateChanged, protectCapture);
+        if (OperatingSystem.IsWindows()) return new WindowsDesktopSession(lockStateChanged);
         if (OperatingSystem.IsLinux()) return new LinuxDesktopSession(lockStateChanged);
         return new DesktopSession();
     }
 
-    public void Protect(Window window) { }
+    public void Protect(Window window, bool protectCapture) { }
     public void Dispose() { }
 }
 
@@ -28,12 +28,9 @@ internal sealed class DesktopSession : IDesktopSession
 internal sealed class WindowsDesktopSession : IDesktopSession
 {
     private readonly Action<bool> _lockStateChanged;
-    private readonly bool _protectCapture;
-
-    public WindowsDesktopSession(Action<bool> lockStateChanged, bool protectCapture)
+    public WindowsDesktopSession(Action<bool> lockStateChanged)
     {
         _lockStateChanged = lockStateChanged;
-        _protectCapture = protectCapture;
         SystemEvents.SessionSwitch += OnSessionSwitch;
     }
 
@@ -43,27 +40,29 @@ internal sealed class WindowsDesktopSession : IDesktopSession
         else if (e.Reason == SessionSwitchReason.SessionUnlock) _lockStateChanged(false);
     }
 
-    public void Protect(Window window)
+    public void Protect(Window window, bool protectCapture)
     {
-        if (!_protectCapture) return;
         if (window.TryGetPlatformHandle() is { HandleDescriptor: "HWND", Handle: var handle } && handle != IntPtr.Zero)
         {
-            ApplyCaptureExclusion(handle);
+            ApplyCaptureProtection(handle, protectCapture);
             return;
         }
         window.Opened += (_, _) =>
         {
             if (window.TryGetPlatformHandle() is { HandleDescriptor: "HWND", Handle: var openedHandle } && openedHandle != IntPtr.Zero)
-                ApplyCaptureExclusion(openedHandle);
+                ApplyCaptureProtection(openedHandle, protectCapture);
         };
     }
 
-    private static void ApplyCaptureExclusion(IntPtr handle)
+    private static void ApplyCaptureProtection(IntPtr handle, bool protectCapture)
     {
+        const uint none = 0;
         const uint excludeFromCapture = 0x11;
         const uint monitorOnly = 0x01;
-        if (!SetWindowDisplayAffinity(handle, excludeFromCapture) && !SetWindowDisplayAffinity(handle, monitorOnly))
-            AppLogger.LogWarning("Screen capture exclusion is unavailable for this window.");
+        bool applied = protectCapture
+            ? SetWindowDisplayAffinity(handle, excludeFromCapture) || SetWindowDisplayAffinity(handle, monitorOnly)
+            : SetWindowDisplayAffinity(handle, none);
+        if (!applied) AppLogger.LogWarning("Could not apply the screen capture preference to this window.");
     }
 
     [DllImport("user32.dll")]

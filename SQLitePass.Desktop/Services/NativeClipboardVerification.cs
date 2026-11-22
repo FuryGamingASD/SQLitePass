@@ -21,12 +21,13 @@ internal static class NativeClipboardVerification
         clipboard.Expired += OnExpired;
         try
         {
-            if (!await clipboard.CopyAsync(InitialText, TimeSpan.FromSeconds(6), token))
+            if (!await clipboard.CopyAsync(InitialText, TimeSpan.FromSeconds(18), token))
                 throw new InvalidOperationException("The native clipboard rejected a synthetic copy.");
             if (await ReadFromPeerAsync(token) != InitialText)
                 throw new InvalidOperationException("An external process did not receive the copied text intact.");
             await VerifyPrivacyFormatsAsync(window, token);
-            var result = await expired.Task.WaitAsync(token);
+            clipboard.ShortenTimeout(TimeSpan.FromSeconds(6));
+            var result = await expired.Task.WaitAsync(TimeSpan.FromSeconds(8), token);
             if (result != ClipboardClearResult.Cleared)
                 throw new InvalidOperationException($"The session clipboard did not clear at its deadline. Result: {result}.");
             if (!string.IsNullOrEmpty(await read.TryGetTextAsync()))
@@ -51,7 +52,7 @@ internal static class NativeClipboardVerification
         await window.LockVaultAsync();
         if (!string.IsNullOrEmpty(await read.TryGetTextAsync()))
             throw new InvalidOperationException("Locking the vault did not clear its clipboard item.");
-        Console.WriteLine("Verified native clipboard round-trip, privacy formats, expiry, replacement and vault lock.");
+        Console.WriteLine("Verified native clipboard round-trip, privacy formats, shortened expiry, replacement and vault lock.");
     }
 
     private static async Task VerifyPrivacyFormatsAsync(VaultWindow window, CancellationToken token)

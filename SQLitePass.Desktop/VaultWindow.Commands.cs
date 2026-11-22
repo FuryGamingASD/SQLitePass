@@ -22,6 +22,7 @@ public sealed partial class VaultWindow
         ClearClipboard.Header = Text("MenuClearClipboard");
         PasswordGeneratorCommand.Header = Text("MenuPasswordGenerator");
         CheckUpdates.Header = Text("MenuCheckUpdates");
+        SettingsCommand.Header = Text("MenuSettings");
         ExitApplication.Header = Text("MenuExit");
         FolderMenu.Header = Text("FoldersAndGroups");
         CreateFolder.Header = Text("MenuAddGroup");

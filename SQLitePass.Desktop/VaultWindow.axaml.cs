@@ -27,7 +27,7 @@ internal sealed record GroupChoice(PwGroup? Folder, string Name)
 public sealed partial class VaultWindow : Window
 {
     private static readonly FilePickerFileType VaultFileType = new("SQLitePass") { Patterns = ["*.kpd", "*.db"] };
-    private readonly AppSettings _settings;
+    private AppSettings _settings;
     private readonly string _language;
     private readonly DispatcherTimer _idleTimer;
     private readonly IDesktopSession? _desktopSession;
@@ -64,6 +64,7 @@ public sealed partial class VaultWindow : Window
         RestoreBackup.Content = Text("LoginRestoreBackup");
         LoginGenerator.Content = Text("GeneratorTitle");
         LoginCheckUpdates.Content = Text("MenuCheckUpdates").Replace("_", "", StringComparison.Ordinal);
+        LoginSettings.Content = Text("TbSettings");
         LockVault.Content = Text("MenuLockVault").Replace("_", "", StringComparison.Ordinal);
         SearchBox.PlaceholderText = Text("SearchPlaceholder");
         Search.Content = Text("SearchActiveScope");
@@ -76,7 +77,7 @@ public sealed partial class VaultWindow : Window
         PreviousPage.Content = Text("PreviousEntryPage");
         NextPage.Content = Text("NextEntryPage");
         CancelOperation.Content = Text("Cancel");
-        if (useNativeSession) _desktopSession = DesktopSession.Create(OnSystemLockStateChanged, settings.ProtectScreenCapture);
+        if (useNativeSession) _desktopSession = DesktopSession.Create(OnSystemLockStateChanged);
         ProtectDialog(this);
         _idleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _idleTimer.Tick += IdleTimer_Tick;
@@ -101,7 +102,7 @@ public sealed partial class VaultWindow : Window
 
     internal void ProtectDialog(Window window)
     {
-        _desktopSession?.Protect(window);
+        _desktopSession?.Protect(window, _settings.ProtectScreenCapture);
         window.AddHandler(KeyDownEvent, (_, _) => ResetIdleTime(), RoutingStrategies.Tunnel, handledEventsToo: true);
         window.AddHandler(PointerPressedEvent, (_, _) => ResetIdleTime(), RoutingStrategies.Tunnel, handledEventsToo: true);
         window.AddHandler(PointerWheelChangedEvent, (_, _) => ResetIdleTime(), RoutingStrategies.Tunnel, handledEventsToo: true);

@@ -6,7 +6,7 @@ param(
     [string]$UiResultsDirectory = 'ui-editing',
     [string]$VulnerabilityResults = 'editing-nuget-vulnerabilities.json',
     # Keep aligned with the regression suite; the exact count also detects test discovery drift.
-    [ValidateRange(1, 100000)][int]$ExpectedTests = 167,
+    [ValidateRange(1, 100000)][int]$ExpectedTests = 168,
     [ValidateRange(1, 100000)][int]$ExpectedUiCases = 1080,
     [ValidateRange(1, 100000)][int]$ExpectedContrastPairs = 105
 )

@@ -117,7 +117,7 @@ internal sealed class LinuxDesktopSession : IDesktopSession
         }
     }
 
-    public void Protect(Window window) { }
+    public void Protect(Window window, bool protectCapture) { }
 
     public void Dispose()
     {

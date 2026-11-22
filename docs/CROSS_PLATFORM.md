@@ -10,10 +10,15 @@ The native jobs run `scripts/Build-AvaloniaCandidate.ps1` with `win-x64` and `li
 
 ## Before switching the release
 
-- Finish the settings interface. The browser supports text, exact tag and expiry filters, with paged sorting. The entry editor can save and restore custom fields and attachments, edit expiration and Auto-Type settings, and reveal values temporarily. The password generator is available from the unlock screen, the vault menu and the entry editor. **Use password** puts the result in the entry draft. **Copy** uses the same temporary clipboard as vault entries.
 - Verify Windows session lock and capture protection on a native desktop. The Linux adapter listens for logind lock hints and suspend signals. Verify these signals on the supported Linux desktops and verify the inactivity fallback when logind is unavailable on the system bus.
 - Verify clipboard, tray and Auto-Type on the supported Linux desktop sessions, including XWayland. The selected-entry Auto-Type flow uses two user-directed focus changes and works without a global shortcut.
 - Verify launch after Windows installation and from the AppImage on supported desktops, upgrade from the installed Windows line, update discovery and application on both platforms, and package notices for all shipped dependencies.
+
+## Shared preferences
+
+Open **Settings** from the unlock screen or vault menu. The shared app uses the existing profile preferences. The theme, window behavior, clipboard timeout, lock rules and backup settings apply to the running app. A shorter clipboard timeout also applies to the current app-owned copy. Changing the interface language takes effect after restart. Capture exclusion is available on Windows, and startup registration is available in the official Windows installation. The entry editor continues to mask passwords by default.
+
+The browser supports text, exact tag and expiry filters, with paged sorting. The entry editor can save and restore custom fields and attachments, edit expiration and Auto-Type settings, and reveal values temporarily. The password generator is available from the unlock screen, the vault menu and the entry editor. **Use password** puts the result in the entry draft. **Copy** uses the same temporary clipboard as vault entries.
 
 ## Releasing both platforms
 

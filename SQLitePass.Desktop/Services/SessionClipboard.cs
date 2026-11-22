@@ -67,6 +67,11 @@ internal sealed class SessionClipboard : IDisposable
 
     internal Task<ClipboardClearResult> ClearAsync() => ClearAsync(expected: null);
 
+    internal void ShortenTimeout(TimeSpan timeout)
+    {
+        if (_lease != null && timeout < _timeout) _timeout = timeout;
+    }
+
     private async Task<ClipboardClearResult> ClearAsync(IClipboardLease? expected)
     {
         await _operations.WaitAsync();
