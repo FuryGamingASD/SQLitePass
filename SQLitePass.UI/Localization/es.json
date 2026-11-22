@@ -1,4 +1,6 @@
 {
+  "SortByEntryColumn": "Ordenar por",
+  "SortEntriesDescending": "Orden descendente",
   "AppTitle": "SQLitePass",
   "Ok": "Aceptar",
   "Cancel": "Cancelar",
@@ -184,6 +186,7 @@
   "CustomFieldsTab": "Campos personalizados",
   "CustomFieldsHeading": "Campos adicionales de la entrada",
   "FieldName": "Nombre del campo",
+  "FieldNameRequired": "Introduce el nombre del campo.",
   "FieldValue": "Valor del campo",
   "FieldProtected": "Protegido",
   "AddField": "Añadir campo",

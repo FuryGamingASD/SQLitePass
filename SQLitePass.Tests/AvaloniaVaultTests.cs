@@ -10,7 +10,7 @@ using SQLitePass.Desktop;
 
 namespace SQLitePass.Tests;
 
-public sealed class AvaloniaVaultTests
+public sealed partial class AvaloniaVaultTests
 {
     private sealed class HeadlessStartup
     {
@@ -32,8 +32,8 @@ public sealed class AvaloniaVaultTests
             {
                 var group = (await vault.Storage.LoadAllGroupsAsync(vault.Crypto)).Single(item => item.Name == "General");
                 await vault.Storage.SaveEntriesBatchAsync([
-                    new PwEntry { GroupId = group.Id, Title = "Synthetic mail", UserName = "mail-user", Password = "sample-mail" },
-                    new PwEntry { GroupId = group.Id, Title = "Synthetic portal", UserName = "portal-user", Password = "sample-portal" },
+                    new PwEntry { GroupId = group.Id, Title = "Synthetic mail", UserName = "mail-user", Password = "sample-mail", ExpiryDate = DateTime.Today.AddDays(-1) },
+                    new PwEntry { GroupId = group.Id, Title = "Synthetic portal", UserName = "portal-user", Password = "sample-portal", Tags = "demo" },
                     new PwEntry { GroupId = vault.Metadata.RecycleBinGroupId!.Value, Title = "Synthetic deleted entry" }
                 ], vault.Crypto);
             }
@@ -60,6 +60,22 @@ public sealed class AvaloniaVaultTests
                     Assert.True(vaultPanel.IsVisible);
                     Assert.Equal(2, entryList.Items.Count);
                     var groups = window.FindControl<ComboBox>("Groups")!;
+                    await window.SelectGroupAsync(groups.Items.OfType<GroupChoice>().Single(item => item.Folder?.IsRoot == true));
+                    Assert.Equal(2, entryList.Items.Count);
+                    var tag = window.FindControl<TextBox>("TagFilter")!;
+                    tag.Text = "de";
+                    await window.SearchAsync();
+                    Assert.Empty(entryList.Items);
+                    tag.Text = "DEMO";
+                    await window.SearchAsync();
+                    Assert.Equal("Synthetic portal", Assert.IsType<EntryRow>(Assert.Single(entryList.Items)).Title);
+                    tag.Clear();
+                    var expiry = window.FindControl<ComboBox>("ExpiryFilter")!;
+                    expiry.SelectedIndex = 1;
+                    while (entryList.Items.OfType<EntryRow>().SingleOrDefault()?.Title != "Synthetic mail")
+                        await Task.Delay(10, timeout.Token);
+                    expiry.SelectedIndex = 0;
+                    while (entryList.Items.Count != 2) await Task.Delay(10, timeout.Token);
                     await window.SelectGroupAsync(groups.Items.OfType<GroupChoice>().Single(item => item.IsRecycleBin));
                     Assert.Equal("Synthetic deleted entry", Assert.IsType<EntryRow>(Assert.Single(entryList.Items)).Title);
                     await window.SelectGroupAsync(groups.Items.OfType<GroupChoice>().Single(item => !item.Id.HasValue));
@@ -403,7 +419,7 @@ public sealed class AvaloniaVaultTests
         await operation;
     }
 
-    private static async Task ConfirmAsync(VaultWindow window, Task operation, bool accept, CancellationToken token)
+    private static async Task ConfirmAsync(Window window, Task operation, bool accept, CancellationToken token)
     {
         var dialog = await FindDialogAsync<Window>(window, operation, token);
         var button = dialog.GetLogicalDescendants().OfType<Button>().Single(button => Equals(button.Content, accept ? "OK" : "Cancel"));
@@ -411,7 +427,7 @@ public sealed class AvaloniaVaultTests
         await operation;
     }
 
-    private static async Task<T> FindDialogAsync<T>(VaultWindow owner, Task operation, CancellationToken token) where T : Window
+    private static async Task<T> FindDialogAsync<T>(Window owner, Task operation, CancellationToken token) where T : Window
     {
         while (true)
         {

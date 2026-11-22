@@ -204,14 +204,7 @@ public sealed partial class VaultWindow
 
     private async Task ReloadFolderAsync(VaultSession session, Guid? folder, CancellationToken token)
     {
-        var query = _query with { GroupId = folder, OnlyRecycleBin = false, SearchText = "" };
-        try { await LoadPageAsync(session, query, null, token); }
-        catch (VaultPageChangedException) when (folder.HasValue)
-        {
-            query = query with { GroupId = null };
-            await LoadPageAsync(session, query, null, token);
-        }
+        await RefreshEntryQueryAsync(session, _query with { GroupId = folder, OnlyRecycleBin = false, SearchText = "" }, token);
         SearchBox.Clear();
-        _query = query;
     }
 }

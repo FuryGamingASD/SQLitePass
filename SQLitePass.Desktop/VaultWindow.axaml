@@ -43,10 +43,19 @@
                 </Menu>
                 <Button x:Name="LockVault" Grid.Column="2" Click="LockVault_Click" />
             </Grid>
-            <Grid x:Name="QueryPanel" Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <TextBox x:Name="SearchBox" KeyDown="SearchBox_KeyDown" MaxLength="4096" />
-                <Button x:Name="Search" Grid.Column="1" Click="Search_Click" />
-            </Grid>
+            <StackPanel x:Name="QueryPanel" Grid.Row="1" Spacing="8">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <TextBox x:Name="SearchBox" KeyDown="SearchBox_KeyDown" MaxLength="4096" />
+                    <Button x:Name="Search" Grid.Column="1" Click="Search_Click" />
+                </Grid>
+                <WrapPanel>
+                    <ComboBox x:Name="ExpiryFilter" Margin="0,0,8,4" SelectionChanged="BrowseOption_Changed" />
+                    <TextBox x:Name="TagFilter" MinWidth="115" MaxLength="256" Margin="0,0,8,4" KeyDown="SearchBox_KeyDown" />
+                    <ComboBox x:Name="SortField" Margin="0,0,8,4" SelectionChanged="BrowseOption_Changed" />
+                    <ToggleButton x:Name="SortDescending" Margin="0,0,8,4" Click="BrowseSort_Click" />
+                    <Button x:Name="ResetFilters" Margin="0,0,8,4" Click="ResetFilters_Click" />
+                </WrapPanel>
+            </StackPanel>
             <Grid x:Name="GroupPanel" Grid.Row="2" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
                 <ComboBox x:Name="Groups" HorizontalAlignment="Stretch" SelectionChanged="Group_SelectionChanged" />
                 <Button x:Name="AddEntry" Grid.Column="1" Click="AddEntry_Click" />

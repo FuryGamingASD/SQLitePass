@@ -64,6 +64,7 @@ public sealed partial class VaultWindow : Window
         LockVault.Content = Text("MenuLockVault").Replace("_", "", StringComparison.Ordinal);
         SearchBox.PlaceholderText = Text("SearchPlaceholder");
         Search.Content = Text("SearchActiveScope");
+        InitializeBrowseOptions();
         AddEntry.Content = Text("TbNewEntry");
         EditEntry.Content = Text("TbEdit");
         SetVaultCommandLabels();
@@ -85,7 +86,7 @@ public sealed partial class VaultWindow : Window
         };
     }
 
-    private void ProtectDialog(Window window)
+    internal void ProtectDialog(Window window)
     {
         _desktopSession?.Protect(window);
         window.AddHandler(KeyDownEvent, (_, _) => ResetIdleTime(), RoutingStrategies.Tunnel, handledEventsToo: true);
@@ -209,9 +210,7 @@ public sealed partial class VaultWindow : Window
     internal Task SearchAsync() => RunOperationAsync(async token =>
     {
         if (_session == null) return;
-        var query = _query with { SearchText = SearchBox.Text?.Trim() ?? "" };
-        await LoadPageAsync(_session, query, null, token);
-        _query = query;
+        await RefreshEntryQueryAsync(_session, ReadBrowseOptions(_query), token);
     });
 
     private async void Group_SelectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -222,7 +221,7 @@ public sealed partial class VaultWindow : Window
     internal Task SelectGroupAsync(GroupChoice group) => RunOperationAsync(async token =>
     {
         if (_session == null) return;
-        var query = _query with { GroupId = group.Id, OnlyRecycleBin = group.IsRecycleBin, SearchText = SearchBox.Text?.Trim() ?? "" };
+        var query = ReadBrowseOptions(_query with { GroupId = group.Id, OnlyRecycleBin = group.IsRecycleBin });
         try
         {
             await LoadPageAsync(_session, query, null, token);
@@ -245,14 +244,15 @@ public sealed partial class VaultWindow : Window
         try { await LoadPageAsync(_session, _query, cursor, token); }
         catch (VaultPageChangedException)
         {
-            await LoadPageAsync(_session, _query, null, token);
+            await RefreshEntryQueryAsync(_session, _query, token);
             StatusText.Text = Text("EntryPageChanged");
         }
     });
 
     private async Task LoadPageAsync(VaultSession session, EntryPageQuery query, EntryPageCursor? cursor, CancellationToken token)
     {
-        var page = await session.Storage.LoadEntryPageAsync(session.Crypto, query, cursor, cancellationToken: token);
+        var storageQuery = query.GroupId.HasValue && query.GroupId == RootFolderId ? query with { GroupId = null } : query;
+        var page = await session.Storage.LoadEntryPageAsync(session.Crypto, storageQuery, cursor, cancellationToken: token);
         try
         {
             token.ThrowIfCancellationRequested();
@@ -315,8 +315,9 @@ public sealed partial class VaultWindow : Window
         using (draft)
         {
             token.ThrowIfCancellationRequested();
-            var editor = new EntryEditor(draft.Current, Text);
+            var editor = new EntryEditor(draft.Current, Text, session.Storage.FilePath);
             var saved = await ShowOwnedAsync(editor);
+            await editor.WaitForOperationsAsync();
             token.ThrowIfCancellationRequested();
             if (!saved || !await draft.PrepareForSaveAsync(token)) return;
             token.ThrowIfCancellationRequested();
@@ -338,6 +339,7 @@ public sealed partial class VaultWindow : Window
         VaultName.Text = EntryCount.Text = BackupStatus.Text = SearchBox.Text = MasterPassword.Text = KeyFilePath.Text = "";
         Entries.ItemsSource = null;
         Groups.ItemsSource = null;
+        ResetBrowseOptions();
         _previous = _next = null;
         if (session != null)
         {
