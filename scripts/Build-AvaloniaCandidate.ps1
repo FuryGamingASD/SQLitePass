@@ -1,5 +1,6 @@
 param(
     [Parameter(Mandatory)][ValidateSet('win-x64','linux-x64')][string]$Runtime,
+    [ValidateSet('preview','release')][string]$PackageIdentity = 'preview',
     [switch]$VerifyNativeLaunch,
     [switch]$VerifyDesktopIntegrations
 )
@@ -38,12 +39,18 @@ try {
     $executable = if ($IsWindows) { 'SQLitePass.Desktop.exe' } else { 'SQLitePass.Desktop' }
     $icon = if ($IsWindows) { 'app.ico' } else { 'app_icon.png' }
     $distributionPattern = if ($IsWindows) { '*-Setup.exe' } else { '*.AppImage' }
-    $packageId = 'SQLitePassAvaloniaPreview'
+    $packageId = if ($PackageIdentity -eq 'release') { 'SQLitePass' } else { 'SQLitePassAvaloniaPreview' }
+    $packageTitle = if ($PackageIdentity -eq 'release') { 'SQLitePass' } else { 'SQLitePass Avalonia (verification)' }
+    if ($IsWindows -and $PackageIdentity -eq 'release') {
+        # Keep the old apphost name so existing Velopack shortcuts and Run entries launch the replacement.
+        Rename-Item -LiteralPath (Join-Path $publish $executable) -NewName 'SQLitePass.exe'
+        $executable = 'SQLitePass.exe'
+    }
 
     dotnet tool restore
     if ($LASTEXITCODE -ne 0) { throw 'Velopack tool restore failed.' }
     dotnet tool run vpk -- pack --skip-updates -u $packageId -v $version -p $publish -e $executable -o $release `
-        -r $Runtime -c $channel -i (Join-Path $root "SQLitePass.UI/Resources/$icon") --packTitle 'SQLitePass Avalonia (verification)'
+        -r $Runtime -c $channel -i (Join-Path $root "SQLitePass.UI/Resources/$icon") --packTitle $packageTitle
     if ($LASTEXITCODE -ne 0) { throw 'Velopack packaging failed.' }
 
     $feedName = "releases.$channel.json"
@@ -125,7 +132,7 @@ try {
     }
     $evidence = [ordered]@{
         SourceCommit = $commit; SourceTree = $tree; SourceDirty = ($sourceChanges.Count -gt 0)
-        Version = $version; Runtime = $Runtime; Channel = $channel
+        Version = $version; Runtime = $Runtime; Channel = $channel; PackageId = $packageId
         Distribution = $distribution.Name; Feed = $feedName; UpdatePackage = $asset.FileName
         NativeStartupVerified = [bool]$VerifyNativeLaunch
         NativeClipboardVerified = [bool]$VerifyDesktopIntegrations
