@@ -57,8 +57,12 @@ namespace SQLitePass.Core.Services
         public static AppSettings Update(Action<AppSettings> change) => Store.Update(change);
 
         public static string? Save(AppSettings settings)
+            => Save(settings, applyWindowsStartup: true);
+
+        public static string? Save(AppSettings settings, bool applyWindowsStartup)
         {
             Store.Save(settings);
+            if (!applyWindowsStartup) return null;
             try { ApplyStartWithWindows(settings.StartWithWindows); return null; }
             catch (IOException)
             {

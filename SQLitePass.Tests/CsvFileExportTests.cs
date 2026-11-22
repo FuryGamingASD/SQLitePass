@@ -17,6 +17,7 @@ public sealed partial class AttachmentFileTests
         var entries = new[] { new PwEntry { GroupId = group, Title = "quoted \"title\"", UserName = "synthetic", Password = "sëcret", Notes = "first\r\nsecond" } };
         var groups = new Dictionary<Guid, string> { [group] = "Root/Subfolder" };
         await ImportExportService.ExportToKeePassCsvFileAsync(path, entries, groups);
+        if (OperatingSystem.IsLinux()) Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(path));
         string csv = await File.ReadAllTextAsync(path);
         Assert.Equal(ImportExportService.ExportToKeePassCsv(entries, groups), csv);
         var imported = Assert.Single(ImportExportService.ImportFromKeePassCsv(csv, group));

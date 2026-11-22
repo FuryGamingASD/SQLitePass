@@ -1,42 +1,43 @@
-param([ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version='1.1.3')
+param([ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version)
+
 Set-StrictMode -Version Latest
-$ErrorActionPreference='Stop'
-$root=(Resolve-Path (Join-Path $PSScriptRoot '..')).ProviderPath
+$ErrorActionPreference = 'Stop'
+$root = (Resolve-Path (Join-Path $PSScriptRoot '..')).ProviderPath
 Push-Location -LiteralPath $root
 try {
+    $sharedVersion = & dotnet msbuild SQLitePass.Desktop/SQLitePass.Desktop.csproj -nologo -getProperty:Version
+    if ($LASTEXITCODE -ne 0 -or $sharedVersion -notmatch '^\d+\.\d+\.\d+$') { throw 'Cannot resolve the shared application version.' }
+    if ($Version -and $Version -cne $sharedVersion) { throw 'The requested version differs from Directory.Build.props.' }
+
     & (Join-Path $PSScriptRoot 'Test-ReleasePublication.ps1')
     New-Item -ItemType Directory -Path 'artifacts/verification' -Force | Out-Null
     dotnet restore SQLitePass.slnx --locked-mode
-    if($LASTEXITCODE -ne 0){throw 'Locked restore failed.'}
+    if ($LASTEXITCODE -ne 0) { throw 'Locked restore failed.' }
     dotnet build SQLitePass.slnx -c Release --no-restore --warnaserror
-    if($LASTEXITCODE -ne 0){throw 'Release build failed.'}
-    dotnet test SQLitePass.Tests -c Release --no-build --no-restore --logger 'trx;LogFileName=ci-tests.trx' --collect 'XPlat Code Coverage' --results-directory artifacts/verification
-    if($LASTEXITCODE -ne 0){throw 'Regression tests failed.'}
-    dotnet run --project SQLitePass.UI.Verification -c Release --no-build --no-restore -- artifacts/verification/ui-ci
-    if($LASTEXITCODE -ne 0){throw 'Isolated WPF verification failed.'}
-    dotnet list SQLitePass.slnx package --vulnerable --include-transitive --format json --no-restore > artifacts/verification/ci-nuget-vulnerabilities.json
-    if($LASTEXITCODE -ne 0){throw 'NuGet vulnerability query failed.'}
-    & (Join-Path $root 'build-installer.ps1') -Version $Version -AllowUnsigned
-    $build=Get-Content artifacts/last-build.json -Raw | ConvertFrom-Json
-    & (Join-Path $PSScriptRoot 'Verify-ReleaseArtifacts.ps1') -BuildId $build.BuildId -TestResults 'ci-tests.trx' -UiResultsDirectory 'ui-ci' -VulnerabilityResults 'ci-nuget-vulnerabilities.json'
-    $legacy=Join-Path $root 'releases/SQLitePass-win-Setup.exe'
-    if(-not (Test-Path -LiteralPath $legacy)){
-        New-Item -ItemType Directory -Path (Split-Path $legacy -Parent) -Force | Out-Null
-        Invoke-WebRequest -Uri 'https://github.com/FuryGamingASD/SQLitePass/releases/download/v1.0.2/SQLitePass-win-Setup.exe' -OutFile $legacy
-    }
-    if((Get-FileHash -LiteralPath $legacy -Algorithm SHA256).Hash -ne '11F557F257C731BB9F6BE547CB4020ED189F1A5B86A09010B688A1A016C4D52B'){throw 'Legacy setup checksum differs.'}
-    if ($env:RUNNER_ENVIRONMENT -eq 'github-hosted') {
-        $previousSetup = Join-Path $root 'releases/SQLitePass-1.1.2-Setup.exe'
-        Invoke-WebRequest -Uri 'https://github.com/FuryGamingASD/SQLitePass/releases/download/v1.1.2/SQLitePass-win-Setup.exe' -OutFile $previousSetup
-        if ((Get-FileHash -LiteralPath $previousSetup -Algorithm SHA256).Hash -ne '9679209912914F611FF5AEB5B544B7C60B20B6643055F98D04F4691D99764723') {
-            throw 'Previous release setup checksum differs.'
+    if ($LASTEXITCODE -ne 0) { throw 'Shared application build failed.' }
+    & (Join-Path $PSScriptRoot 'Invoke-CoreTests.ps1')
+
+    $auditPath = Join-Path $root 'artifacts/verification/ci-nuget-vulnerabilities.json'
+    dotnet list SQLitePass.slnx package --vulnerable --include-transitive --format json --no-restore > $auditPath
+    if ($LASTEXITCODE -ne 0) { throw 'NuGet vulnerability query failed.' }
+    $audit = Get-Content -LiteralPath $auditPath -Raw | ConvertFrom-Json -AsHashtable
+    if ($audit.ContainsKey('problems') -and $audit.problems.Count -gt 0) { throw 'NuGet audit reported problems.' }
+    foreach ($project in $audit.projects) {
+        if (-not $project.ContainsKey('frameworks')) { continue }
+        foreach ($framework in $project.frameworks) {
+            foreach ($kind in @('topLevelPackages', 'transitivePackages')) {
+                if (-not $framework.ContainsKey($kind)) { continue }
+                foreach ($package in $framework[$kind]) {
+                    if ($package.ContainsKey('vulnerabilities') -and $package.vulnerabilities.Count -gt 0) {
+                        throw "Known vulnerabilities reported for $($package.id)."
+                    }
+                }
+            }
         }
-        & (Join-Path $PSScriptRoot 'Verify-WindowsPackage.ps1') -BuildId $build.BuildId -CheckRunningApp
-    } else {
-        & (Join-Path $PSScriptRoot 'Verify-WindowsPackage.ps1') -BuildId $build.BuildId
     }
-    if($env:GITHUB_OUTPUT){
-        "build_id=$($build.BuildId)" | Add-Content -LiteralPath $env:GITHUB_OUTPUT
-        "release_path=artifacts/releases/$($build.BuildId)" | Add-Content -LiteralPath $env:GITHUB_OUTPUT
-    }
-} finally {Pop-Location}
+    $solution = [xml](Get-Content -LiteralPath (Join-Path $root 'SQLitePass.slnx') -Raw)
+    $expected = @($solution.SelectNodes('//Project[@Path]') | ForEach-Object { [IO.Path]::GetFullPath($_.Path, $root) })
+    $scanned = @($audit.projects | ForEach-Object { [IO.Path]::GetFullPath($_.path, $root) })
+    if (@(Compare-Object $expected $scanned).Count -ne 0) { throw 'NuGet audit did not cover every shared solution project.' }
+    Write-Output "Verified the shared Avalonia application $sharedVersion. Native packaging runs in each platform job."
+} finally { Pop-Location }

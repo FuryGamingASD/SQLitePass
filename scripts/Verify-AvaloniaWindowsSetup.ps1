@@ -1,0 +1,146 @@
+param([Parameter(Mandatory)][string]$CandidateDirectory)
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+if (-not $IsWindows -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted') {
+    throw 'The Windows installation probe requires a disposable GitHub-hosted Windows profile.'
+}
+$testProfileDirectory = Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'SQLitePass'
+$uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\SQLitePass'
+$startupRegistryPath = 'Software\Microsoft\Windows\CurrentVersion\Run'
+$startupKey = "HKCU:\$startupRegistryPath"
+function Get-StartupEntry {
+    $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($startupRegistryPath)
+    if ($null -eq $key) { return }
+    try { $key.GetValue('SQLitePass') }
+    finally { $key.Dispose() }
+}
+$shortcuts = @(
+    (Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'SQLitePass.lnk'),
+    (Join-Path ([Environment]::GetFolderPath('Programs')) 'SQLitePass.lnk')
+)
+if (Test-Path -LiteralPath (@($testProfileDirectory, $uninstallKey) + $shortcuts) -ErrorAction SilentlyContinue | Where-Object { $_ }) {
+    throw 'The Windows installation probe requires an unused SQLitePass profile and installation.'
+}
+if ($null -ne (Get-StartupEntry)) { throw 'An existing startup entry cannot be changed.' }
+if (Get-Process SQLitePass -ErrorAction SilentlyContinue) { throw 'A SQLitePass process is already running.' }
+
+$candidate = (Resolve-Path -LiteralPath $CandidateDirectory).ProviderPath
+$manifestPath = Join-Path $candidate 'candidate-verification.json'
+$manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+if ($manifest.PackageId -cne 'SQLitePass' -or $manifest.Runtime -cne 'win-x64' -or
+    $manifest.Distribution -cne 'SQLitePass-win-Setup.exe' -or $manifest.Version -notmatch '^\d+\.\d+\.\d+$' -or
+    $manifest.UpdatePackage -cnotmatch '^SQLitePass-[0-9.]+-full\.nupkg$') {
+    throw 'The installation probe requires the Windows release package identity.'
+}
+$setup = Join-Path $candidate $manifest.Distribution
+$updatePackage = Join-Path $candidate $manifest.UpdatePackage
+$previousVersion = if ([version]$manifest.Version -gt [version]'1.1.3') { '1.1.3' } else { '1.1.2' }
+$previousHash = @{
+    '1.1.3' = 'F9782717230A6AA1123F8E4BFB13DB02A9DB3202C3E6B2214E20926AA5D9C2B5'
+    '1.1.2' = '9679209912914F611FF5AEB5B544B7C60B20B6643055F98D04F4691D99764723'
+}[$previousVersion]
+$isolated = [IO.Directory]::CreateTempSubdirectory('SQLitePass-Avalonia-package-').FullName
+$logs = (New-Item -ItemType Directory -Path 'artifacts/verification/avalonia-windows-setup' -Force).FullName
+$previousSetup = Join-Path $isolated 'PreviousSetup.exe'
+Invoke-WebRequest -Uri "https://github.com/FuryGamingASD/SQLitePass/releases/download/v$previousVersion/SQLitePass-win-Setup.exe" -OutFile $previousSetup
+if ((Get-FileHash -LiteralPath $previousSetup).Hash -cne $previousHash) { throw 'The previous public installer checksum differs.' }
+
+function Start-PackageProcess([string]$File, [string[]]$Arguments) {
+    $start = [Diagnostics.ProcessStartInfo]::new($File)
+    $start.UseShellExecute = $false
+    $start.CreateNoWindow = $true
+    foreach ($argument in $Arguments) { $start.ArgumentList.Add($argument) }
+    [Diagnostics.Process]::Start($start)
+}
+
+function Invoke-PackageCommand([string]$File, [string[]]$Arguments) {
+    $process = Start-PackageProcess $File $Arguments
+    try {
+        if (-not $process.WaitForExit(90000)) {
+            $process.Kill($true)
+            throw 'The Windows package command timed out.'
+        }
+        if ($process.ExitCode -ne 0) { throw "The Windows package command exited with $($process.ExitCode)." }
+    } finally { $process.Dispose() }
+}
+
+function Assert-WindowWakesAndCloses([string]$Path) {
+    $mainExe = Join-Path $Path 'current/SQLitePass.exe'
+    $primary = Start-PackageProcess $mainExe @('--minimized')
+    try {
+        Start-Sleep -Seconds 2
+        $primary.Refresh()
+        if ($primary.HasExited -or $primary.MainWindowHandle -ne [IntPtr]::Zero) { throw 'Start minimized did not leave a tray instance.' }
+        Invoke-PackageCommand $mainExe @()
+        $deadline = [Diagnostics.Stopwatch]::StartNew()
+        while ($true) {
+            $primary.Refresh()
+            if ($primary.HasExited -or $deadline.Elapsed.TotalSeconds -gt 15) { throw 'Second-instance activation did not show the first window.' }
+            if ($primary.MainWindowHandle -ne [IntPtr]::Zero -and $primary.MainWindowTitle -eq 'SQLitePass') { break }
+            Start-Sleep -Milliseconds 100
+        }
+        Invoke-PackageCommand $mainExe @('--veloapp-obsolete', $manifest.Version)
+        if (-not $primary.WaitForExit(10000) -or $primary.ExitCode -ne 0) { throw 'The pre-update hook did not shut down the running Avalonia window.' }
+        Write-Output 'Verified Windows tray startup, second-instance activation and a clean pre-update shutdown.'
+    } finally {
+        if (-not $primary.HasExited) {
+            $primary.Kill($true)
+            $primary.WaitForExit(5000) | Out-Null
+        }
+        $primary.Dispose()
+    }
+}
+
+function Assert-AvaloniaStartup([string]$Path) {
+    $payload = Join-Path $Path 'current/SQLitePass.Desktop.dll'
+    if ([Reflection.AssemblyName]::GetAssemblyName($payload).Version.ToString() -cne "$($manifest.Version).0") {
+        throw 'The installed Avalonia assembly version does not match the verified package.'
+    }
+    Invoke-PackageCommand (Join-Path $Path 'current/SQLitePass.exe') @('--verify-startup')
+}
+
+New-Item -ItemType Directory -Path $testProfileDirectory | Out-Null
+$marker = Join-Path $testProfileDirectory 'isolated-verification.txt'
+Set-Content -LiteralPath $marker -Value 'Synthetic user data outside the installation' -Encoding utf8
+$markerHash = (Get-FileHash -LiteralPath $marker).Hash
+foreach ($scenario in @('fresh', 'upgrade')) {
+    $installation = Join-Path $isolated $scenario
+    $updater = Join-Path $installation 'Update.exe'
+    $inputSetup = if ($scenario -eq 'upgrade') { $previousSetup } else { $setup }
+    $startupApp = if ($scenario -eq 'upgrade') { Join-Path $isolated 'OtherInstallation/SQLitePass.exe' } else { Join-Path $installation 'current/SQLitePass.exe' }
+    $startupEntry = '"' + $startupApp + '" --minimized'
+    try {
+        Invoke-PackageCommand $inputSetup @('--silent', '--installto', $installation, '--log', (Join-Path $logs "$scenario-install.log"))
+        if ($scenario -eq 'upgrade') {
+            $oldPayload = Join-Path $installation 'current/SQLitePass.dll'
+            if ([Reflection.AssemblyName]::GetAssemblyName($oldPayload).Version.ToString() -cne "$previousVersion.0") {
+                throw 'The public WPF installation did not report the expected version.'
+            }
+            Invoke-PackageCommand $updater @('--silent', '--log', (Join-Path $logs 'upgrade-apply.log'), 'apply', '--package', $updatePackage, '--norestart')
+            if (Test-Path -LiteralPath $oldPayload) { throw 'The update left the WPF assembly in the current application directory.' }
+        }
+        Assert-AvaloniaStartup $installation
+        if ($scenario -eq 'fresh') { Assert-WindowWakesAndCloses $installation }
+        if (-not (Test-Path -LiteralPath $startupKey)) { New-Item -Path $startupKey | Out-Null }
+        Set-ItemProperty -LiteralPath $startupKey -Name SQLitePass -Value $startupEntry
+        Write-Output "Verified Windows $scenario with the installed SQLitePass.exe entry point."
+    } finally {
+        if (Test-Path -LiteralPath $updater) {
+            Invoke-PackageCommand $updater @('--silent', '--log', (Join-Path $logs "$scenario-uninstall.log"), 'uninstall')
+        }
+    }
+    if (Test-Path -LiteralPath $uninstallKey) { throw 'Uninstall left the SQLitePass registration.' }
+    foreach ($shortcut in $shortcuts) { if (Test-Path -LiteralPath $shortcut) { throw 'Uninstall left a SQLitePass shortcut.' } }
+    if (Test-Path -LiteralPath (Join-Path $installation 'current/SQLitePass.exe')) { throw 'Uninstall left the app installed.' }
+    if ((Get-FileHash -LiteralPath $marker).Hash -cne $markerHash) { throw 'The package lifecycle changed synthetic data outside the installation.' }
+    $observed = Get-StartupEntry
+    if ($scenario -eq 'upgrade') {
+        if ($observed -cne $startupEntry) { throw 'Uninstall changed a startup entry belonging to a different installation.' }
+        Remove-ItemProperty -LiteralPath $startupKey -Name SQLitePass
+    } elseif ($null -ne $observed) { throw 'Uninstall left its own Windows startup entry.' }
+}
+
+$manifest | Add-Member -NotePropertyName InstallerVerified -NotePropertyValue $true
+$manifest | Add-Member -NotePropertyName InstallerUpgradeFrom -NotePropertyValue $previousVersion
+$manifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $manifestPath -Encoding utf8

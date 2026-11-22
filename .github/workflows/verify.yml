@@ -1,37 +1,63 @@
 name: Verify
 on:
   push:
+    branches: ['**']
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      release_rehearsal:
+        description: Build with the public package identity and stage a release bundle
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
   group: verify-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/') }}
 jobs:
+  release-plan:
+    name: Resolve source and release version
+    if: github.event.deleted != true
+    runs-on: ubuntu-24.04
+    outputs:
+      commit: ${{ steps.plan.outputs.commit }}
+      version: ${{ steps.plan.outputs.version }}
+      tag: ${{ steps.plan.outputs.tag }}
+      package_identity: ${{ steps.plan.outputs.package_identity }}
+      publish: ${{ steps.plan.outputs.publish }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: plan
+        shell: pwsh
+        env:
+          RELEASE_REHEARSAL: ${{ inputs.release_rehearsal }}
+        run: ./scripts/Get-AvaloniaReleasePlan.ps1 -RehearseRelease:($env:RELEASE_REHEARSAL -eq 'true')
   windows:
+    needs: release-plan
     runs-on: windows-latest
     timeout-minutes: 40
-    outputs:
-      build_id: ${{ steps.verify.outputs.build_id }}
     defaults:
       run:
         shell: pwsh
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
       DOTNET_NOLOGO: '1'
+      PACKAGE_IDENTITY: ${{ needs.release-plan.outputs.package_identity }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          fetch-depth: 0
+          ref: ${{ needs.release-plan.outputs.commit }}
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: global.json
           cache: true
           cache-dependency-path: '**/packages.lock.json'
-      - name: Build, test, audit, package and installer verification
-        id: verify
+      - name: Build, test and audit the shared application
         run: ./scripts/Invoke-Ci.ps1
       - name: Preserve verification evidence
         if: always()
@@ -41,52 +67,155 @@ jobs:
           path: artifacts/verification/
           if-no-files-found: error
           retention-days: 14
-      - name: Preserve verified release files
+      - name: Build the Avalonia Windows candidate
+        id: avalonia-win
+        run: ./scripts/Build-AvaloniaCandidate.ps1 -Runtime win-x64 -PackageIdentity $env:PACKAGE_IDENTITY -VerifyNativeLaunch -VerifyDesktopIntegrations
+      - name: Verify Windows installation and upgrade from the public WPF line
+        if: needs.release-plan.outputs.package_identity == 'release'
+        env:
+          CANDIDATE_PATH: ${{ steps.avalonia-win.outputs.candidate_path }}
+        run: ./scripts/Verify-AvaloniaWindowsSetup.ps1 -CandidateDirectory $env:CANDIDATE_PATH
+      - name: Preserve Avalonia Windows installation evidence
+        if: always() && needs.release-plan.outputs.package_identity == 'release'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: SQLitePass-win-x64
-          path: artifacts/releases/${{ steps.verify.outputs.build_id }}/
+          name: verification-avalonia-win-x64-setup
+          path: artifacts/verification/avalonia-windows-setup/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Preserve the Avalonia Windows candidate
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Avalonia-candidate-win-x64
+          path: ${{ steps.avalonia-win.outputs.candidate_path }}/
           if-no-files-found: error
           retention-days: 14
+  linux-core:
+    name: Linux x64
+    needs: release-plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      PACKAGE_IDENTITY: ${{ needs.release-plan.outputs.package_identity }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ needs.release-plan.outputs.commit }}
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
+      - name: Build, test and audit the shared application
+        run: ./scripts/Invoke-Ci.ps1
+      - name: Preserve Linux verification evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verification-linux-core-${{ github.sha }}
+          path: artifacts/verification/
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Install AppImage build tools
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends squashfs-tools xvfb xauth xclip dbus python3-dbus python3-gi openbox x11-utils x11-xkb-utils libx11-xcb1 libxkbcommon0 libxres1 libxtst6 libfuse2t64
+      - name: Build the Avalonia Linux candidate
+        id: avalonia-linux
+        run: ./scripts/Build-AvaloniaCandidate.ps1 -Runtime linux-x64 -PackageIdentity $env:PACKAGE_IDENTITY -VerifyNativeLaunch -VerifyDesktopIntegrations
+      - name: Verify in-place AppImage upgrade and restart
+        if: needs.release-plan.outputs.package_identity == 'release'
+        env:
+          CANDIDATE_PATH: ${{ steps.avalonia-linux.outputs.candidate_path }}
+        run: ./scripts/Verify-AvaloniaLinuxUpdate.ps1 -CandidateDirectory $env:CANDIDATE_PATH
+      - name: Preserve AppImage upgrade evidence
+        if: always() && needs.release-plan.outputs.package_identity == 'release'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verification-avalonia-linux-x64-update
+          path: artifacts/verification/avalonia-linux-update/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Install the isolated Wayland compositor
+        shell: bash
+        run: sudo apt-get install -y --no-install-recommends sway xwayland wl-clipboard
+      - name: Verify clipboard, tray, Auto-Type and session transport under XWayland
+        env:
+          CANDIDATE_PATH: ${{ steps.avalonia-linux.outputs.candidate_path }}
+        run: ./scripts/Verify-AvaloniaXWayland.ps1 -CandidateDirectory $env:CANDIDATE_PATH
+      - name: Preserve the Avalonia Linux candidate
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Avalonia-candidate-linux-x64
+          path: ${{ steps.avalonia-linux.outputs.candidate_path }}/
+          if-no-files-found: error
+          retention-days: 14
+  avalonia-candidate:
+    name: Assemble the shared Avalonia candidate
+    needs: [release-plan, windows, linux-core]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      SOURCE_COMMIT: ${{ needs.release-plan.outputs.commit }}
+      PACKAGE_IDENTITY: ${{ needs.release-plan.outputs.package_identity }}
+      PACKAGE_VERSION: ${{ needs.release-plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ needs.release-plan.outputs.commit }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: Avalonia-candidate-win-x64
+          path: artifacts/candidates/windows
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: Avalonia-candidate-linux-x64
+          path: artifacts/candidates/linux
+      - name: Verify and join both package sets
+        shell: pwsh
+        run: ./scripts/Join-AvaloniaCandidates.ps1 -Windows artifacts/candidates/windows -Linux artifacts/candidates/linux -OutputDirectory artifacts/avalonia-candidate -Commit $env:SOURCE_COMMIT -PackageIdentity $env:PACKAGE_IDENTITY -Version $env:PACKAGE_VERSION
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Avalonia-${{ needs.release-plan.outputs.package_identity }}-win-x64-linux-x64
+          path: artifacts/avalonia-candidate/
+          if-no-files-found: error
+          retention-days: 7
   release:
-    needs: windows
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release]')
-    runs-on: windows-latest
+    needs: [release-plan, avalonia-candidate]
+    if: needs.release-plan.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: write
     defaults:
       run:
         shell: pwsh
+    env:
+      SOURCE_COMMIT: ${{ needs.release-plan.outputs.commit }}
+      RELEASE_TAG: ${{ needs.release-plan.outputs.tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
-        with:
-          global-json-file: global.json
+          ref: ${{ needs.release-plan.outputs.commit }}
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: SQLitePass-win-x64
+          name: Avalonia-release-win-x64-linux-x64
           path: artifacts/release
       - name: Publish verified assets
         env:
           GH_TOKEN: ${{ github.token }}
-        run: ./scripts/Publish-GitHubRelease.ps1 -ArtifactDirectory artifacts/release
-      - name: Verify the public update feed and package
-        run: |
-          dotnet restore SQLitePass.slnx --locked-mode
-          if ($LASTEXITCODE -ne 0) { throw 'Restore failed.' }
-          dotnet build SQLitePass.UI.Verification -c Release --no-restore
-          if ($LASTEXITCODE -ne 0) { throw 'Verifier build failed.' }
-          $passed = $false
-          for ($attempt = 1; $attempt -le 3; $attempt++) {
-            $releaseVersion = (Get-Content artifacts/release/release-provenance.json -Raw | ConvertFrom-Json).Version
-            dotnet run --project SQLitePass.UI.Verification -c Release --no-build --no-restore -- --verify-feed https://github.com/FuryGamingASD/SQLitePass $releaseVersion artifacts/feed-verification
-            if ($LASTEXITCODE -eq 0) { $passed = $true; break }
-            if ($attempt -lt 3) { Start-Sleep -Seconds 15 }
-          }
-          if (-not $passed) { throw 'Public update feed verification failed.' }
+        run: ./scripts/Publish-GitHubRelease.ps1 -ArtifactDirectory artifacts/release -SourceCommit $env:SOURCE_COMMIT -ExistingTag $env:RELEASE_TAG
+      - name: Verify both public update feeds
+        run: ./scripts/Verify-PublicAvaloniaFeeds.ps1 -Tag $env:RELEASE_TAG -ArtifactDirectory artifacts/release -OutputDirectory artifacts/feed-verification
       - name: Preserve public feed evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

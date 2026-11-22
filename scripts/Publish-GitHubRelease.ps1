@@ -1,36 +1,46 @@
-param([Parameter(Mandatory)][string]$ArtifactDirectory)
+param(
+    [Parameter(Mandatory)][string]$ArtifactDirectory,
+    [ValidatePattern('^[0-9a-f]{40}$')][string]$SourceCommit = $env:GITHUB_SHA,
+    [ValidatePattern('^v\d+\.\d+\.\d+$')][string]$ExistingTag
+)
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 $provenance=Get-Content (Join-Path $ArtifactDirectory 'release-provenance.json') -Raw | ConvertFrom-Json
-if($provenance.SourceCommit -ne $env:GITHUB_SHA -or $provenance.SourceDirty){throw 'Only the clean verified commit may be published.'}
+if(-not $SourceCommit -or $provenance.SourceCommit -ne $SourceCommit -or $provenance.SourceDirty){throw 'Only the clean verified commit may be published.'}
 if($provenance.Version -notmatch '^\d+\.\d+\.\d+$'){throw 'Unexpected version.'}
 $tag='v'+$provenance.Version
-$repoRoot=Split-Path -Parent $PSScriptRoot
-$releaseNotesPath=Join-Path $repoRoot 'RELEASE_NOTES.md'
-$releaseHistory=Get-Content -LiteralPath $releaseNotesPath -Raw
-$escapedVersion=[regex]::Escape($provenance.Version)
-$pattern='(?ms)^# SQLitePass '+$escapedVersion+'[ \t]*(?:\r?\n|\z)(?<body>.*?)(?=^# |\z)'
-$sections=[regex]::Matches($releaseHistory,$pattern)
-if($sections.Count -ne 1){throw "Expected one '# SQLitePass $($provenance.Version)' heading in RELEASE_NOTES.md."}
-$notesBody=[regex]::Replace($sections[0].Groups['body'].Value.Trim(),'(?:\A|\r?\n)---[ \t]*\z','').Trim()
-if(-not $notesBody){throw "Release notes section for $($provenance.Version) is empty."}
+if($ExistingTag -and $ExistingTag -cne $tag){throw 'The release tag must match the verified version.'}
+$notesBody=& (Join-Path $PSScriptRoot 'Get-ReleaseNotes.ps1') -Version $provenance.Version
+function Assert-ExistingTag {
+    $remoteCommit=& gh api "repos/$env:GITHUB_REPOSITORY/commits/tags/$tag" --jq '.sha'
+    if($LASTEXITCODE -ne 0 -or $remoteCommit -cne $SourceCommit){throw 'The remote tag does not resolve to the verified source commit.'}
+}
 $checksums=@(Get-Content (Join-Path $ArtifactDirectory 'checksums.json') -Raw | ConvertFrom-Json)
+if($ExistingTag){
+    $files=@(Get-ChildItem -LiteralPath $ArtifactDirectory -Force | Where-Object Name -cne 'checksums.json' | ForEach-Object Name)
+    if($provenance.PackageId -cne 'SQLitePass' -or 'releases.win.json' -cnotin $files -or 'releases.linux.json' -cnotin $files -or
+        @(Compare-Object @($checksums | ForEach-Object File) $files -CaseSensitive).Count -ne 0){
+        throw 'Publication requires exactly the verified assets for both release channels.'
+    }
+}
 foreach($entry in $checksums){
     if($entry.File -ne [IO.Path]::GetFileName($entry.File)){throw 'Invalid checksum filename.'}
     if((Get-FileHash (Join-Path $ArtifactDirectory $entry.File) -Algorithm SHA256).Hash -ne $entry.Hash){throw 'Downloaded CI artifact checksum mismatch.'}
 }
+if($ExistingTag){Assert-ExistingTag}
 $existingText=& gh release view $tag --repo $env:GITHUB_REPOSITORY --json apiUrl,isDraft,targetCommitish 2>$null
 $existing=$null
 $alreadyPublished=$false
 if($LASTEXITCODE -eq 0){$existing=$existingText | ConvertFrom-Json}
 if($existing){
-    if($existing.targetCommitish -ne $env:GITHUB_SHA){throw 'An existing release from a different commit must not be overwritten.'}
+    if(-not $ExistingTag -and $existing.targetCommitish -ne $SourceCommit){throw 'An existing release from a different commit must not be overwritten.'}
     $alreadyPublished=-not $existing.isDraft
 } else {
     $notesFile=New-TemporaryFile
     try {
-        Set-Content -LiteralPath $notesFile.FullName -Value "# SQLitePass $($provenance.Version)`n`n$notesBody" -Encoding utf8
-        & gh release create $tag --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "SQLitePass $($provenance.Version)" --notes-file $notesFile.FullName --draft
+        Set-Content -LiteralPath $notesFile.FullName -Value $notesBody -Encoding utf8
+        [string[]]$targetArguments=if($ExistingTag){@('--verify-tag')}else{@('--target',$SourceCommit)}
+        & gh release create $tag --repo $env:GITHUB_REPOSITORY @targetArguments --title "SQLitePass $($provenance.Version)" --notes-file $notesFile.FullName --draft
         if($LASTEXITCODE -ne 0){throw 'Draft release creation failed.'}
     } finally { Remove-Item -LiteralPath $notesFile.FullName }
 }
@@ -58,9 +68,12 @@ foreach($file in (Get-ChildItem -LiteralPath $ArtifactDirectory -File)){
     if($uploaded.Count -ne 1 -or $uploaded[0].size -ne $file.Length -or $uploaded[0].digest -ne $expected){throw "Remote asset digest mismatch: $($file.Name)"}
 }
 if(-not $alreadyPublished){
+    if($ExistingTag){Assert-ExistingTag}
     & gh release edit $tag --repo $env:GITHUB_REPOSITORY --draft=false --latest
     if($LASTEXITCODE -ne 0){throw 'Release publication failed.'}
 }
-$refText=& gh api "repos/$env:GITHUB_REPOSITORY/git/ref/tags/$tag"
-if($LASTEXITCODE -ne 0 -or ($refText | ConvertFrom-Json).object.sha -ne $env:GITHUB_SHA){throw 'Published tag does not match the verified commit.'}
+if($ExistingTag){Assert-ExistingTag}else{
+    $refText=& gh api "repos/$env:GITHUB_REPOSITORY/git/ref/tags/$tag"
+    if($LASTEXITCODE -ne 0 -or ($refText | ConvertFrom-Json).object.sha -ne $SourceCommit){throw 'Published tag does not match the verified commit.'}
+}
 Write-Output "Published https://github.com/$env:GITHUB_REPOSITORY/releases/tag/$tag"

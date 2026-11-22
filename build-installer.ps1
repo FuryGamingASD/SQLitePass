@@ -7,6 +7,9 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+if ([version]($Version -split '-', 2)[0] -gt [version]'1.1.3') {
+    throw 'WPF packaging is archived through 1.1.3. Use scripts/Build-AvaloniaCandidate.ps1 for the shared desktop application.'
+}
 if (-not $AllowUnsigned -and [string]::IsNullOrWhiteSpace($CertificateThumbprint)) {
     throw 'Per una release firmata specificare -CertificateThumbprint. Usare -AllowUnsigned solo per pacchetti locali di verifica.'
 }

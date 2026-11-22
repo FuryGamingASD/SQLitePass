@@ -59,12 +59,6 @@ public partial class MainWindow
         return Find(_rootGroups);
     }
 
-    private static string ReadImportText(string path)
-    {
-        using var file = new System.IO.FileStream(path, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.Read);
-        if (file.Length > 32 * 1024 * 1024) throw new System.IO.InvalidDataException("Il file supera 32 MB.");
-        using var reader = new System.IO.StreamReader(file); return reader.ReadToEnd();
-    }
     private Dictionary<Guid, string> GroupPaths()
     {
         var result = new Dictionary<Guid, string>();

@@ -1,0 +1,16 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="SQLitePass.Desktop.FolderDialog"
+        Width="480" SizeToContent="Height" CanResize="False" WindowStartupLocation="CenterOwner">
+    <StackPanel Margin="20" Spacing="10">
+        <TextBlock x:Name="Prompt" TextWrapping="Wrap" />
+        <TextBox x:Name="FolderName" IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #Prompt}" />
+        <ComboBox x:Name="FolderDestination" IsVisible="False" HorizontalAlignment="Stretch"
+                  AutomationProperties.LabeledBy="{Binding #Prompt}" />
+        <TextBlock x:Name="ValidationMessage" IsVisible="False" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,8,0,0">
+            <Button x:Name="CancelAction" IsCancel="True" Click="Cancel_Click" />
+            <Button x:Name="AcceptAction" Classes="accent" IsDefault="True" Click="Accept_Click" />
+        </StackPanel>
+    </StackPanel>
+</Window>

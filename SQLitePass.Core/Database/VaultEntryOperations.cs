@@ -37,6 +37,16 @@ public sealed partial class SqliteStorageProvider
         return revision;
     }
 
+    public Task TrashEntryAsync(Guid entryId, long expectedRevision, string recycleBinName, CryptoEngine crypto)
+    {
+        CheckCrypto(crypto);
+        return WriteAsync((c, tx, key, metadata) =>
+        {
+            Guid trash = GetOrCreateRecycleBin(c, tx, key, metadata, recycleBinName);
+            MoveEntry(c, tx, entryId, expectedRevision, trash, key, metadata);
+        });
+    }
+
     public async Task<long> RestoreEntryAsync(Guid entryId, long expectedRevision, Guid targetGroupId, CryptoEngine crypto)
     {
         CheckCrypto(crypto); long revision = 0;

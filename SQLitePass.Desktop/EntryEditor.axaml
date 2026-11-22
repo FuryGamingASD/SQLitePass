@@ -1,0 +1,100 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:core="using:SQLitePass.Core.Models"
+        x:Class="SQLitePass.Desktop.EntryEditor"
+        Width="640" Height="660" MinWidth="500" MinHeight="430"
+        WindowStartupLocation="CenterOwner">
+    <Grid RowDefinitions="*,Auto,Auto" RowSpacing="12" Margin="20">
+        <TabControl x:Name="Sections">
+            <TabItem x:Name="CredentialsTab">
+                <ScrollViewer Padding="0,10,0,0">
+                    <StackPanel Spacing="8">
+                        <TextBlock x:Name="TitleLabel" />
+                        <TextBox x:Name="EntryTitle" IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #TitleLabel}" />
+                        <TextBlock x:Name="UserLabel" />
+                        <TextBox x:Name="UserName" IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #UserLabel}" />
+                        <TextBlock x:Name="PasswordLabel" />
+                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                            <TextBox x:Name="Password" PasswordChar="●" IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #PasswordLabel}" />
+                            <Button x:Name="RevealPassword" Grid.Column="1" Click="RevealPassword_Click" />
+                            <Button x:Name="GeneratePassword" Grid.Column="2" Click="GeneratePassword_Click" />
+                        </Grid>
+                        <TextBlock x:Name="UrlLabel" />
+                        <TextBox x:Name="Url" IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #UrlLabel}" />
+                        <TextBlock x:Name="TagsLabel" />
+                        <TextBox x:Name="Tags" IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #TagsLabel}" />
+                        <TextBlock x:Name="NotesLabel" />
+                        <TextBox x:Name="Notes" MinHeight="75" AcceptsReturn="True" TextWrapping="Wrap"
+                                 IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #NotesLabel}" />
+                        <CheckBox x:Name="EnableExpiry" IsCheckedChanged="EnableExpiry_Changed" />
+                        <DatePicker x:Name="Expiry" AutomationProperties.LabeledBy="{Binding #EnableExpiry}" />
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem x:Name="CustomFieldsTab">
+                <Grid RowDefinitions="*,Auto" RowSpacing="8" Margin="0,10,0,0">
+                    <ListBox x:Name="CustomFields" SelectionChanged="CustomFields_SelectionChanged">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="core:PwCustomField">
+                                <TextBlock Text="{CompiledBinding Key}" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <StackPanel Grid.Row="1" Spacing="7">
+                        <TextBlock x:Name="FieldNameLabel" />
+                        <TextBox x:Name="FieldName" IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #FieldNameLabel}" />
+                        <TextBlock x:Name="FieldValueLabel" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <TextBox x:Name="FieldValue" PasswordChar="●" IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #FieldValueLabel}" />
+                            <Button x:Name="RevealField" Grid.Column="1" Click="RevealField_Click" />
+                        </Grid>
+                        <CheckBox x:Name="FieldProtected" IsChecked="True" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button x:Name="AddField" Click="AddField_Click" />
+                            <Button x:Name="SaveField" Click="SaveField_Click" />
+                            <Button x:Name="RemoveField" Click="RemoveField_Click" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+            <TabItem x:Name="AttachmentsTab">
+                <Grid RowDefinitions="*,Auto" RowSpacing="8" Margin="0,10,0,0">
+                    <ListBox x:Name="Attachments" SelectionChanged="Attachments_SelectionChanged">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="core:PwAttachment">
+                                <TextBlock Text="{CompiledBinding FileName}" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
+                        <Button x:Name="AddAttachment" Click="AddAttachment_Click" />
+                        <Button x:Name="SaveAttachment" Click="SaveAttachment_Click" IsEnabled="False" />
+                        <Button x:Name="RemoveAttachment" Click="RemoveAttachment_Click" IsEnabled="False" />
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+            <TabItem x:Name="HistoryTab">
+                <Grid RowDefinitions="*,Auto" RowSpacing="8" Margin="0,10,0,0">
+                    <ListBox x:Name="History" SelectionChanged="History_SelectionChanged" />
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
+                        <Button x:Name="RestoreHistory" Click="RestoreHistory_Click" IsEnabled="False" />
+                        <Button x:Name="ClearHistory" Click="ClearHistory_Click" />
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+            <TabItem x:Name="AutoTypeTab">
+                <StackPanel Spacing="8" Margin="0,10,0,0">
+                    <CheckBox x:Name="AutoTypeEnabled" />
+                    <TextBlock x:Name="SequenceLabel" />
+                    <TextBox x:Name="Sequence" IsUndoEnabled="False" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="80"
+                             AutomationProperties.LabeledBy="{Binding #SequenceLabel}" />
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+        <TextBlock x:Name="ValidationMessage" Grid.Row="1" IsVisible="False" TextWrapping="Wrap" />
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+            <Button x:Name="Cancel" IsCancel="True" Click="Cancel_Click" />
+            <Button x:Name="Save" Classes="accent" Click="Save_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

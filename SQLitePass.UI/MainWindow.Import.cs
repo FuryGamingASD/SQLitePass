@@ -11,18 +11,17 @@ namespace SQLitePass.UI;
 public partial class MainWindow
 {
     private CancellationTokenSource? _importCancellation;
-    private enum ImportFormat { KeePassCsv, BitwardenJson, BrowserCsv }
-    private async void MenuImportCsv_Click(object sender, RoutedEventArgs e) => await ImportFileAsync(ImportFormat.KeePassCsv);
-    private async void MenuImportBitwardenJson_Click(object sender, RoutedEventArgs e) => await ImportFileAsync(ImportFormat.BitwardenJson);
-    private async void MenuImportBrowserCsv_Click(object sender, RoutedEventArgs e) => await ImportFileAsync(ImportFormat.BrowserCsv);
+    private async void MenuImportCsv_Click(object sender, RoutedEventArgs e) => await ImportFileAsync(VaultImportFormat.KeePassCsv);
+    private async void MenuImportBitwardenJson_Click(object sender, RoutedEventArgs e) => await ImportFileAsync(VaultImportFormat.BitwardenJson);
+    private async void MenuImportBrowserCsv_Click(object sender, RoutedEventArgs e) => await ImportFileAsync(VaultImportFormat.BrowserCsv);
 
-    private async Task ImportFileAsync(ImportFormat format)
+    private async Task ImportFileAsync(VaultImportFormat format)
     {
         if (_isLocked || _isLocking || _importCancellation != null) return;
         var dialog = new OpenFileDialog
         {
-            Title = LocalizationManager.GetString(format switch { ImportFormat.KeePassCsv => "ImportKeePassTitle", ImportFormat.BitwardenJson => "ImportBitwardenTitle", _ => "ImportBrowserTitle" }),
-            Filter = format == ImportFormat.BitwardenJson ? "JSON (*.json)|*.json" : "CSV (*.csv)|*.csv"
+            Title = LocalizationManager.GetString(format switch { VaultImportFormat.KeePassCsv => "ImportKeePassTitle", VaultImportFormat.BitwardenJson => "ImportBitwardenTitle", _ => "ImportBrowserTitle" }),
+            Filter = format == VaultImportFormat.BitwardenJson ? "JSON (*.json)|*.json" : "CSV (*.csv)|*.csv"
         };
         if (dialog.ShowDialog(this) != true || _isLocked) return;
         int generation = _sessionGeneration;
@@ -33,22 +32,12 @@ public partial class MainWindow
         try
         {
             progressWindow = new OperationProgressDialog(cancellation) { Owner = this }; progressWindow.Show();
-            imported = await Task.Run(() =>
-            {
-                string content = ReadImportText(dialog.FileName);
-                cancellation.Token.ThrowIfCancellationRequested();
-                return format switch
-                {
-                    ImportFormat.KeePassCsv => ImportExportService.ImportFromKeePassCsv(content, target),
-                    ImportFormat.BitwardenJson => ImportExportService.ImportFromBitwardenJson(content, target),
-                    _ => ImportExportService.ImportFromBrowserCsv(content, target)
-                };
-            }, cancellation.Token);
+            imported = await ImportExportService.ImportFromFileAsync(dialog.FileName, format, target, cancellation.Token);
             cancellation.Token.ThrowIfCancellationRequested();
             if (_isLocked || generation != _sessionGeneration) return;
             if (imported.Count == 0) throw new UserInputException("ImportNoEntries");
-            string note = LocalizationManager.GetString(format == ImportFormat.BitwardenJson ? "ImportBitwardenNote" : "ImportCsvNote");
-            if (format == ImportFormat.BitwardenJson)
+            string note = LocalizationManager.GetString(format == VaultImportFormat.BitwardenJson ? "ImportBitwardenNote" : "ImportCsvNote");
+            if (format == VaultImportFormat.BitwardenJson)
                 note += "\n\n" + LocalizationManager.GetString("ImportTypesSummary", imported.Count(entry => entry.SourceItemType == 1), imported.Count(entry => entry.SourceItemType == 2), imported.Count(entry => entry.SourceItemType is not (1 or 2)));
             if (MessageBox.Show(this, LocalizationManager.GetString("ImportConfirm", imported.Count, note),
                 LocalizationManager.GetString("ImportReview"), MessageBoxButton.YesNo, MessageBoxImage.Information) != MessageBoxResult.Yes) return;

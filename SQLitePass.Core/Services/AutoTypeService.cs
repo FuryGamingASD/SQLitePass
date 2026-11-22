@@ -1,7 +1,4 @@
-using System.ComponentModel;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
-using System.Text;
 using System.Text.RegularExpressions;
 using SQLitePass.Core.Models;
 
@@ -12,6 +9,7 @@ public interface IAutoTypeInput
     IntPtr ForegroundWindow { get; }
     string WindowTitle(IntPtr window);
     uint ProcessId(IntPtr window);
+    void Prepare(IReadOnlyList<AutoTypeStep> steps) { }
     bool Activate(IntPtr window);
     void Character(char character);
     void Key(ushort key);
@@ -55,8 +53,8 @@ public static class AutoTypeService
         return steps;
     }
 
-    public static IntPtr CaptureForegroundWindow() => NativeInput.GetForegroundWindow();
-    public static uint GetWindowProcessId(IntPtr window) => NativeInput.GetWindowProcessId(window);
+    public static IntPtr CaptureForegroundWindow() => OperatingSystem.IsWindows() ? WindowsAutoTypeInput.GetForegroundWindow() : IntPtr.Zero;
+    public static uint GetWindowProcessId(IntPtr window) => OperatingSystem.IsWindows() ? WindowsAutoTypeInput.GetWindowProcessId(window) : 0;
     public static string GetWindowProcessName(uint processId)
     {
         if (processId == 0 || processId > int.MaxValue) throw new ArgumentOutOfRangeException(nameof(processId));
@@ -66,8 +64,8 @@ public static class AutoTypeService
 
     public static bool IsForegroundTarget(IntPtr targetWindow, string expectedTitle, uint expectedProcessId)
     {
-        if (targetWindow == IntPtr.Zero || expectedProcessId == 0) return false;
-        var input = new NativeInput();
+        if (!OperatingSystem.IsWindows() || targetWindow == IntPtr.Zero || expectedProcessId == 0) return false;
+        var input = new WindowsAutoTypeInput(allowActivation: false);
         return input.ForegroundWindow == targetWindow && input.ProcessId(targetWindow) == expectedProcessId &&
             input.WindowTitle(targetWindow) == expectedTitle;
     }
@@ -78,7 +76,7 @@ public static class AutoTypeService
     {
         ArgumentNullException.ThrowIfNull(entry);
         if (targetWindow == IntPtr.Zero) throw new InvalidOperationException("Selezionare esplicitamente una finestra destinataria.");
-        input ??= new NativeInput();
+        input ??= OperatingSystem.IsWindows() ? new WindowsAutoTypeInput() : throw new PlatformNotSupportedException();
         cancellationToken.ThrowIfCancellationRequested();
         expectedTitle ??= input.WindowTitle(targetWindow);
         expectedProcessId ??= input.ProcessId(targetWindow);
@@ -86,6 +84,8 @@ public static class AutoTypeService
         if (input.ProcessId(targetWindow) != expectedProcessId || input.WindowTitle(targetWindow) != expectedTitle)
             throw new OperationCanceledException("Auto-Type interrotto: il destinatario è cambiato.");
         var steps = Parse(entry);
+        input.Prepare(steps);
+        cancellationToken.ThrowIfCancellationRequested();
         if (!input.Activate(targetWindow)) throw new InvalidOperationException("Impossibile attivare il destinatario.");
         await Task.Delay(Math.Clamp(initialDelayMs, 0, 5000), cancellationToken).ConfigureAwait(false);
         void VerifyTarget()
@@ -109,36 +109,4 @@ public static class AutoTypeService
         }
     }
 
-    private sealed class NativeInput : IAutoTypeInput
-    {
-        [DllImport("user32.dll")] internal static extern IntPtr GetForegroundWindow();
-        [DllImport("user32.dll")] private static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
-        [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr window);
-        [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int key);
-        [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetWindowText(IntPtr window, StringBuilder text, int count);
-        [DllImport("user32.dll", SetLastError = true)] private static extern uint SendInput(uint count, INPUT[] inputs, int size);
-        [StructLayout(LayoutKind.Sequential)] private struct INPUT { public uint type; public UNION data; }
-        [StructLayout(LayoutKind.Explicit)] private struct UNION
-        {
-            [FieldOffset(0)] public KEYBOARD keyboard;
-            [FieldOffset(0)] public MOUSE mouse;
-        }
-        [StructLayout(LayoutKind.Sequential)] private struct KEYBOARD { public ushort vk, scan; public uint flags, time; public IntPtr extra; }
-        [StructLayout(LayoutKind.Sequential)] private struct MOUSE { public int x, y; public uint data, flags, time; public IntPtr extra; }
-        public IntPtr ForegroundWindow => GetForegroundWindow();
-        public uint ProcessId(IntPtr window) => GetWindowProcessId(window);
-        public bool Activate(IntPtr window) => GetForegroundWindow() == window || SetForegroundWindow(window);
-        public string WindowTitle(IntPtr window) { var title = new StringBuilder(1024); GetWindowText(window, title, title.Capacity); return title.ToString(); }
-        internal static uint GetWindowProcessId(IntPtr window) => GetWindowThreadProcessId(window, out var processId) == 0 ? 0 : processId;
-        public void Character(char character) => Send(new KEYBOARD { scan = character, flags = 4 });
-        public void Key(ushort key) => Send(new KEYBOARD { vk = key });
-        private static void Send(KEYBOARD down)
-        {
-            if (new[] { 0x10, 0x11, 0x12 }.Any(key => (GetAsyncKeyState(key) & 0x8000) != 0))
-                throw new OperationCanceledException("Rilascia Shift, Ctrl e Alt prima dell'Auto-Type.");
-            var up = down; up.flags |= 2;
-            INPUT[] events = [new() { type = 1, data = new UNION { keyboard = down } }, new() { type = 1, data = new UNION { keyboard = up } }];
-            if (SendInput(2, events, Marshal.SizeOf<INPUT>()) != 2) throw new Win32Exception(Marshal.GetLastWin32Error(), "Invio tastiera non completato.");
-        }
-    }
 }

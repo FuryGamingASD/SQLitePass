@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
+    <ApplicationIcon>../SQLitePass.UI/Resources/app.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="SQLitePass.Tests" />
+    <ProjectReference Include="../SQLitePass.Core/SQLitePass.Core.csproj" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.6" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.6" />
+    <PackageReference Include="Microsoft.Win32.SystemEvents" Version="10.0.15" />
+    <PackageReference Include="Tmds.DBus.Protocol" Version="0.94.1" />
+    <PackageReference Include="Velopack" Version="1.2.161" />
+    <Compile Include="../SQLitePass.UI/Services/TranslationCatalog.cs" Link="Localization/TranslationCatalog.cs" />
+    <Compile Include="../SQLitePass.UI/Services/SingleInstanceCoordinator.cs" Link="Services/WindowsSingleInstanceCoordinator.cs" />
+    <EmbeddedResource Include="../SQLitePass.UI/Localization/*.json" LogicalName="SQLitePass.Localization.%(Filename)%(Extension)" WithCulture="false" />
+    <AvaloniaResource Include="../SQLitePass.UI/Resources/app.ico" Link="Resources/app.ico" />
+    <Content Include="../LICENSE" Link="LICENSE" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="../SECURITY.md" Link="SECURITY.md" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

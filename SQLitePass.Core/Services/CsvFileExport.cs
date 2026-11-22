@@ -5,15 +5,6 @@ namespace SQLitePass.Core.Services;
 
 public static partial class ImportExportService
 {
-    private static void RejectDatabaseExportDestination(string destination)
-    {
-        if (!File.Exists(destination)) return;
-        using var existing = new FileStream(destination, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-        Span<byte> header = stackalloc byte[16];
-        if (existing.ReadAtLeast(header, header.Length, throwOnEndOfStream: false) == header.Length &&
-            header.SequenceEqual("SQLite format 3\0"u8))
-            throw new ArgumentException("A SQLite database cannot be replaced by a plaintext CSV export.", nameof(destination));
-    }
     // Own a stable snapshot of the supplied entries until this task completes.
     // Stream rows off the UI thread and replace the destination only after flush/cancellation checks.
     public static Task ExportToKeePassCsvFileAsync(string path, IEnumerable<PwEntry> entries,
@@ -27,11 +18,11 @@ public static partial class ImportExportService
             cancellationToken.ThrowIfCancellationRequested();
             string destination = Path.GetFullPath(path);
             // Checking content also catches an existing vault reached through a drive/path alias.
-            RejectDatabaseExportDestination(destination);
+            FileExportSafety.RejectDatabaseDestination(destination);
             string temporary = Path.Combine(Path.GetDirectoryName(destination)!, ".SQLitePass-export-" + Guid.NewGuid().ToString("N") + ".tmp");
             try
             {
-                using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, 65536))
+                using (var stream = new FileStream(temporary, FileExportSafety.PrivateFileOptions()))
                 {
                     using (var writer = new StreamWriter(stream, new UTF8Encoding(false), 65536, leaveOpen: true))
                     {
@@ -52,7 +43,7 @@ public static partial class ImportExportService
                     stream.Flush(flushToDisk: true);
                 }
                 cancellationToken.ThrowIfCancellationRequested();
-                RejectDatabaseExportDestination(destination);
+                FileExportSafety.RejectDatabaseDestination(destination);
                 if (File.Exists(destination)) File.Replace(temporary, destination, null);
                 else File.Move(temporary, destination);
             }

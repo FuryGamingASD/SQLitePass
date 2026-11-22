@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.Security.Cryptography;
 using System.Security.Principal;
 using System.Text;
@@ -7,12 +8,11 @@ using SQLitePass.Core.Services;
 
 namespace SQLitePass.UI.Services;
 
+[SupportedOSPlatform("windows")]
 internal sealed class SingleInstanceCoordinator : IDisposable
 {
     private static readonly string InstanceSuffix = CreateInstanceSuffix();
-    private static readonly string MutexName = $@"Local\SQLitePass-{InstanceSuffix}-Mutex";
-    private static readonly string ActivationName = $@"Local\SQLitePass-{InstanceSuffix}-Activate";
-    private static readonly string ShutdownName = $@"Local\SQLitePass-{InstanceSuffix}-Shutdown";
+    private static string GetObjectName(string applicationName, string name) => $@"Local\{applicationName}-{InstanceSuffix}-{name}";
 
     private readonly Mutex _mutex;
     private readonly EventWaitHandle _activationEvent;
@@ -51,9 +51,10 @@ internal sealed class SingleInstanceCoordinator : IDisposable
             executeOnlyOnce: false);
     }
 
-    public static SingleInstanceCoordinator? StartOrSignalExisting(out bool shouldStart)
+    public static SingleInstanceCoordinator? StartOrSignalExisting(out bool shouldStart, string applicationName = "SQLitePass")
     {
-        var mutex = new Mutex(initiallyOwned: false, MutexName);
+        string mutexName = GetObjectName(applicationName, "Mutex");
+        var mutex = new Mutex(initiallyOwned: false, mutexName);
         bool ownsMutex;
         try { ownsMutex = mutex.WaitOne(0); }
         catch (AbandonedMutexException) { ownsMutex = true; }
@@ -61,11 +62,11 @@ internal sealed class SingleInstanceCoordinator : IDisposable
         if (ownsMutex)
         {
             shouldStart = true;
-            return CreatePrimary(mutex);
+            return CreatePrimary(mutex, applicationName);
         }
 
         mutex.Dispose();
-        if (TrySignalExisting())
+        if (TrySignalExisting(applicationName))
         {
             shouldStart = false;
             return null;
@@ -73,7 +74,7 @@ internal sealed class SingleInstanceCoordinator : IDisposable
 
         // The existing process may be exiting or still creating its activation event.
         // Retry ownership once; if coordination is unavailable, start visibly as a fallback.
-        var retryMutex = new Mutex(initiallyOwned: false, MutexName);
+        var retryMutex = new Mutex(initiallyOwned: false, mutexName);
         try
         {
             try { ownsMutex = retryMutex.WaitOne(0); }
@@ -81,7 +82,7 @@ internal sealed class SingleInstanceCoordinator : IDisposable
             if (ownsMutex)
             {
                 shouldStart = true;
-                return CreatePrimary(retryMutex);
+                return CreatePrimary(retryMutex, applicationName);
             }
         }
         catch
@@ -146,7 +147,7 @@ internal sealed class SingleInstanceCoordinator : IDisposable
         catch (Exception exception) { AppLogger.LogWarning("Application shutdown request failed: " + exception.GetType().Name); }
     }
 
-    private static SingleInstanceCoordinator? CreatePrimary(Mutex mutex)
+    private static SingleInstanceCoordinator? CreatePrimary(Mutex mutex, string applicationName)
     {
         EventWaitHandle? activationEvent = null;
         EventWaitHandle? shutdownEvent = null;
@@ -155,11 +156,11 @@ internal sealed class SingleInstanceCoordinator : IDisposable
             activationEvent = new EventWaitHandle(
                 initialState: false,
                 EventResetMode.AutoReset,
-                ActivationName);
+                GetObjectName(applicationName, "Activate"));
             shutdownEvent = new EventWaitHandle(
                 initialState: false,
                 EventResetMode.AutoReset,
-                ShutdownName);
+                GetObjectName(applicationName, "Shutdown"));
             return new SingleInstanceCoordinator(mutex, activationEvent, shutdownEvent);
         }
         catch
@@ -172,15 +173,15 @@ internal sealed class SingleInstanceCoordinator : IDisposable
         }
     }
 
-    private static bool TrySignalExisting()
+    private static bool TrySignalExisting(string applicationName)
     {
         long deadline = Environment.TickCount64 + 1000;
         do
         {
             try
             {
-                using var activationEvent = EventWaitHandle.OpenExisting(ActivationName);
-                AllowExistingInstanceToForeground();
+                using var activationEvent = EventWaitHandle.OpenExisting(GetObjectName(applicationName, "Activate"));
+                AllowExistingInstanceToForeground(applicationName);
                 activationEvent.Set();
                 return true;
             }
@@ -197,11 +198,11 @@ internal sealed class SingleInstanceCoordinator : IDisposable
         return false;
     }
 
-    public static void ShutdownForUpdateOrUninstall()
+    public static void ShutdownForUpdateOrUninstall(string applicationName = "SQLitePass")
     {
         try
         {
-            using var shutdownEvent = EventWaitHandle.OpenExisting(ShutdownName);
+            using var shutdownEvent = EventWaitHandle.OpenExisting(GetObjectName(applicationName, "Shutdown"));
             shutdownEvent.Set();
         }
         catch (WaitHandleCannotBeOpenedException)
@@ -213,7 +214,7 @@ internal sealed class SingleInstanceCoordinator : IDisposable
             return;
         }
 
-        using var mutex = new Mutex(initiallyOwned: false, MutexName);
+        using var mutex = new Mutex(initiallyOwned: false, GetObjectName(applicationName, "Mutex"));
         try
         {
             if (mutex.WaitOne(TimeSpan.FromSeconds(10)))
@@ -225,10 +226,10 @@ internal sealed class SingleInstanceCoordinator : IDisposable
         }
     }
 
-    private static void AllowExistingInstanceToForeground()
+    private static void AllowExistingInstanceToForeground(string applicationName)
     {
         Process? latest = null;
-        foreach (var process in Process.GetProcessesByName("SQLitePass"))
+        foreach (var process in Process.GetProcessesByName(applicationName))
         {
             try
             {
@@ -261,7 +262,8 @@ internal sealed class SingleInstanceCoordinator : IDisposable
 
     private static string CreateInstanceSuffix()
     {
-        string identity = WindowsIdentity.GetCurrent().User?.Value
+        using var currentUser = WindowsIdentity.GetCurrent();
+        string identity = currentUser.User?.Value
             ?? $"{Environment.UserDomainName}\\{Environment.UserName}";
         byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(identity));
         return Convert.ToHexString(hash.AsSpan(0, 12));
