@@ -45,35 +45,40 @@ public sealed partial class App : Application
             var updateProbe = AppContext.GetData("SQLitePass.AppImageUpdateProbe") as string[];
             if (AppContext.GetData("SQLitePass.StartupProbe") is true || updateProbe != null)
             {
-                window.Opened += (_, _) => Dispatcher.UIThread.Post(async () =>
+                window.Opened += StartProbe;
+                void StartProbe(object? sender, EventArgs args)
                 {
-                    try
+                    window.Opened -= StartProbe;
+                    Dispatcher.UIThread.Post(async () =>
                     {
-                        if (!window.IsVisible || window.TryGetPlatformHandle() is not { Handle: var handle } || handle == IntPtr.Zero)
-                            throw new InvalidOperationException("The native window did not open.");
-                        if (updateProbe != null)
+                        try
                         {
-                            await NativeAppImageUpdateVerification.VerifyAsync(window, updateProbe);
-                            return;
+                            if (!window.IsVisible || window.TryGetPlatformHandle() is not { Handle: var handle } || handle == IntPtr.Zero)
+                                throw new InvalidOperationException("The native window did not open.");
+                            if (updateProbe != null)
+                            {
+                                await NativeAppImageUpdateVerification.VerifyAsync(window, updateProbe);
+                                return;
+                            }
+                            if (windowsLockProbe)
+                            {
+                                await NativeDesktopSessionVerification.VerifyWindowsLockInteractivelyAsync(window);
+                                return;
+                            }
+                            if (AppContext.GetData("SQLitePass.ClipboardProbe") is true) await NativeClipboardVerification.VerifyAsync(window);
+                            if (AppContext.GetData("SQLitePass.TrayProbe") is true) await NativeTrayVerification.VerifyAsync(window);
+                            if (AppContext.GetData("SQLitePass.AutoTypeProbe") is true) await NativeAutoTypeVerification.VerifyAsync();
+                            if (AppContext.GetData("SQLitePass.TrayProbe") is true) await NativeDesktopSessionVerification.VerifyAsync(window);
+                            window.Close();
                         }
-                        if (windowsLockProbe)
+                        catch (Exception error)
                         {
-                            await NativeDesktopSessionVerification.VerifyWindowsLockInteractivelyAsync(window);
-                            return;
+                            Console.Error.WriteLine(error);
+                            await window.LockVaultAsync();
+                            desktop.Shutdown(1);
                         }
-                        if (AppContext.GetData("SQLitePass.ClipboardProbe") is true) await NativeClipboardVerification.VerifyAsync(window);
-                        if (AppContext.GetData("SQLitePass.TrayProbe") is true) await NativeTrayVerification.VerifyAsync(window);
-                        if (AppContext.GetData("SQLitePass.AutoTypeProbe") is true) await NativeAutoTypeVerification.VerifyAsync();
-                        if (AppContext.GetData("SQLitePass.TrayProbe") is true) await NativeDesktopSessionVerification.VerifyAsync(window);
-                        window.Close();
-                    }
-                    catch (Exception error)
-                    {
-                        Console.Error.WriteLine(error);
-                        await window.LockVaultAsync();
-                        desktop.Shutdown(1);
-                    }
-                }, DispatcherPriority.Background);
+                    }, DispatcherPriority.Background);
+                }
             }
         }
         base.OnFrameworkInitializationCompleted();
