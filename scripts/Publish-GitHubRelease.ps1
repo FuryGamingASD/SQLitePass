@@ -12,7 +12,7 @@ $tag='v'+$provenance.Version
 if($ExistingTag -and $ExistingTag -cne $tag){throw 'The release tag must match the verified version.'}
 $notesBody=& (Join-Path $PSScriptRoot 'Get-ReleaseNotes.ps1') -Version $provenance.Version
 function Assert-ExistingTag {
-    $remoteCommit=& gh api "repos/$env:GITHUB_REPOSITORY/commits/$tag" --jq '.sha'
+    $remoteCommit=& gh api "repos/$env:GITHUB_REPOSITORY/commits/tags/$tag" --jq '.sha'
     if($LASTEXITCODE -ne 0 -or $remoteCommit -cne $SourceCommit){throw 'The remote tag does not resolve to the verified source commit.'}
 }
 $checksums=@(Get-Content (Join-Path $ArtifactDirectory 'checksums.json') -Raw | ConvertFrom-Json)

@@ -7,7 +7,14 @@ if (-not $IsWindows -or $env:RUNNER_ENVIRONMENT -ne 'github-hosted') {
 }
 $testProfileDirectory = Join-Path ([Environment]::GetFolderPath('ApplicationData')) 'SQLitePass'
 $uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\SQLitePass'
-$startupKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+$startupRegistryPath = 'Software\Microsoft\Windows\CurrentVersion\Run'
+$startupKey = "HKCU:\$startupRegistryPath"
+function Get-StartupEntry {
+    $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey($startupRegistryPath)
+    if ($null -eq $key) { return }
+    try { $key.GetValue('SQLitePass') }
+    finally { $key.Dispose() }
+}
 $shortcuts = @(
     (Join-Path ([Environment]::GetFolderPath('DesktopDirectory')) 'SQLitePass.lnk'),
     (Join-Path ([Environment]::GetFolderPath('Programs')) 'SQLitePass.lnk')
@@ -15,7 +22,7 @@ $shortcuts = @(
 if (Test-Path -LiteralPath (@($testProfileDirectory, $uninstallKey) + $shortcuts) -ErrorAction SilentlyContinue | Where-Object { $_ }) {
     throw 'The Windows installation probe requires an unused SQLitePass profile and installation.'
 }
-if (Get-ItemPropertyValue -LiteralPath $startupKey -Name SQLitePass -ErrorAction SilentlyContinue) { throw 'An existing startup entry cannot be changed.' }
+if ($null -ne (Get-StartupEntry)) { throw 'An existing startup entry cannot be changed.' }
 if (Get-Process SQLitePass -ErrorAction SilentlyContinue) { throw 'A SQLitePass process is already running.' }
 
 $candidate = (Resolve-Path -LiteralPath $CandidateDirectory).ProviderPath
@@ -127,11 +134,11 @@ foreach ($scenario in @('fresh', 'upgrade')) {
     foreach ($shortcut in $shortcuts) { if (Test-Path -LiteralPath $shortcut) { throw 'Uninstall left a SQLitePass shortcut.' } }
     if (Test-Path -LiteralPath (Join-Path $installation 'current/SQLitePass.exe')) { throw 'Uninstall left the app installed.' }
     if ((Get-FileHash -LiteralPath $marker).Hash -cne $markerHash) { throw 'The package lifecycle changed synthetic data outside the installation.' }
-    $observed = Get-ItemPropertyValue -LiteralPath $startupKey -Name SQLitePass -ErrorAction SilentlyContinue
+    $observed = Get-StartupEntry
     if ($scenario -eq 'upgrade') {
         if ($observed -cne $startupEntry) { throw 'Uninstall changed a startup entry belonging to a different installation.' }
         Remove-ItemProperty -LiteralPath $startupKey -Name SQLitePass
-    } elseif ($observed) { throw 'Uninstall left its own Windows startup entry.' }
+    } elseif ($null -ne $observed) { throw 'Uninstall left its own Windows startup entry.' }
 }
 
 $manifest | Add-Member -NotePropertyName InstallerVerified -NotePropertyValue $true
