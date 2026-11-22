@@ -1,5 +1,6 @@
 param(
-    [Parameter(Mandatory)][ValidateSet('win-x64','linux-x64')][string]$Runtime
+    [Parameter(Mandatory)][ValidateSet('win-x64','linux-x64')][string]$Runtime,
+    [switch]$VerifyNativeLaunch
 )
 
 Set-StrictMode -Version Latest
@@ -59,10 +60,36 @@ try {
     if ($IsWindows -and [Convert]::ToHexString($header, 0, 2) -ne '4D5A') { throw 'Invalid Windows installer header.' }
     if ($IsLinux -and ([Convert]::ToHexString($header, 0, 4) -ne '7F454C46' -or
         [Convert]::ToHexString($header, 8, 3) -ne '414902')) { throw 'Invalid AppImage header.' }
+
+    if ($VerifyNativeLaunch) {
+        $probe = [Diagnostics.ProcessStartInfo]::new()
+        $probe.UseShellExecute = $false
+        $probe.CreateNoWindow = $true
+        if ($IsLinux) {
+            & chmod +x -- $distribution.FullName
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot mark the AppImage executable.' }
+            $probe.FileName = 'xvfb-run'
+            $probe.ArgumentList.Add('-a')
+            $probe.ArgumentList.Add($distribution.FullName)
+            $probe.Environment['APPIMAGE_EXTRACT_AND_RUN'] = '1'
+        } else {
+            $probe.FileName = Join-Path $publish $executable
+        }
+        $probe.ArgumentList.Add('--verify-startup')
+        $process = [Diagnostics.Process]::Start($probe)
+        try {
+            if (-not $process.WaitForExit(45000)) {
+                $process.Kill($true)
+                throw 'The native Avalonia startup probe timed out.'
+            }
+            if ($process.ExitCode -ne 0) { throw "The native Avalonia startup probe exited with $($process.ExitCode)." }
+        } finally { $process.Dispose() }
+    }
     $evidence = [ordered]@{
         SourceCommit = $commit; SourceTree = $tree; SourceDirty = ($sourceChanges.Count -gt 0)
         Version = $version; Runtime = $Runtime; Channel = $channel
         Distribution = $distribution.Name; Feed = $feedName; UpdatePackage = $asset.FileName
+        NativeStartupVerified = [bool]$VerifyNativeLaunch
         Assets = @(Get-ChildItem -LiteralPath $release -File | ForEach-Object {
             [ordered]@{ Name = $_.Name; SHA256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash }
         })

@@ -50,7 +50,7 @@ jobs:
           retention-days: 14
       - name: Build the Avalonia Windows candidate
         id: avalonia-win
-        run: ./scripts/Build-AvaloniaCandidate.ps1 -Runtime win-x64
+        run: ./scripts/Build-AvaloniaCandidate.ps1 -Runtime win-x64 -VerifyNativeLaunch
       - name: Preserve the Avalonia Windows candidate
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -97,10 +97,10 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y squashfs-tools
+          sudo apt-get install -y squashfs-tools xvfb xauth
       - name: Build the Avalonia Linux candidate
         id: avalonia-linux
-        run: ./scripts/Build-AvaloniaCandidate.ps1 -Runtime linux-x64
+        run: ./scripts/Build-AvaloniaCandidate.ps1 -Runtime linux-x64 -VerifyNativeLaunch
       - name: Preserve the Avalonia Linux candidate
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
