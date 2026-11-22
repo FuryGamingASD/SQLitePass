@@ -153,10 +153,23 @@ jobs:
         shell: bash
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends squashfs-tools xvfb xauth xclip dbus python3-dbus python3-gi openbox x11-utils x11-xkb-utils libx11-xcb1 libxkbcommon0 libxres1 libxtst6
+          sudo apt-get install -y --no-install-recommends squashfs-tools xvfb xauth xclip dbus python3-dbus python3-gi openbox x11-utils x11-xkb-utils libx11-xcb1 libxkbcommon0 libxres1 libxtst6 libfuse2t64
       - name: Build the Avalonia Linux candidate
         id: avalonia-linux
         run: ./scripts/Build-AvaloniaCandidate.ps1 -Runtime linux-x64 -PackageIdentity $env:PACKAGE_IDENTITY -VerifyNativeLaunch -VerifyDesktopIntegrations
+      - name: Verify in-place AppImage upgrade and restart
+        if: needs.release-plan.outputs.package_identity == 'release'
+        env:
+          CANDIDATE_PATH: ${{ steps.avalonia-linux.outputs.candidate_path }}
+        run: ./scripts/Verify-AvaloniaLinuxUpdate.ps1 -CandidateDirectory $env:CANDIDATE_PATH
+      - name: Preserve AppImage upgrade evidence
+        if: always() && needs.release-plan.outputs.package_identity == 'release'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: verification-avalonia-linux-x64-update
+          path: artifacts/verification/avalonia-linux-update/
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Preserve the Avalonia Linux candidate
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

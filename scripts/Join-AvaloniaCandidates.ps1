@@ -43,6 +43,10 @@ foreach ($platform in $platforms) {
             throw "The Windows setup and upgrade from $previousVersion require native verification."
         }
     }
+    if ($PackageIdentity -eq 'release' -and $platform.Runtime -eq 'linux-x64' -and
+        ($manifest.AppImageUpgradeVerified -ne $true -or $manifest.AppImageUpgradeFrom -cne '1.1.3')) {
+        throw 'The Linux release requires native AppImage replacement and restart verification.'
+    }
     $versions += $manifest.Version
     $provenance += $manifest
     $manifestFiles = @($manifest.Assets | ForEach-Object Name)

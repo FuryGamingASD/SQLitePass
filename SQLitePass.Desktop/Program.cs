@@ -18,6 +18,13 @@ internal static class Program
             ? "SQLitePass" : "SQLitePass.Desktop";
         if (OperatingSystem.IsWindows()) ConfigureWindowsUpdateHooks(velopack, applicationName);
         velopack.Run();
+        if (args is ["--verify-appimage-update", _, _] or ["--verify-appimage-restarted", _])
+        {
+            if (!OperatingSystem.IsLinux() || Environment.GetEnvironmentVariable("RUNNER_ENVIRONMENT") != "github-hosted") return 2;
+            AppContext.SetData("SQLitePass.SettingsDirectory", Path.Combine(args[^1], "profile"));
+            AppContext.SetData("SQLitePass.AppImageUpdateProbe", args);
+            return BuildAvaloniaApp().StartWithClassicDesktopLifetime([]);
+        }
         if (args is ["--verify-autotype-peer", var resultPath, var scenario])
         {
             if (Environment.GetEnvironmentVariable("RUNNER_ENVIRONMENT") != "github-hosted") return 2;

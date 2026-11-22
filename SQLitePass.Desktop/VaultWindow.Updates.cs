@@ -10,7 +10,10 @@ public sealed partial class VaultWindow
 {
     private const string PublicReleaseRepository = "https://github.com/FuryGamingASD/SQLitePass";
 
-    private async void CheckUpdates_Click(object? sender, RoutedEventArgs e)
+    private async void CheckUpdates_Click(object? sender, RoutedEventArgs e) =>
+        await CheckUpdatesAsync(new GithubSource(PublicReleaseRepository, null, prerelease: false));
+
+    internal async Task<bool> CheckUpdatesAsync(IUpdateSource source, string[]? restartArgs = null)
     {
         UpdateManager? manager = null;
         VelopackAsset? prepared = null;
@@ -19,8 +22,7 @@ public sealed partial class VaultWindow
             try
             {
                 string channel = OperatingSystem.IsWindows() ? "win" : "linux";
-                manager = new UpdateManager(new GithubSource(PublicReleaseRepository, null, prerelease: false),
-                    new UpdateOptions { ExplicitChannel = channel });
+                manager = new UpdateManager(source, new UpdateOptions { ExplicitChannel = channel });
                 if (!manager.IsInstalled)
                 {
                     StatusText.Text = Text("UpdateUnavailable");
@@ -61,18 +63,20 @@ public sealed partial class VaultWindow
             }
         }, canCancel: true);
 
-        if (manager == null || prepared == null || _closing || _systemLocked) return;
+        if (manager == null || prepared == null || _closing || _systemLocked) return false;
         try
         {
             await LockVaultAsync();
-            if (_closing || _systemLocked) return;
-            manager.WaitExitThenApplyUpdates(prepared, silent: false, restart: true);
+            if (_closing || _systemLocked) return false;
+            manager.WaitExitThenApplyUpdates(prepared, silent: false, restart: true, restartArgs);
             RequestExit();
+            return true;
         }
         catch (Exception error)
         {
             AppLogger.LogError("The prepared release update could not start", error);
             StatusText.Text = Text("UpdateFailed");
+            return false;
         }
     }
 }
