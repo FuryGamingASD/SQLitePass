@@ -34,7 +34,7 @@ try {
             $state.Writes.Add('publish');$state.Draft=$false
         } elseif($command[0] -eq 'api' -and $command[1] -like '*git/ref/tags/*'){
             @{object=@{sha=$state.Commit}} | ConvertTo-Json -Compress
-        } elseif($command[0] -eq 'api' -and $command[1] -like '*/commits/tags/v*'){
+        } elseif($command[0] -eq 'api' -and $command[1] -ceq 'repos/example/release-test/commits/refs%2Ftags%2Fv1.1.3'){
             $state.TagCommit
         } elseif($command[0] -eq 'api'){
             @{assets=@($state.Assets.ToArray())} | ConvertTo-Json -Depth 6 -Compress
