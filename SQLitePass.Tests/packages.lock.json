@@ -386,6 +386,7 @@
           "Avalonia.Themes.Fluent": "[12.1.6, )",
           "Microsoft.Win32.SystemEvents": "[10.0.15, )",
           "SQLitePass.Core": "[1.1.3, )",
+          "Tmds.DBus.Protocol": "[0.94.1, )",
           "Velopack": "[1.2.161, )"
         }
       },

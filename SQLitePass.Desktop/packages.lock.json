@@ -31,6 +31,12 @@
         "resolved": "10.0.15",
         "contentHash": "kisX7LaeY4exvIgeyRfIp+xUmz2JoL+2n7pZv4W6na115P8659zw6vfB7IxD4sk6g9YZHwJ+vMzgS3Y5GMJqkA=="
       },
+      "Tmds.DBus.Protocol": {
+        "type": "Direct",
+        "requested": "[0.94.1, )",
+        "resolved": "0.94.1",
+        "contentHash": "11YMr7FnAbL83bQmVxlhbIKHvSLxjO81D12Ej0QMSGXMDTxNA9MTOa4MQxx43nv5el/efuPHwzyrj6a5ha2gug=="
+      },
       "Velopack": {
         "type": "Direct",
         "requested": "[1.2.161, )",
@@ -260,11 +266,6 @@
         "dependencies": {
           "SQLitePCLRaw.core": "3.0.5"
         }
-      },
-      "Tmds.DBus.Protocol": {
-        "type": "Transitive",
-        "resolved": "0.94.1",
-        "contentHash": "11YMr7FnAbL83bQmVxlhbIKHvSLxjO81D12Ej0QMSGXMDTxNA9MTOa4MQxx43nv5el/efuPHwzyrj6a5ha2gug=="
       },
       "sqlitepass.core": {
         "type": "Project",

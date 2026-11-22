@@ -31,7 +31,8 @@ public sealed class AvaloniaVaultTests
                 var group = (await vault.Storage.LoadAllGroupsAsync(vault.Crypto)).Single(item => item.Name == "General");
                 await vault.Storage.SaveEntriesBatchAsync([
                     new PwEntry { GroupId = group.Id, Title = "Synthetic mail", UserName = "mail-user", Password = "sample-mail" },
-                    new PwEntry { GroupId = group.Id, Title = "Synthetic portal", UserName = "portal-user", Password = "sample-portal" }
+                    new PwEntry { GroupId = group.Id, Title = "Synthetic portal", UserName = "portal-user", Password = "sample-portal" },
+                    new PwEntry { GroupId = vault.Metadata.RecycleBinGroupId!.Value, Title = "Synthetic deleted entry" }
                 ], vault.Crypto);
             }
 
@@ -55,6 +56,11 @@ public sealed class AvaloniaVaultTests
                     passwordBox.Text = password;
                     await window.OpenVaultAsync();
                     Assert.True(vaultPanel.IsVisible);
+                    Assert.Equal(2, entryList.Items.Count);
+                    var groups = window.FindControl<ComboBox>("Groups")!;
+                    await window.SelectGroupAsync(groups.Items.OfType<GroupChoice>().Single(item => item.IsRecycleBin));
+                    Assert.Equal("Synthetic deleted entry", Assert.IsType<EntryRow>(Assert.Single(entryList.Items)).Title);
+                    await window.SelectGroupAsync(groups.Items.OfType<GroupChoice>().Single(item => !item.Id.HasValue));
                     Assert.Equal(2, entryList.Items.Count);
                     window.FindControl<TextBox>("SearchBox")!.Text = "portal";
                     await window.SearchAsync();
@@ -80,6 +86,7 @@ public sealed class AvaloniaVaultTests
                     Assert.False(vaultPanel.IsVisible);
                     Assert.False(editor.IsVisible);
                     Assert.Empty(entryList.Items);
+                    Assert.Empty(groups.Items);
                     Assert.True(string.IsNullOrEmpty(passwordBox.Text));
                     Assert.True(string.IsNullOrEmpty(window.FindControl<TextBox>("SearchBox")!.Text));
                 }

@@ -13,9 +13,12 @@ internal interface IDesktopSession : IDisposable
 
 internal sealed class DesktopSession : IDesktopSession
 {
-    public static IDesktopSession Create(Action<bool> lockStateChanged, bool protectCapture) => OperatingSystem.IsWindows()
-        ? new WindowsDesktopSession(lockStateChanged, protectCapture)
-        : new DesktopSession();
+    public static IDesktopSession Create(Action<bool> lockStateChanged, bool protectCapture)
+    {
+        if (OperatingSystem.IsWindows()) return new WindowsDesktopSession(lockStateChanged, protectCapture);
+        if (OperatingSystem.IsLinux()) return new LinuxDesktopSession(lockStateChanged);
+        return new DesktopSession();
+    }
 
     public void Protect(Window window) { }
     public void Dispose() { }

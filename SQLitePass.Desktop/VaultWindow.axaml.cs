@@ -17,6 +17,10 @@ using SQLitePass.UI.Services;
 namespace SQLitePass.Desktop;
 
 internal sealed record EntryRow(Guid Id, long Revision, string Title, string UserName, string Url);
+internal sealed record GroupChoice(Guid? Id, string Name, bool IsRecycleBin = false)
+{
+    public override string ToString() => Name;
+}
 
 public sealed partial class VaultWindow : Window
 {
@@ -59,6 +63,7 @@ public sealed partial class VaultWindow : Window
         AddEntry.Content = Text("TbNewEntry");
         EditEntry.Content = Text("TbEdit");
         Avalonia.Automation.AutomationProperties.SetName(Entries, Text("AllActiveEntries"));
+        Avalonia.Automation.AutomationProperties.SetName(Groups, Text("FoldersAndGroups"));
         PreviousPage.Content = Text("PreviousEntryPage");
         NextPage.Content = Text("NextEntryPage");
         if (useNativeSession) _desktopSession = DesktopSession.Create(OnSystemLockStateChanged, settings.ProtectScreenCapture);
@@ -201,6 +206,28 @@ public sealed partial class VaultWindow : Window
         _query = query;
     });
 
+    private async void Group_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (Groups.SelectedItem is GroupChoice group) await SelectGroupAsync(group);
+    }
+
+    internal Task SelectGroupAsync(GroupChoice group) => RunOperationAsync(async token =>
+    {
+        if (_session == null) return;
+        var query = _query with { GroupId = group.Id, OnlyRecycleBin = group.IsRecycleBin, SearchText = SearchBox.Text?.Trim() ?? "" };
+        try
+        {
+            await LoadPageAsync(_session, query, null, token);
+            _query = query;
+        }
+        catch
+        {
+            if (!token.IsCancellationRequested && Groups.ItemsSource is IEnumerable<GroupChoice> choices)
+                Groups.SelectedItem = choices.FirstOrDefault(choice => choice.Id == _query.GroupId);
+            throw;
+        }
+    });
+
     private async void PreviousPage_Click(object? sender, RoutedEventArgs e) => await TurnPageAsync(_previous);
     private async void NextPage_Click(object? sender, RoutedEventArgs e) => await TurnPageAsync(_next);
 
@@ -221,6 +248,7 @@ public sealed partial class VaultWindow : Window
         try
         {
             token.ThrowIfCancellationRequested();
+            SetGroupChoices(page.Groups, query.GroupId);
             Entries.ItemsSource = page.Entries.Select(entry => new EntryRow(entry.Id, entry.Revision, entry.Title, entry.UserName, entry.Url)).ToArray();
             EntryCount.Text = Text("EntriesPageRange", page.FirstIndex, page.Entries.Count == 0 ? 0 : page.FirstIndex + page.Entries.Count - 1, page.MatchedCount);
             _previous = page.PreviousCursor;
@@ -232,8 +260,26 @@ public sealed partial class VaultWindow : Window
         }
     }
 
+    private void SetGroupChoices(IReadOnlyList<PwGroup> groups, Guid? selected)
+    {
+        var map = groups.ToDictionary(group => group.Id);
+        string GroupPath(PwGroup group)
+        {
+            var parts = new Stack<string>();
+            parts.Push(group.Name);
+            for (Guid? ancestor = group.ParentId; ancestor is { } id && map.TryGetValue(id, out var parent); ancestor = parent.ParentId)
+                parts.Push(parent.Name);
+            return string.Join(" / ", parts);
+        }
+        GroupChoice[] choices = [new(null, Text("AllActiveEntries")), .. groups
+            .Select(group => new GroupChoice(group.Id, GroupPath(group), group.IsRecycleBin))
+            .OrderBy(choice => choice.Name, StringComparer.CurrentCultureIgnoreCase)];
+        Groups.ItemsSource = choices;
+        Groups.SelectedItem = choices.FirstOrDefault(choice => choice.Id == selected) ?? choices[0];
+    }
+
     private void Entries_SelectionChanged(object? sender, SelectionChangedEventArgs e) =>
-        EditEntry.IsEnabled = Entries.SelectedItem is EntryRow;
+        EditEntry.IsEnabled = !_query.OnlyRecycleBin && Entries.SelectedItem is EntryRow;
 
     private async void AddEntry_Click(object? sender, RoutedEventArgs e) => await OpenEditorAsync(null);
 
@@ -244,9 +290,9 @@ public sealed partial class VaultWindow : Window
 
     internal Task OpenEditorAsync(EntryRow? row) => RunOperationAsync(async token =>
     {
-        if (_session is not { } session) return;
+        if (_session is not { } session || _query.OnlyRecycleBin) return;
         var source = row == null
-            ? new PwEntry { GroupId = session.Metadata.RootGroupId ?? throw new VaultConflictException("A vault root is required.") }
+            ? new PwEntry { GroupId = _query.GroupId ?? session.Metadata.RootGroupId ?? throw new VaultConflictException("A vault root is required.") }
             : await session.Storage.LoadEntryAsync(row.Id, session.Crypto, row.Revision, token);
         EntryEditDraft draft;
         try { draft = await Task.Run(() => EntryEditDraft.Create(source), token); }
@@ -277,6 +323,7 @@ public sealed partial class VaultWindow : Window
         VaultPanel.IsVisible = false;
         VaultName.Text = EntryCount.Text = SearchBox.Text = MasterPassword.Text = KeyFilePath.Text = "";
         Entries.ItemsSource = null;
+        Groups.ItemsSource = null;
         _previous = _next = null;
         if (session != null) await session.DisposeAsync();
         if (finished != null) await finished;
@@ -337,7 +384,10 @@ public sealed partial class VaultWindow : Window
     private void UpdateControls()
     {
         bool idle = _operation == null && !_closing && !_systemLocked;
-        UnlockPanel.IsEnabled = QueryPanel.IsEnabled = idle;
+        UnlockPanel.IsEnabled = QueryPanel.IsEnabled = GroupPanel.IsEnabled = idle;
+        Search.Content = Text(_query.OnlyRecycleBin ? "SearchRecycleBinScope" : "SearchActiveScope");
+        AddEntry.IsEnabled = !_query.OnlyRecycleBin;
+        EditEntry.IsEnabled = !_query.OnlyRecycleBin && Entries.SelectedItem is EntryRow;
         PreviousPage.IsEnabled = idle && _previous != null;
         NextPage.IsEnabled = idle && _next != null;
     }
