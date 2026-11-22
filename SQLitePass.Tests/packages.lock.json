@@ -322,6 +322,11 @@
         "resolved": "0.94.1",
         "contentHash": "11YMr7FnAbL83bQmVxlhbIKHvSLxjO81D12Ej0QMSGXMDTxNA9MTOa4MQxx43nv5el/efuPHwzyrj6a5ha2gug=="
       },
+      "Velopack": {
+        "type": "Transitive",
+        "resolved": "1.2.161",
+        "contentHash": "OpHNacIumnkhaaX3ZlQ/TCR4YPOJvud2/PAOoWb6o+mIrLwIVA275I5wAgt4q/1O2VrJeDwR1qFQyqzG4lUArg=="
+      },
       "xunit.abstractions": {
         "type": "Transitive",
         "resolved": "2.0.3",
@@ -374,13 +379,14 @@
         "dependencies": {
           "Avalonia.Desktop": "[12.1.6, )",
           "Avalonia.Themes.Fluent": "[12.1.6, )",
-          "SQLitePass.Core": "[1.1.2, )"
+          "SQLitePass.Core": "[1.1.3, )",
+          "Velopack": "[1.2.161, )"
         }
       },
       "sqlitepass.testhost": {
         "type": "Project",
         "dependencies": {
-          "SQLitePass.Core": "[1.1.2, )"
+          "SQLitePass.Core": "[1.1.3, )"
         }
       }
     },
