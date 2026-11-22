@@ -10,6 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Avalonia.Headless" Version="12.1.6" />
     <PackageReference Include="coverlet.collector" Version="10.1.1" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.12.0" />
     <PackageReference Include="xunit" Version="2.9.3" />
@@ -22,13 +23,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SQLitePass.Core\SQLitePass.Core.csproj" />
+    <ProjectReference Include="..\SQLitePass.Desktop\SQLitePass.Desktop.csproj" />
     <ProjectReference Include="..\SQLitePass.TestHost\SQLitePass.TestHost.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="Fixtures/legacy-schema.sql" />
-    <Compile Include="..\SQLitePass.UI\Services\TranslationCatalog.cs" Link="Localization\TranslationCatalog.cs" />
-    <EmbeddedResource Include="..\SQLitePass.UI\Localization\*.json" LogicalName="SQLitePass.Localization.%(Filename)%(Extension)" WithCulture="false" />
     <EmbeddedResource Include="..\SQLitePass.UI\**\*.xaml" Exclude="..\SQLitePass.UI\obj\**;..\SQLitePass.UI\bin\**" LogicalName="SQLitePass.UiSource.%(Filename)%(Extension)" WithCulture="false" />
     <EmbeddedResource Include="..\SQLitePass.UI\**\*.cs" Exclude="..\SQLitePass.UI\obj\**;..\SQLitePass.UI\bin\**;..\SQLitePass.UI\Properties\AssemblyInfo.cs" LogicalName="SQLitePass.UiSource.%(Filename)%(Extension)" WithCulture="false" />
   </ItemGroup>

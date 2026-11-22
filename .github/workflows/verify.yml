@@ -49,7 +49,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   linux-core:
-    name: Linux x64 Core
+    name: Linux x64 shared tests
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:
@@ -70,12 +70,12 @@ jobs:
       - name: Restore and build the shared test suite
         run: |
           dotnet restore SQLitePass.Tests/SQLitePass.Tests.csproj --locked-mode
-          if ($LASTEXITCODE -ne 0) { throw 'Locked Core restore failed.' }
+          if ($LASTEXITCODE -ne 0) { throw 'Locked restore failed.' }
           dotnet build SQLitePass.Tests/SQLitePass.Tests.csproj -c Release --no-restore --warnaserror
-          if ($LASTEXITCODE -ne 0) { throw 'Core build failed.' }
+          if ($LASTEXITCODE -ne 0) { throw 'Shared test build failed.' }
       - name: Run the shared test suite on Linux
         run: ./scripts/Invoke-CoreTests.ps1
-      - name: Preserve Linux Core verification evidence
+      - name: Preserve Linux verification evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

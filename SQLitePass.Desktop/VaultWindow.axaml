@@ -1,0 +1,58 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:desktop="using:SQLitePass.Desktop"
+        x:Class="SQLitePass.Desktop.VaultWindow"
+        Title="SQLitePass" Icon="avares://SQLitePass.Desktop/Resources/app.ico"
+        WindowStartupLocation="CenterScreen" Width="960" Height="640" MinWidth="580" MinHeight="480">
+    <Grid RowDefinitions="*,Auto" Margin="24">
+        <ScrollViewer x:Name="UnlockPanel" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+            <StackPanel Width="450" Spacing="12" Margin="12">
+                <TextBlock Text="SQLitePass" FontSize="32" FontWeight="SemiBold" />
+                <TextBlock x:Name="VaultPathLabel" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <TextBox x:Name="VaultPath" AutomationProperties.LabeledBy="{Binding #VaultPathLabel}" />
+                    <Button x:Name="BrowseVault" Grid.Column="1" Click="BrowseVault_Click" />
+                </Grid>
+                <TextBlock x:Name="PasswordLabel" />
+                <TextBox x:Name="MasterPassword" PasswordChar="●" IsUndoEnabled="False"
+                         AutomationProperties.LabeledBy="{Binding #PasswordLabel}" />
+                <TextBlock x:Name="KeyFileLabel" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <TextBox x:Name="KeyFilePath" AutomationProperties.LabeledBy="{Binding #KeyFileLabel}" />
+                    <Button x:Name="BrowseKeyFile" Grid.Column="1" Click="BrowseKeyFile_Click" />
+                </Grid>
+                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
+                    <Button x:Name="Unlock" Classes="accent" IsDefault="True" Click="Unlock_Click" />
+                    <Button x:Name="NewVault" Click="NewVault_Click" />
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+        <Grid x:Name="VaultPanel" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="12" IsVisible="False">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock x:Name="VaultName" FontSize="23" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                <Button x:Name="LockVault" Grid.Column="1" Click="LockVault_Click" />
+            </Grid>
+            <Grid x:Name="QueryPanel" Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <TextBox x:Name="SearchBox" KeyDown="SearchBox_KeyDown" MaxLength="4096" />
+                <Button x:Name="Search" Grid.Column="1" Click="Search_Click" />
+            </Grid>
+            <ListBox x:Name="Entries" Grid.Row="2" AutomationProperties.Name="SQLitePass">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="desktop:EntryRow">
+                        <Grid ColumnDefinitions="2*,*,*" ColumnSpacing="16">
+                            <TextBlock Text="{CompiledBinding Title}" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" />
+                            <TextBlock Grid.Column="1" Text="{CompiledBinding UserName}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Grid.Column="2" Text="{CompiledBinding Url}" TextTrimming="CharacterEllipsis" />
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+            <Grid x:Name="PagePanel" Grid.Row="3" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                <TextBlock x:Name="EntryCount" VerticalAlignment="Center" />
+                <Button x:Name="PreviousPage" Grid.Column="1" Click="PreviousPage_Click" />
+                <Button x:Name="NextPage" Grid.Column="2" Click="NextPage_Click" />
+            </Grid>
+        </Grid>
+        <TextBlock x:Name="StatusText" Grid.Row="1" Margin="0,8,0,0" TextWrapping="Wrap" />
+    </Grid>
+</Window>

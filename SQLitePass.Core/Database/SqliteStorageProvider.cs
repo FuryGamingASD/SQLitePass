@@ -122,7 +122,9 @@ public sealed partial class SqliteStorageProvider : IDisposable
         m.FormatVersion = CurrentFormat; m.EncryptUsernameUrl = true; WriteMetadata(c, tx, m, ""); tx.Commit();
     });
 
-    public async Task AuthenticateAsync(CryptoEngine crypto)
+    public Task AuthenticateAsync(CryptoEngine crypto) => AuthenticateAsync(crypto, allowLegacyMigration: true);
+
+    internal async Task AuthenticateAsync(CryptoEngine crypto, bool allowLegacyMigration)
     {
         await _gate.WaitAsync().ConfigureAwait(false);
         try
@@ -132,6 +134,8 @@ public sealed partial class SqliteStorageProvider : IDisposable
             using var c = Open(true); var m = ReadMetadata(c) ?? throw new InvalidDataException("Vault non inizializzato.");
             CryptoEngine.ValidateKdf(Convert.FromBase64String(m.SaltBase64), m.KdfIterations, m.KdfMemoryKb, m.KdfParallelism);
             if (!crypto.VerifyCanaryToken(m.VerificationCanary)) throw new CryptographicException("Credenziale del vault non corretta.");
+            if (m.FormatVersion == 1 && !allowLegacyMigration)
+                throw new VaultConflictException("The vault format changed during unlock. Reopen the vault.");
             _crypto = crypto; _metadata = m; _epoch = m.KeyEpoch; _locked = false;
             if (m.FormatVersion == 1)
             {
