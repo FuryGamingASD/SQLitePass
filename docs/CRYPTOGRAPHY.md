@@ -9,7 +9,7 @@ SQLitePass uses modern authenticated cryptographic primitives designed to provid
 - Resistance to offline attacks
 - Protection against credential theft from stolen vault files
 
-Cryptographic operations are performed entirely on the client device.
+Cryptographic operations run on the client device. Windows x64 and Linux x64 use the same Vault Format 2 and Core implementation in SQLitePass 1.2.0.
 
 No encryption keys, passwords or derived secrets are transmitted to external services.
 

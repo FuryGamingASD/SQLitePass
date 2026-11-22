@@ -355,7 +355,7 @@ Prevent accidental credential delivery.
 
 ### Residual Risk
 
-Auto-Type sends events through the global Windows `SendInput` stream. The target can change between a check and an event. Process identity and window title are indicators, so users still need to verify the destination. Version 1.1.3 cancels typing on detected focus changes, session lock and vault window minimization. The race remains a P1 risk and explicit target confirmation is required. KeePass also documents the limits of matching by window title. [KeePass Auto-Type](https://keepass.info/help/base/autotype.html) · [KeePass security analysis](https://keepass.info/help/kb/sec_issues.html)
+Windows `SendInput` uses a global keyboard stream and the target can change between a check and an event. This remains a P1 risk. Linux Auto-Type uses the shared X11 display and requires a trusted local session. SQLitePass cancels on detected focus changes, session lock and vault minimization. The user must confirm the destination. Process identity and window title provide context for this decision. [Platform behavior](CROSS_PLATFORM.md#auto-type-in-the-shared-app) · [KeePass Auto-Type](https://keepass.info/help/base/autotype.html)
 
 ---
 

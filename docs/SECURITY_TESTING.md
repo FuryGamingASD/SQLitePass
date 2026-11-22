@@ -13,7 +13,7 @@ Its objectives are to:
 - Validate recovery workflows
 - Reduce the likelihood of introducing vulnerabilities
 
-Automated security checks run in development and release workflows. Their scope varies by feature and release. The [1.1.3 outcome](releases/RELEASE_OUTCOME_1.1.3.md) records the checks that passed in CI and the results from the Windows VM. The [audit status](AUDIT_STATUS.md) and [desktop checklist](releases/RELEASE_READINESS_1.1.3.md) list outstanding validation.
+Automated security checks run in development and release workflows. Their scope varies by feature and release. The [1.2.0 release outcome](releases/RELEASE_OUTCOME_1.2.0.md) records the package, automated desktop and VM results. The [audit status](AUDIT_STATUS.md) lists remaining limits.
 
 Testing improves confidence but does not guarantee the absence of vulnerabilities.
 
@@ -497,11 +497,7 @@ Verify on supported Windows versions:
 - Clipboard History exclusion
 - Cloud Clipboard exclusion
 
-Expected outcome:
-
-```text
-Sensitive content is not intentionally persisted.
-```
+Check the requested exclusion formats separately from the actual behavior of the Windows history and cloud features. On Linux, test the clipboard manager's treatment of the X11 password-manager hint separately from expiry and ownership.
 
 ---
 
@@ -531,11 +527,7 @@ Verify:
 - Window replacement
 - Focus theft scenarios
 
-Expected outcome:
-
-```text
-Auto-Type stops immediately.
-```
+Expected outcome. Auto-Type stops when a target change is detected. The Windows check-to-input race remains documented.
 
 ---
 
@@ -557,9 +549,7 @@ Auto-Type is cancelled.
 
 ## Unexpected UI Errors
 
-Verify that an unhandled dispatcher exception immediately changes an active vault to locked state before the exception is marked handled. If the vault lock cannot be established, the application must exit. When no authenticated vault window is active, it must not continue the damaged UI session. An unobserved task failure must schedule the same lock-or-shutdown response before it is marked observed.
-
-The isolated WPF verifier invokes the lock entry point and awaits cleanup. It does not inject a dispatcher exception or unobserved task failure into the full running application; those event paths should be included in a controlled manual release check.
+The Windows and Linux desktop probes inject an exception through the Avalonia dispatcher with a synthetic vault open. They require that the vault view closes, the unlock view becomes available and the password field is empty. The application exits if there is no active vault or cleanup fails. Unobserved task errors schedule the same recovery. The injected dispatcher test exercises the dispatcher path.
 
 ## Manual Lock
 
@@ -592,19 +582,9 @@ Vault locks after configured inactivity period.
 
 ---
 
-## Windows Lock
+## Desktop Lock and Suspend
 
-Verify:
-
-```text
-Win + L
-```
-
-Expected outcome:
-
-```text
-Vault lock workflow executes correctly.
-```
+Run the Windows Win+L diagnostic in an interactive test session. On Linux, check logind and the desktop locker in the target session and check suspend/resume in a test VM. Use a synthetic vault with the inactivity timeout disabled. The vault must remain closed when the desktop unlocks or wakes. The private D-Bus fixture covers logind, Xfce Screensaver and inactivity fallback in CI. [Commands and recorded scope](CROSS_PLATFORM.md#native-session-results-for-120)
 
 ---
 
@@ -612,7 +592,7 @@ Vault lock workflow executes correctly.
 
 ## WDA_EXCLUDEFROMCAPTURE
 
-Verify on supported operating systems:
+Verify on supported Windows versions:
 
 - Window capture blocking
 - Screen sharing behavior

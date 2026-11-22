@@ -16,16 +16,21 @@ The root [README](../README.md), [security policy](../SECURITY.md), [changelog](
 - [Security testing strategy](SECURITY_TESTING.md)
 - [Performance measurements and limits](PERFORMANCE_2026-11-16.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)
-- [Windows and Linux desktop migration](CROSS_PLATFORM.md)
+- [Windows and Linux desktop guide](CROSS_PLATFORM.md)
 
 ## Audit evidence and findings
 
 - [Initial technical audit](audit/AUDIT_2026-11-16.md) — findings against the identified 1.0.2 commit.
-- [Remediation status](audit/REMEDIATION_2026-11-16.md) — finding map and remaining limitations after 1.1.3.
+- [Remediation status](audit/REMEDIATION_2026-11-16.md) — historical findings and fixes through 1.1.3, with a 1.2.0 follow-up.
 - [Synthetic reproduction evidence](audit/AUDIT_EVIDENCE_2026-11-16.json).
 - [Synthetic benchmark evidence](evidence/).
 
 ## Releases
+
+- [SQLitePass 1.2.0 release outcome and downloads](releases/RELEASE_OUTCOME_1.2.0.md).
+- [SQLitePass 1.2.0 release notes](../RELEASE_NOTES.md#sqlitepass-120).
+
+### Historical Windows releases
 
 - [SQLitePass 1.1.3 release outcome](releases/RELEASE_OUTCOME_1.1.3.md).
 - [SQLitePass 1.1.3 readiness and manual checklist](releases/RELEASE_READINESS_1.1.3.md).

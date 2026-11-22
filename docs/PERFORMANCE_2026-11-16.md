@@ -2,6 +2,8 @@
 
 > Le sezioni iniziali conservano misure e limiti storici del 16 novembre. Le ripetizioni successive, datate nel testo e basate su fixture sintetiche, descrivono il codice di paging misurato in quel momento e un metodo di misura affinato; non rappresentano una misura della release pubblicata o del processo completo.
 
+Per le verifiche della 1.2.0 su Windows e Linux consultare il [consuntivo di release](releases/RELEASE_OUTCOME_1.2.0.md). Le misurazioni qui riportate conservano il perimetro originale.
+
 Misura locale del **16 novembre 2026**, linea di sviluppo 1.1.0, formato vault 2. Runtime .NET 10.0.14, architettura x64. Questa prova usa esclusivamente dati sintetici e non avvia la UI.
 
 ## Modifica implementata

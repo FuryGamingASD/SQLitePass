@@ -6,13 +6,14 @@ The current supported release line is:
 
 | Version | Status |
 |----------|----------|
-| 1.1.x | Supported |
+| 1.2.x | Supported on Windows x64 and Linux x64 |
+| 1.1.x | Supported Windows-only legacy line |
 | 1.0.x | Unsupported |
 | Earlier versions | Unsupported |
 
 SQLitePass 1.1 introduces Vault Format 2, authenticated vault integrity verification, validated recovery workflows, record revisions and authenticated encrypted storage.
 
-The latest stable build in this line is [SQLitePass 1.1.3](https://github.com/FuryGamingASD/SQLitePass/releases/tag/v1.1.3).
+The current stable release is [SQLitePass 1.2.0](https://github.com/FuryGamingASD/SQLitePass/releases/tag/v1.2.0). The Windows and Linux packages share Vault Format 2.
 
 Earlier 1.0 releases contain known architectural limitations and recovery defects documented in the project audit and remediation reports.
 
@@ -48,8 +49,8 @@ Please provide:
 
 - SQLitePass version
 - Vault format version
-- Windows version
-- Installation type (Portable or Installed)
+- OS version or Linux distribution, kernel and desktop session
+- Installation type (Windows installer, Windows portable or Linux AppImage)
 - Steps to reproduce
 - Expected behavior
 - Actual behavior
@@ -231,7 +232,7 @@ Recovery operations require:
 - Correct password
 - Correct key file (if configured)
 
-The candidate recovery file is validated before replacing the active vault.
+The backup is validated before the application saves a recovered copy to an unused path. The source vault, journals and backup stay available.
 
 SQLitePass refuses recovery while an active vault session is open.
 
@@ -257,8 +258,8 @@ SQLitePass treats clipboard operations as sensitive actions.
 Clipboard copies:
 
 - Use an automatic timeout
-- Attempt exclusion from Clipboard History
-- Attempt exclusion from Cloud Clipboard synchronization
+- Request exclusion from Clipboard History and cloud synchronization on Windows
+- Advertise a password-manager hint on Linux X11
 
 The clipboard is only cleared if SQLitePass still owns the copied content.
 
@@ -276,7 +277,7 @@ Clipboard protection cannot prevent:
 - Clipboard History or Cloud Clipboard behavior that is not excluded by the current Windows configuration
 - A recipient application retaining data after a paste
 
-The application requests exclusion flags where supported. The 1.1.3 Windows CI verified that the flags were present, that synthetic clipboard content expired and that newer content was preserved. Clipboard History and Cloud Clipboard behavior in an interactive account remain unverified.
+The 1.2.0 checks verified expiry, clearing on vault lock and preservation of newer content on both platforms. Windows CI checked the exclusion formats. Interactive Clipboard History and cloud synchronization remain unverified. Linux clipboard managers can retain copied content if they ignore the password-manager hint.
 
 SQLitePass is not designed to protect against:
 
@@ -292,8 +293,8 @@ These threats require endpoint and operational controls beyond the vault applica
 # Current Known Risks
 
 - Auto-Type validates the foreground window, process and title before and after injected events, but Windows `SendInput` uses the global keyboard stream. The target can change between validation and an input event; this remains a P1 risk.
-- Version 1.1.3 cancels Auto-Type when the vault window is minimized, including when lock-on-minimize is disabled. Dedicated desktop Auto-Type checks remain open. KeePass also advises users to verify the destination because window titles are not unique. [KeePass Auto-Type](https://keepass.info/help/base/autotype.html) · [KeePass security analysis](https://keepass.info/help/kb/sec_issues.html)
+- The 1.2.0 desktop probes verify Auto-Type into separate Windows and X11/XWayland targets and cancellation when focus changes. Linux Auto-Type requires a trusted local X display. Verify the destination yourself before confirming. [Desktop capabilities](docs/CROSS_PLATFORM.md#auto-type-in-the-shared-app)
 - The application and installer are unsigned. Windows may show reputation or publisher warnings.
 - There has been no independent cryptographic audit or penetration test. Hardware-level power-loss and storage-failure behavior is not certified.
 
-The current release evidence and open tests are recorded in the [1.1.3 outcome](docs/releases/RELEASE_OUTCOME_1.1.3.md) and the [audit status](docs/AUDIT_STATUS.md).
+The current release evidence and outstanding checks are recorded in the [1.2.0 outcome](docs/releases/RELEASE_OUTCOME_1.2.0.md) and the [audit status](docs/AUDIT_STATUS.md).

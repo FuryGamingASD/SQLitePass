@@ -20,13 +20,20 @@ Security guarantees should always be interpreted according to the current docume
 
 # SQLitePass 1.2.0
 
+Released on 22 November 2026.
+
 SQLitePass uses a shared C# and Avalonia desktop app for Windows x64 and Linux x64. The release includes the Windows installer and a Linux AppImage, with a separate update feed for each platform.
 
 - The existing vault format, credential changes, backup recovery, entry history, attachments, and import and export use the shared vault engine.
 - The same settings, password generator, search and entry editor are available on both platforms. Platform-specific adapters handle clipboard expiry, tray access and session lock signals.
 - On Linux, automatic desktop locking also responds to Xfce Screensaver activation. The vault stays locked when the screen unlocks.
+- An unhandled desktop dispatcher error locks the active vault or exits if locking fails.
 - Auto-Type displays the destination window and process for confirmation. It stops when the destination loses focus. On Linux it targets X11 windows and checks the active keyboard layout before typing.
-- The Windows installer retains the existing SQLitePass installation identity. The installed app checks its platform's update feed and locks the vault before restarting to apply a confirmed update.
+- The Windows installer retains the existing SQLitePass installation identity and upgrades the Windows 1.1.3 release. The Windows installer is unsigned.
+- The Linux AppImage supports in-place updates. Each installed app checks its platform's feed and locks the vault before restarting to apply a confirmed update.
+- Backup recovery validates the backup and writes a new vault to an unused path. Keep an independent backup before upgrading or moving a vault.
+
+See the [release verification report](https://github.com/FuryGamingASD/SQLitePass/blob/v1.2.0/docs/releases/RELEASE_OUTCOME_1.2.0.md) for test results and platform limits.
 
 ---
 

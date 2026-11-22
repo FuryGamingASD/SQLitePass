@@ -1,6 +1,6 @@
 # Disaster Recovery
 
-Updated: 18 November 2026.
+Updated on 22 November 2026 for SQLitePass 1.2.0.
 
 This guide describes how to preserve and recover a SQLitePass vault after data loss, corruption, a failed migration, a credential change or device loss. Recovery depends on having a valid vault or backup and the credential factors used to protect it.
 
@@ -17,7 +17,7 @@ There is no fixed recovery time or recovery point guarantee. Recovery time depen
 3. Preserve the vault and any adjacent `-wal` and `-shm` sidecar files together. Do not delete a WAL file or overwrite the damaged database by hand.
 4. Make copies to separate storage and perform investigation on copies.
 5. Keep the master password and key file separate from the evidence and backups. Never put credentials in logs or incident reports.
-6. Use the built-in recovery flow only after selecting and authenticating a candidate backup. Keep the preserved original and recovery snapshots until the recovered vault has been checked.
+6. On the unlock screen, use **Restore from .backup** to authenticate the backup and save it to a new path. Keep the original and recovery snapshots until the recovered vault has been checked.
 7. Record the version, date, file locations, backup timestamp and outcome without recording secret values.
 
 ## Common scenarios

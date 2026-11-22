@@ -39,7 +39,7 @@ The backup and recovery subsystem is designed to:
 
 ✅ Validate backups before publication
 
-✅ Validate recovery candidates before replacement
+✅ Validate recovery candidates before saving a recovered copy
 
 ✅ Preserve original files during recovery
 
@@ -92,7 +92,7 @@ Advantages include:
 
 The backup process copies a validated SQLite state rather than an arbitrary file image.
 
-Version 1.1.3 removes the temporary SQLite database and its journals after the backup check finishes. The verified backup and its retained generations are kept.
+SQLitePass removes the temporary SQLite database and its journals after the backup check finishes. The verified backup and its retained generations are kept.
 
 ---
 
@@ -283,7 +283,7 @@ Recovery requires:
 
 A recovery operation is not permitted merely because a backup file exists.
 
-For recovery, close the vault and copy the vault and its matching `.backup` side by side into a local working folder. Keep the original pair available. During 1.1.3 testing, a restore from a VirtualBox shared folder returned an I/O error, and the same files restored on the VM's local disk. SQLite's WAL mode requires local filesystem access. [SQLite WAL documentation](https://sqlite.org/wal.html)
+Close the vault. On the unlock screen, enter the password and key file valid for the backup and select **Restore from .backup**. SQLitePass finds a backup next to the chosen vault if it exists. You can select a backup directly when there is no matching file. Choose an unused destination on a local filesystem and keep the originals available. During 1.1.3 testing, a VirtualBox shared folder returned an I/O error, and the same files restored on the VM's local disk. [SQLite WAL documentation](https://sqlite.org/wal.html)
 
 ---
 
@@ -309,61 +309,15 @@ A backup file may exist and still be:
 - Tampered with
 - Copied incorrectly
 
-Validation prevents replacement of a recoverable vault with an unusable backup.
+Validation rejects an unusable backup before it can be published as the recovered vault.
 
 ---
 
 # Recovery Execution
 
-When recovery is approved:
+The app stages the recovered database at the destination, validates it and publishes it to the selected unused path. Open the new vault with the credential used by the backup and verify representative data before adopting it as your primary copy.
 
-```text
-Backup Candidate
-        ↓
-Validation
-        ↓
-Atomic Replacement
-```
-
-The operation avoids partial installation states.
-
----
-
-# Preservation of Previous Vaults
-
-Recovery never discards the existing vault immediately.
-
-The original vault is preserved as a recovery artifact.
-
-Naming format:
-
-```text
-.recovery-YYYYMMDD...
-```
-
-This provides an emergency rollback capability if required.
-
----
-
-# WAL and SHM Preservation
-
-SQLite database state may depend upon:
-
-```text
--WAL
--SHM
-```
-
-sidecar files.
-
-Recovery therefore preserves:
-
-- Existing WAL files
-- Existing SHM files
-
-before replacement occurs.
-
-This avoids creating inconsistent mixed-database states.
+Keep the original vault, its `-wal` and `-shm` files, and the source backup together. The Avalonia process preserves those files. Older WPF recovery used an in-place replacement and retained separately named `.recovery-...` artifacts.
 
 ---
 

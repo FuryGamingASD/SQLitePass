@@ -254,7 +254,7 @@ Where supported by Windows, SQLitePass requests exclusion from:
 - Clipboard History
 - Cloud Clipboard Synchronization
 
-These mechanisms reduce unintended persistence of copied credentials.
+The Linux X11 adapter advertises a password-manager hint. A clipboard manager can retain the data if it ignores the hint.
 
 ---
 
@@ -262,7 +262,7 @@ These mechanisms reduce unintended persistence of copied credentials.
 
 Clipboard contents remain visible to:
 
-- Windows
+- The operating system
 - Privileged applications
 - Malware with appropriate permissions
 
@@ -274,7 +274,7 @@ Clipboard protection reduces exposure but cannot guarantee complete confidential
 
 # Screen Capture Protection
 
-SQLitePass supports optional screen-capture protection.
+SQLitePass supports optional screen-capture protection on Windows.
 
 Protected windows attempt to use:
 
@@ -341,17 +341,9 @@ disables inactivity locking.
 
 ---
 
-## Windows Session Lock
+## Desktop Session Lock
 
-SQLitePass can automatically lock whenever Windows itself is locked.
-
-Examples:
-
-```text
-Win + L
-Remote session lock
-Workstation lock
-```
+With automatic desktop locking enabled, SQLitePass locks on Windows session lock, including Win+L. On Linux the app responds to supported logind lock and suspend events and to Xfce Screensaver activation. Unlocking the desktop leaves the vault locked.
 
 ---
 

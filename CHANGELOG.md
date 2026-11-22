@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-22
+
+### Added
+
+- Ship the shared Avalonia app as a Windows x64 installer and portable build and as a Linux x64 AppImage, with separate update feeds.
+- Add Linux clipboard expiry, tray integration, Auto-Type to X11 targets and automatic locking on logind session lock, suspend and Xfce Screensaver activation.
+- Verify the Windows 1.1.3 upgrade, Linux AppImage replacement and restart, and desktop integration under X11 and XWayland.
+
+### Changed
+
+- Share the vault, entry editor, settings, password generator and search across Windows and Linux. Existing Vault Format 2 files and credentials remain compatible.
+- Restore verified backups to a new destination and preserve the source files.
+- Confirm the selected Auto-Type entry, target window and process before sending input.
+
+### Fixed
+
+- Lock the active vault after an unhandled dispatcher error or exit if the lock fails. Route unobserved task errors to the same recovery workflow.
+
 ## [1.1.3] - 2026-11-21
 
 ### Fixed

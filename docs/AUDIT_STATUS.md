@@ -1,6 +1,6 @@
 # Audit Status
 
-Updated on 21 November 2026 for the published SQLitePass 1.1.3. This document summarizes the project's internal evidence. [Release outcome](releases/RELEASE_OUTCOME_1.1.3.md)
+Updated on 22 November 2026 for SQLitePass 1.2.0. This document summarizes the project's internal evidence. [Release outcome](releases/RELEASE_OUTCOME_1.2.0.md)
 
 ## Purpose
 
@@ -28,11 +28,11 @@ It reflects the current state of publicly available evidence.
 | Architecture Review | Internal review completed; rework recommendations remain |
 | Cryptography Review | Internal Review Completed |
 | Backup & Recovery Review | Internal review and software fault tests; hardware durability unverified |
-| Session Security Review | Automated lock and editor cleanup checks passed. Manual lock and unlock passed in the VM. Win+L during dialogs and operations is deferred. |
-| Clipboard Security Review | Windows CI verified expiry, preservation of replacement content and exclusion flags. Interactive history and sync checks are deferred. |
-| Auto-Type Review | Mitigated; P1 race remains and native validation is pending |
+| Session Security Review | Manual Windows Win+L, Linux logind, Xfce lock-screen and VM suspend passed. Avalonia's dispatcher-error lock has a synthetic regression probe. Win+L during dialogs and operations remains open. |
+| Clipboard Security Review | Windows and Linux CI verified expiry and replacement handling. Windows CI checked privacy formats. Interactive history and sync checks remain open. |
+| Auto-Type Review | Native two-process checks passed on Windows, X11 and XWayland. The Windows P1 race and X11 display trust assumptions remain. |
 | Dependency Review | Completed |
-| Native Windows release checklist | V2–V4 passed with local VM data. V1 passed the expected UI responses. The V1 file integrity check and V5–V8 are deferred. |
+| Release checklist | Package lifecycle was verified on both platforms. The 1.1.3 WPF-specific V1–V8 evidence remains in its historical checklist. |
 | Third-Party Audit | Not Performed |
 | Penetration Test | Not Performed |
 | Bug Bounty Program | Not Available |
@@ -107,15 +107,14 @@ Status:
 
 Reviewed:
 
-- LoginWindow
-- MainWindow.Security
-- InactivityLockCoordinator
+- Avalonia `VaultWindow`, `DesktopSession` and `LinuxDesktopSession`
+- Historical WPF `LoginWindow`, `MainWindow.Security` and `InactivityLockCoordinator`
 
 Verified:
 
 - Session invalidation
 - Automatic lock
-- Lock on Windows lock
+- Windows Win+L and supported Linux logind, suspend and Xfce Screensaver lock
 - Draft cleanup
 
 Status:
@@ -128,15 +127,15 @@ Status:
 
 Reviewed:
 
-- ClipboardCoordinator
-- SensitiveClipboardBehavior
+- Shared `ClipboardCoordinator` and Avalonia native clipboard adapter
+- Historical WPF `SensitiveClipboardBehavior`
 
 Verified:
 
 - Automatic clearing
 - Ownership validation
-- Clipboard History exclusion
-- Cloud Clipboard exclusion
+- Windows Clipboard History and cloud exclusion formats
+- Linux X11 password-manager hint
 
 Status:
 
@@ -148,8 +147,9 @@ Status:
 
 Reviewed:
 
-- AutoTypeService
-- AutoTypeConfirmDialog
+- Shared `AutoTypeService` and the Avalonia selected-entry workflow
+- Windows and X11 input adapters
+- Historical WPF confirmation dialog
 
 Verified:
 
@@ -163,7 +163,7 @@ Limitations:
 
 - `SendInput` uses the global keyboard stream; the target can change between validation and an input event.
 - Process name and window title do not authenticate the destination or website.
-- Native Windows target/focus/modifier checks have not been completed.
+- Windows, X11 and XWayland target and focus checks passed. Elevated Windows targets and broader desktop interaction remain unverified.
 
 Status:
 
@@ -175,8 +175,8 @@ Status:
 
 Reviewed:
 
-- WindowSecurityService
-- SensitiveWindowService
+- Avalonia Windows capture-affinity adapter and sensitive dialogs
+- Historical WPF window security and sensitive-window services
 
 Verified:
 
@@ -377,12 +377,13 @@ Current reviewed dependencies:
 - Microsoft.Data.Sqlite
 - Konscious.Security.Cryptography.Argon2
 
-## UI
+## Desktop
 
+- Avalonia
 - Velopack
-- Hardcodet.NotifyIcon.Wpf
+- Tmds.DBus.Protocol
 
-The transitive scan in the published 1.1.3 build reported zero known NuGet advisories across five solution projects. Its scope is NuGet dependencies. [Release verification](releases/RELEASE_OUTCOME_1.1.3.md)
+The release verification scans transitive NuGet dependencies for the four shared solution projects. The signedness and native dependency scope are documented in the [release outcome](releases/RELEASE_OUTCOME_1.2.0.md) and [third-party notices](THIRD_PARTY_NOTICES.md).
 
 Dependency monitoring should continue through routine maintenance.
 
@@ -390,9 +391,9 @@ Dependency monitoring should continue through routine maintenance.
 
 # Release Assessment
 
-The supported line is 1.1.x. The current stable version is **1.1.3**. CI for the published build passed 162 tests, 1,080 WPF layout cases and four Windows package scenarios. The eight public assets and the anonymous Velopack update package were verified. [Release outcome](releases/RELEASE_OUTCOME_1.1.3.md)
+The current stable version is **1.2.0**. Its rehearsal passed 168 shared tests on Windows and 168 on Linux, desktop integration probes on both platforms and the Windows and Linux upgrade workflows. See the [release outcome](releases/RELEASE_OUTCOME_1.2.0.md) for published package provenance.
 
-The release line has internal source and automated-test evidence. It has not received an independent audit or penetration test. A07 remains a P1 Auto-Type race, and the native Windows checklist has not been completed. This document does not recommend SQLitePass as the sole store for high-value or privileged credentials.
+The evidence covers internal review and project verification. An independent audit and penetration test remain open. A07 remains a P1 Windows Auto-Type race. The project does not recommend SQLitePass as the sole store for high-value or privileged credentials.
 
 ---
 
@@ -425,10 +426,10 @@ Evidence scope by area (not a security score):
 | Cryptography | Internal source review; no independent protocol/implementation review |
 | Storage | Automated and synthetic integrity/recovery tests; no physical failure testing |
 | Recovery | Software fault tests; hardware durability not established |
-| Session Management | Automated WPF lock and cleanup tests plus manual lock and unlock. Win+L during sensitive workflows remains open. |
-| Clipboard | Windows CI tests for expiry, replacement and exclusion flags. Interactive history and sync remain open. |
-| Auto-Type | Fake-input regressions; P1 check-to-input race remains, native checks pending |
-| UI Hardening | In-memory layout/contrast checks; native DPI and assistive-technology checks pending |
+| Session Management | Avalonia session-lock and dispatcher-error checks, manual Windows Win+L, and Linux logind, Xfce and suspend evidence. Win+L during sensitive workflows remains open. |
+| Clipboard | Native expiry and replacement tests on both platforms and Windows exclusion formats. Interactive history and sync remain open. |
+| Auto-Type | Automated regressions and native focus-loss checks. The P1 Windows check-to-input race remains. |
+| UI Hardening | Shared Avalonia workflow tests and Windows capture-affinity flags. Broader native DPI and assistive-technology checks remain open. |
 | Memory Handling | Managed-buffer cleanup reviewed; complete string/runtime zeroization is not guaranteed |
 | Third-Party Components | NuGet advisory scan and license inventory; no independent native-binary provenance audit |
 | Deployment Environment | Outside source-review scope |
@@ -442,7 +443,7 @@ The source review and automated suite provide evidence for specific controls, es
 The principal outstanding assurance limits are:
 
 - A07 remains a P1 mitigated Auto-Type risk.
-- Interactive Windows checks for Auto-Type, Clipboard History, cloud sync, screen capture, Win+L during sensitive workflows, DPI and assistive technology are deferred.
+- Windows checks for elevated Auto-Type targets, Clipboard History, cloud synchronization, actual capture, Win+L during sensitive workflows, DPI and assistive technology remain open. Linux coverage is limited to the environments recorded in the release report.
 - Hardware failure scenarios, independent cryptographic review and penetration testing are not covered.
 
-The earlier internal source review identified no critical cryptographic implementation flaw within its reviewed scope. The published build and the remaining verification work are recorded in the [1.1.3 outcome](releases/RELEASE_OUTCOME_1.1.3.md) and [desktop checklist](releases/RELEASE_READINESS_1.1.3.md).
+The earlier internal source review identified no critical cryptographic implementation flaw within its reviewed scope. See the [1.2.0 outcome](releases/RELEASE_OUTCOME_1.2.0.md) and [desktop verification guide](CROSS_PLATFORM.md) for current evidence.

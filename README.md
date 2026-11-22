@@ -1,10 +1,14 @@
 # SQLitePass
 
-SQLitePass is a modern local password manager for Windows built with .NET 10, WPF and SQLite.
+SQLitePass is a local password manager for Windows x64 and Linux x64 built with .NET 10, Avalonia and SQLite.
 
-The latest stable release is **1.1.3**. It includes a Windows x64 installer and a portable build. [Download on GitHub](https://github.com/FuryGamingASD/SQLitePass/releases/tag/v1.1.3) · [Release verification and remaining checks](docs/releases/RELEASE_OUTCOME_1.1.3.md)
+The latest stable release is **1.2.0**. The same release provides a Windows installer, a Windows portable build and a Linux AppImage. [Download SQLitePass 1.2.0](https://github.com/FuryGamingASD/SQLitePass/releases/tag/v1.2.0) · [Release verification](docs/releases/RELEASE_OUTCOME_1.2.0.md)
 
-The development application is now shared between Windows x64 and Linux x64 using Avalonia. Build `SQLitePass.slnx` with the SDK pinned in `global.json`, or run `scripts/Invoke-Ci.ps1` for the common build, test and dependency checks on either platform. Run the app with `dotnet run --project SQLitePass.Desktop`. A single version tag produces the Windows installer and Linux AppImage in the same release. See [migration status and desktop verification](docs/CROSS_PLATFORM.md) for current evidence and remaining release checks. The historical WPF application is retained in `SQLitePass.LegacyWpf.slnx`.
+- **Windows x64.** Use `SQLitePass-win-Setup.exe` for installation or upgrade from 1.1.3. The installer is unsigned and Windows may display a publisher or reputation prompt. `SQLitePass-win-Portable.zip` is available for portable use.
+- **Linux x64.** Download `SQLitePass.AppImage`, make it executable with `chmod u+x SQLitePass.AppImage` and launch it with `./SQLitePass.AppImage`. Launch and in-place updates were verified with FUSE. Keep the AppImage in a user-writable directory to apply in-place updates.
+- **Upgrading or moving a vault.** Keep an independent backup, close the app before copying the vault and use the existing password and key file. Both platforms use the same Vault Format 2. Keep the vault on a local filesystem with SQLite locking support.
+
+Build `SQLitePass.slnx` with the SDK pinned in `global.json`, or run `scripts/Invoke-Ci.ps1` for the shared build, test and dependency checks. Launch from source with `dotnet run --project SQLitePass.Desktop`. See the [documentation index](docs/README.md) and [cross-platform guide](docs/CROSS_PLATFORM.md) for desktop capabilities and verification. The historical WPF application is retained in `SQLitePass.LegacyWpf.slnx`.
 
 SQLitePass stores vault records in SQLite. Vault Format 2 combines AES-256-GCM authenticated encryption, Argon2id key derivation, authenticated integrity verification, validated backup recovery and session controls. These mechanisms reduce specific risks but do not establish immunity to data loss, endpoint compromise or hardware failure.
 
@@ -76,7 +80,7 @@ SQLitePass implements multiple recovery mechanisms:
 
 Backup files are validated before being published as recoverable backups.
 
-Recovery validates vault integrity and authentication before replacing the active vault.
+Recovery validates integrity and authentication before creating a recovered vault at a new destination. The source vault and backup remain available.
 
 ---
 
@@ -85,7 +89,7 @@ Recovery validates vault integrity and authentication before replacing the activ
 SQLitePass implements several protection mechanisms while a vault is unlocked:
 
 - Automatic inactivity locking
-- Lock on Windows session lock
+- Lock on Windows session lock and supported Linux logind lock, suspend and Xfce Screensaver events
 - Auto-Type interruption on focus changes
 - Auto-Type cancellation during session locking and when the vault window is minimized
 - Sensitive UI clearing on lock
@@ -93,7 +97,7 @@ SQLitePass implements several protection mechanisms while a vault is unlocked:
 
 Sensitive dialogs, password controls and editable content are cleared when the session is locked.
 
-After an unexpected dispatcher error, SQLitePass locks the active vault. The application shuts down if it cannot lock the vault or has no active vault window.
+After an unhandled dispatcher error, SQLitePass locks the active vault. The application exits if locking fails or no vault is open.
 
 ---
 
@@ -106,7 +110,8 @@ SQLitePass:
 - automatically clears copied secrets
 - prevents accidental retention where supported
 - requests exclusion from Windows Clipboard History
-- requests exclusion from Cloud Clipboard synchronization
+- requests exclusion from Windows cloud clipboard synchronization
+- advertises a password-manager hint on Linux X11
 - tracks clipboard ownership before clearing
 
 Clipboard contents remain accessible to the operating system and other software while present.
@@ -125,7 +130,7 @@ Auto-Type:
 - validates the window title
 - checks the target before and after each injected input
 
-Windows `SendInput` writes to the global keyboard input stream rather than an authenticated window handle. The checks reduce accidental misdirection, but a focus change can race with an input event. Auto-Type is best-effort and must not be treated as authentication of a website or destination.
+Windows `SendInput` uses a global keyboard input stream, so a focus change can race with an input event. Linux Auto-Type uses X11 and requires an X11 or XWayland target on a trusted local display. Verify the destination before approving it. Window title and process name are insufficient to authenticate a website.
 
 ---
 
@@ -194,4 +199,4 @@ Changes introduced in Format 2 include:
 - defensive clipboard behavior
 - improved Auto-Type validation
 
-For security limitations and vulnerability reporting procedures see SECURITY.md.
+See the [security policy](SECURITY.md) for limitations and vulnerability reporting.

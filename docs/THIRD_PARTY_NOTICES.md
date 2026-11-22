@@ -1,19 +1,20 @@
 # Third-party components
 
-SQLitePass is distributed under GPL-3.0; see `LICENSE`. Runtime component versions below are pinned by the project lock files. Each component retains its own license and copyright notices. The NuGet package links provide its upstream source and licensing information.
+SQLitePass is distributed under GPL-3.0. Runtime dependencies retain their own license and copyright notices. The project lock files pin the package versions.
 
-| Component | Version | Declared license | Package |
-| --- | --- | --- | --- |
-| Konscious.Security.Cryptography.Argon2 | 1.3.1 | MIT | [upstream](https://www.nuget.org/packages/Konscious.Security.Cryptography.Argon2/1.3.1) |
-| Konscious.Security.Cryptography.Blake2 | 1.1.1 | MIT | [upstream](https://www.nuget.org/packages/Konscious.Security.Cryptography.Blake2/1.1.1) |
-| Microsoft.Data.Sqlite / Microsoft.Data.Sqlite.Core | 11.0.0 | MIT | [upstream](https://www.nuget.org/packages/Microsoft.Data.Sqlite/11.0.0) |
-| SQLite | 3.53.4 | Public Domain | [upstream](https://www.nuget.org/packages/SQLite/3.53.4) |
-| SQLitePCLRaw.bundle_e_sqlite3 / config.e_sqlite3 / core / provider.e_sqlite3 | 3.0.5 | Apache-2.0 | [upstream](https://www.nuget.org/packages/SQLitePCLRaw.bundle_e_sqlite3/3.0.5) |
-| Hardcodet.NotifyIcon.Wpf | 2.0.1 | MIT | [upstream](https://www.nuget.org/packages/Hardcodet.NotifyIcon.Wpf/2.0.1) |
-| Velopack | 1.2.161 | MIT | [upstream](https://www.nuget.org/packages/Velopack/1.2.161) |
+| Component | Version | Declared license |
+| --- | --- | --- |
+| Avalonia desktop UI and Fluent theme | 12.1.6 | MIT |
+| MicroCom.Runtime | 0.11.6 | MIT |
+| Tmds.DBus.Protocol | 0.94.1 | MIT |
+| Microsoft.Win32.SystemEvents | 10.0.15 | MIT |
+| Konscious.Security.Cryptography.Argon2 | 1.3.1 | MIT |
+| Konscious.Security.Cryptography.Blake2 | 1.1.1 | MIT |
+| Microsoft.Data.Sqlite and Microsoft.Data.Sqlite.Core | 11.0.0 | MIT |
+| SQLite engine | 3.53.4 | Public domain |
+| SQLitePCLRaw bundle, configuration, core and provider | 3.0.5 | Apache-2.0 |
+| Velopack | 1.2.161 | MIT |
 
-The self-contained package also includes Microsoft's .NET runtime and Windows Desktop runtime. Their runtime license and third-party notices must remain with the published files. SQLite 3.53.4 is the native engine package version; SQLite's code is public domain ([upstream notice](https://sqlite.org/copyright.html)). SQLitePCLRaw wrapper packages remain Apache-2.0 licensed.
+This table lists principal dependencies. Each Windows or Linux package includes its complete release-specific inventory in `THIRD_PARTY_LICENSES/dependency-metadata.json`, with the corresponding notices. The inventory includes the relevant .NET runtime pack and native libraries such as SkiaSharp and HarfBuzz. Build and test tool versions are recorded in their own lock files and tool manifest. [Avalonia license sources](CROSS_PLATFORM.md#package-license-sources) · [Repository license](../LICENSE) · [SQLite public domain notice](https://sqlite.org/copyright.html)
 
-Build and test tools (vpk, xUnit, VSTest and coverlet) are development dependencies and are not application features. See the corresponding lock files and tool manifest for their versions. This inventory is not a legal certification of a release; verify the notices accompanying the actual distribution when preparing public artifacts.
-
-The distribution also contains THIRD_PARTY_LICENSES/ with preserved license text, copyright metadata for all eleven application packages, and source/retrieval details. Read LICENSE-SOURCES.md for package provenance details. Runtime notices are retained separately in the self-contained output.
+The historical WPF notices and package metadata are retained for the Windows 1.1.x line. [Historical license sources](licenses/LICENSE-SOURCES.md)

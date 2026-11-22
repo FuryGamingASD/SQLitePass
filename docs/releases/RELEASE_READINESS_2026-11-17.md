@@ -1,6 +1,6 @@
 # Verifica della candidata SQLitePass 1.1.0
 
-> Questo documento descrive la candidata locale 1.1.0 prima della pubblicazione ed è storico. La release è pubblicata: vedere lʼ[esito definitivo](RELEASE_OUTCOME_2026-11-17.md). Per la versione corrente e i residui pianificati consultare la [readiness 1.1.3](RELEASE_READINESS_1.1.3.md).
+> Questo documento descrive la candidata locale 1.1.0 prima della pubblicazione ed è storico. La release è pubblicata: vedere lʼ[esito definitivo](RELEASE_OUTCOME_2026-11-17.md). Per la versione corrente e i residui consultare lo [stato dell'audit](../AUDIT_STATUS.md).
 
 Data: 17 novembre 2026. Prosecuzione della richiesta di completare [AUDIT_2026-11-16.md](../audit/AUDIT_2026-11-16.md); **la firma Authenticode è lʼunica esclusione concordata**. Le precedenti regressioni di compilazione e Auto-Type sono corrette. [STATUS_2026-11-17.md](../archive/STATUS_2026-11-17.md) conserva la verifica storica delle 02:19 e non descrive lʼultimo stato.
 

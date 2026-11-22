@@ -4,7 +4,7 @@
 
 SQLitePass is designed to minimize the lifetime of sensitive information in memory wherever practical.
 
-Because SQLitePass is implemented using .NET and WPF, memory protection must balance:
+Because SQLitePass is implemented using .NET and Avalonia, memory protection must balance:
 
 - Security
 - Functionality
@@ -250,22 +250,17 @@ History retention is intentionally limited to reduce long-term memory growth.
 
 When sensitive windows close or the vault is locked:
 
-- PasswordBox controls are cleared
-- TextBox controls are cleared
-- TextBlock controls are cleared
+- Password fields and other sensitive text controls are cleared
+- The vault view and entry lists are cleared
 - Dialogs are closed
 
-The cleanup mechanism traverses the user-interface tree and removes visible credential data.
+The app removes visible credential data as part of lock and dialog cleanup.
 
 ---
 
 ## Undo History Removal
 
-When text controls are cleared:
-
-```text
-Undo support is disabled before cleanup
-```
+Sensitive Avalonia text fields have undo disabled.
 
 This prevents previously visible secrets from remaining available through user-interface undo operations.
 
@@ -285,15 +280,9 @@ This reduces accidental exposure after unlock interruptions.
 
 # Session Lock Handling
 
-## Windows Session Lock
+## Desktop Session Lock
 
-When Windows is locked:
-
-```text
-Win + L
-```
-
-SQLitePass responds immediately.
+When desktop locking is enabled, Win+L on Windows and supported logind or Xfce Screensaver events on Linux trigger the vault lock workflow.
 
 Actions include:
 
@@ -365,7 +354,7 @@ Where supported by Windows, SQLitePass requests exclusion from:
 - Clipboard History
 - Cloud Clipboard Synchronization
 
-These features reduce accidental persistence but do not provide malware protection.
+Linux X11 copies carry a password-manager hint. Clipboard history tools decide whether to honor these requests.
 
 ---
 
@@ -386,7 +375,7 @@ SQLitePass attempts to:
 - cancel execution when the target changes or when the vault window is minimized.
 
 Credentials are not permanently cached by the Auto-Type subsystem.
-Because `SendInput` uses the global keyboard stream, a target change can race with an input event. Auto-Type is best-effort and does not authenticate a destination.
+On Windows, `SendInput` uses the global keyboard stream, so a target change can race with an input event. Linux Auto-Type uses X11 and requires a trusted local X display. Verify the destination before approving Auto-Type.
 
 ---
 
@@ -463,7 +452,7 @@ SQLitePass cannot guarantee when released objects are removed from memory.
 
 ## Operating-System Caches
 
-Windows itself may maintain:
+The operating system may maintain these data.
 
 - input buffers
 - display buffers
@@ -514,7 +503,7 @@ For high-value environments:
 ## Recommended
 
 - Enable Auto-Lock
-- Enable Lock on Windows Lock
+- Enable automatic locking on desktop lock
 - Use a Key File
 - Avoid unnecessary password reveal
 - Use screen capture protection
@@ -524,9 +513,7 @@ For high-value environments:
 ## Strongly Recommended
 
 - Full-disk encryption
-- Microsoft Defender for Endpoint
-- Credential Guard where available
-- BitLocker
+- Endpoint protection and credential isolation where available
 - Endpoint application control
 - Regular backup verification
 
@@ -538,4 +525,4 @@ SQLitePass implements a layered memory-protection strategy focused on reducing t
 
 While no managed desktop application can completely eliminate memory exposure, SQLitePass actively disposes cryptographic keys, sanitizes attachment buffers, clears sensitive interface elements, invalidates stale sessions and limits clipboard persistence wherever practical.
 
-The architecture should be viewed as a defense-in-depth approach that reduces risk while acknowledging the limitations inherent to the .NET runtime and the Windows operating system.
+The architecture should be viewed as a defense-in-depth approach that reduces risk while acknowledging the limitations inherent to the .NET runtime and the host operating system.

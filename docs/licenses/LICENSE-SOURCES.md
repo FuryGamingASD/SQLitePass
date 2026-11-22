@@ -1,6 +1,6 @@
 # License sources
 
-These files accompany the actual dependency identities and copyright declarations in dependency-metadata.json, generated from the restored NuGet manifests of the application dependency graph.
+The checked-in `dependency-metadata.json` records the historical Windows WPF package graph. For 1.2.0, `scripts/Copy-AvaloniaNotices.ps1` generates a separate metadata file from the packages and runtime packs used by each published Avalonia distribution. The file ships under `THIRD_PARTY_LICENSES/` with the applicable notices. Additional license texts used by the Avalonia build are listed in the [desktop guide](../CROSS_PLATFORM.md#package-license-sources).
 
 - Konscious-LICENSE.txt: upstream commit 4ed95a5377e411506ca6868409b5c7d7ecaa859b, as declared by Argon2 1.3.1: https://github.com/kmaragon/Konscious.Security.Cryptography/blob/4ed95a5377e411506ca6868409b5c7d7ecaa859b/LICENSE
 - Velopack-LICENSE.txt: upstream commit 92d6a1c91716729d449034df5c50307dcce39493, as declared by Velopack 1.2.161: https://github.com/velopack/velopack/blob/92d6a1c91716729d449034df5c50307dcce39493/LICENSE

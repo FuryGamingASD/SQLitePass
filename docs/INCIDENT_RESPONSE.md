@@ -1,6 +1,6 @@
 # Incident Response
 
-Updated: 18 November 2026.
+Updated on 22 November 2026 for SQLitePass 1.2.0.
 
 This runbook covers suspected vulnerabilities, credential exposure, vault integrity failures, backup failures, malicious releases and supply-chain concerns. It supplements the device owner's and organization's incident process; it does not determine legal notification duties.
 
@@ -23,7 +23,7 @@ Severity is an initial assessment, not a promise about response time. Reclassify
 
 ### 1. Record and acknowledge
 
-Record the report date, affected release, Windows version, installation type, vault format, reproduction steps and observed confidentiality, integrity and availability impact. Assign an incident identifier. Do not record secret values.
+Record the report date, affected release, Windows version or Linux distribution and desktop session, installation type, vault format, reproduction steps and observed confidentiality, integrity and availability impact. Assign an incident identifier. Do not record secret values.
 
 ### 2. Preserve evidence
 
@@ -39,11 +39,11 @@ Determine affected versions, formats, operating conditions, prerequisites, explo
 
 ### 5. Correct and validate
 
-Develop the narrowest safe fix or mitigation. Add regression coverage for the reproduced failure where practical. Validate build, automated tests, dependency findings, package provenance and recovery behavior. Native Windows behavior, hardware failure resistance and independent audit results must be reported only when they have actually been verified.
+Develop the narrowest safe fix or mitigation. Add regression coverage for the reproduced failure where practical. Validate build, automated tests, dependency findings, package provenance and recovery behavior. Native desktop behavior, hardware failure resistance and independent audit results must be reported only when they have actually been verified.
 
 ### 6. Communicate and release
 
-Prepare an advisory that states affected versions, impact, prerequisites, mitigation, fixed version and remaining limits. Avoid publishing exploit details before users have a practical mitigation. Verify the release assets and update feed before directing users to them.
+Prepare an advisory that states affected versions, impact, prerequisites, mitigation, fixed version and remaining limits. Avoid publishing exploit details before users have a practical mitigation. Verify the release assets and both platform update feeds before directing users to them.
 
 ### 7. Recover and learn
 
@@ -61,7 +61,7 @@ Stop writes to the affected copy. Preserve the vault and sidecars, validate reco
 
 ### Auto-Type or clipboard
 
-Record the target process, window state, user action and timing using synthetic credentials. Do not reproduce against a real login or production account. Clipboard history, cloud synchronization and screen capture behavior depend on Windows configuration and must not be described as verified unless tested on the relevant Windows build.
+Record the target process, window state, user action and timing using synthetic credentials. Do not reproduce against a real login or production account. Record the Windows account policy or Linux desktop and clipboard manager. Confirm history, cloud synchronization and screen capture behavior in the relevant configuration before reporting results.
 
 ### Release or supply chain
 

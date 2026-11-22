@@ -2,6 +2,8 @@
 
 > Mappa dei 49 rilievi e delle tranche di lavoro, aggiornata per la 1.1.3. Le evidenze della build pubblicata e i collaudi rinviati sono riportati nel [consuntivo della release](../releases/RELEASE_OUTCOME_1.1.3.md).
 
+> Per lo stato aggiornato al passaggio ad Avalonia vedere il [consuntivo 1.2.0](../releases/RELEASE_OUTCOME_1.2.0.md) e lo [stato dell'audit](../AUDIT_STATUS.md).
+
 > Dettagli storici 1.1.0: [RELEASE_READINESS_2026-11-17.md](../releases/RELEASE_READINESS_2026-11-17.md). Esito 1.1.0: [RELEASE_OUTCOME_2026-11-17.md](../releases/RELEASE_OUTCOME_2026-11-17.md). I 32 punti classificati corretti non equivalgono al completamento di tutte le raccomandazioni narrative o dei collaudi Windows nativi.
 
 L'audit del **16 novembre 2026** riguarda il commit `55fc41a044ad77042c7b6c1733fe7b863deae795` della versione 1.0.2. Gli interventi sono iniziati sul branch `codex/audit-remediation` per la 1.1.0, con il formato vault 2. I risultati della prima tranche sono conservati nei rapporti storici collegati sopra.
@@ -106,7 +108,7 @@ Risultati dettagliati locali e ignorati da Git: `artifacts/verification/`. La co
 
 ## Pacchetto locale verificato
 
-Build finale locale: `1.1.0-25a2ca09f51e45f8a9a981328b6790ea`. Applicazione `1.1.0.0`, runtime Microsoft.NETCore.App e Microsoft.WindowsDesktop.App **10.0.15**, Windows x64. I binari e i log di verifica erano output locali ignorati da Git e non sono distribuiti insieme a questo report. Per gli asset pubblicati e i digest verificati consultare l'[esito 1.1.0](../releases/RELEASE_OUTCOME_2026-11-17.md); per lo stato attuale consultare la [readiness 1.1.3](../releases/RELEASE_READINESS_1.1.3.md).
+Build finale locale: `1.1.0-25a2ca09f51e45f8a9a981328b6790ea`. Applicazione `1.1.0.0`, runtime Microsoft.NETCore.App e Microsoft.WindowsDesktop.App **10.0.15**, Windows x64. I binari e i log di verifica erano output locali ignorati da Git e non sono distribuiti insieme a questo report. Per gli asset pubblicati e i digest verificati consultare l'[esito 1.1.0](../releases/RELEASE_OUTCOME_2026-11-17.md); per lo stato attuale consultare lo [stato dell'audit](../AUDIT_STATUS.md).
 
 Verificati sei hash del manifest e i 495 elementi dello ZIP: runtime e documenti di licenza/policy presenti, assembly test/TestHost e relativi runner assenti. **Applicazione e setup risultano NotSigned**, coerentemente con la modalità QA scelta. Installer e updater sono stati collaudati in modalità silenziosa in directory temporanee, poi disinstallati. Lʼapp non è stata avviata per una prova interattiva. Questi sono risultati storici della candidata locale, non artefatti riproducibili conservati nel repository.
 
@@ -126,7 +128,7 @@ Il [consuntivo della 1.1.3](../releases/RELEASE_OUTCOME_1.1.3.md) dettaglia la p
 
 ## Prosecuzione del 17 novembre 2026
 
-Il [rapporto storico della candidata 1.1.0](../releases/RELEASE_READINESS_2026-11-17.md) dettaglia ripristino dal cestino, cancellazioni con controllo revisione, esportazione CSV atomica/cancellabile, patch runtime, test, rendering WPF, misure di contrasto, prove installer/updater e limiti ancora aperti. Per i residui attuali consultare la [readiness 1.1.3](../releases/RELEASE_READINESS_1.1.3.md). La firma resta esclusa per decisione dell'utente.
+Il [rapporto storico della candidata 1.1.0](../releases/RELEASE_READINESS_2026-11-17.md) dettaglia ripristino dal cestino, cancellazioni con controllo revisione, esportazione CSV atomica/cancellabile, patch runtime, test, rendering WPF, misure di contrasto, prove installer/updater e limiti ancora aperti. Per i residui attuali consultare lo [stato dell'audit](../AUDIT_STATUS.md). La firma resta esclusa per decisione dell'utente.
 
 
 ## Quinta tranche: pagine limitate e migrazione streaming
@@ -141,3 +143,11 @@ Il reader legacy valida tutti i record prima di creare schema e snapshot di migr
 Aggiunti percorso della cartella, filtri paginati per tag esatto e scadenza, scope di ricerca visibile e stato operativo distinto dagli appunti. Lʼeditor mostra errori inline e stato della bozza, conferma lo scarto su chiusura e confronta i dati sul worker prima del salvataggio: una voce esistente invariata non viene riscritta e non crea storia. I cambiamenti alla sola storia restano persistibili. Il reveal si chiude con deadline monotona di 15 secondi, disattivazione e lock; il controllo plaintext nascosto viene svuotato. La chiusura per lock bypassa la conferma di scarto.
 
 Il verificatore WPF ora pompa il dispatcher senza avviare Application.Run o mostrare finestre. Verificati caricamento asincrono reale, filtri combinati, breadcrumb selezionato, controlli dellʼeditor, scadenza simulata del reveal e cronologia aggiornata sul contesto UI. Matrice visiva: 1.080 casi con cinque lingue, tre palette e quattro scale raster. Restano i limiti nativi e architetturali nel rapporto aggiornato.
+
+## Aggiornamento 1.2.0
+
+- **A07.** Le prove native con processi separati verificano la digitazione e l'interruzione al cambio di focus su Windows, X11 e XWayland. Il rischio P1 tra controllo e input Windows resta documentato.
+- **A08.** Il test Win+L nella VM Windows ha bloccato il vault. Su Linux sono passati logind, sospensione e ripresa, e il blocco grafico Xfce dopo la correzione. Restano le prove Windows con operazioni o dialoghi aperti.
+- **A09 e B06.** Sono verificati lo scambio con un'altra applicazione, la scadenza, la cancellazione quando il vault si blocca e il rispetto di un contenuto copiato successivamente. Le prove di cronologia e sincronizzazione cloud di Windows restano aperte.
+- **C14.** Il test desktop Avalonia inietta un errore del dispatcher durante l'uso di un vault sintetico e richiede che il vault si blocchi.
+- **E03.** L'installer Windows rimane senza firma. La pipeline verifica gli SHA-256 dei pacchetti e la corrispondenza dei feed pubblici. [Consuntivo della 1.2.0](../releases/RELEASE_OUTCOME_1.2.0.md)

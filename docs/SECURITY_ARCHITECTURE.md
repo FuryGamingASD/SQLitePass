@@ -2,7 +2,7 @@
 
 ## Overview
 
-SQLitePass is a local-first Windows password manager designed to prioritize:
+SQLitePass is a local-first password manager for Windows x64 and Linux x64. The shared Avalonia app uses the same Core vault engine on both platforms. The architecture prioritizes the following goals.
 
 1. Confidentiality
 2. Integrity
@@ -372,7 +372,7 @@ Recovery requires:
 - the correct password
 - the correct key file (if enabled)
 
-The backup is validated before replacement.
+The backup is validated before SQLitePass saves a recovered copy to an unused destination.
 
 Invalid recovery candidates are rejected.
 
@@ -380,13 +380,7 @@ Invalid recovery candidates are rejected.
 
 ## Recovery Preservation
 
-Before installation of a recovered vault:
-
-- the previous vault is preserved
-- existing WAL files are preserved
-- existing SHM files are preserved
-
-This approach avoids destructive recovery behavior.
+The recovered file is staged and published at its new destination. The existing vault, WAL and SHM files, and source backup remain available for verification and another recovery attempt.
 
 ---
 
@@ -409,7 +403,7 @@ Vaults may be locked:
 
 - manually
 - through inactivity timeout
-- through Windows session lock
+- through Windows session lock or supported Linux lock and suspend events when desktop locking is enabled
 
 When locking occurs:
 
@@ -418,9 +412,9 @@ When locking occurs:
 - drafts are cleared
 - Auto-Type is cancelled
 
-Version 1.1.3 also cancels active Auto-Type when the vault window is minimized, including when lock-on-minimize is disabled.
+Minimizing the vault window cancels Auto-Type even when lock-on-minimize is disabled. On Linux the desktop service observes logind and Xfce Screensaver on supported sessions.
 
-An unhandled dispatcher exception locks the active vault before the exception is marked handled. The application shuts down if there is no active vault window or it cannot lock the vault immediately. An unobserved task failure schedules the same response on the dispatcher before being marked observed.
+An unhandled dispatcher exception starts the vault lock workflow. SQLitePass exits if there is no active vault or lock cleanup fails. An unobserved task failure schedules the same recovery on the dispatcher.
 
 ---
 
@@ -452,12 +446,7 @@ Features include:
 
 ## Clipboard History Controls
 
-SQLitePass attempts to prevent copied secrets from entering:
-
-- Windows Clipboard History
-- Cloud Clipboard synchronization
-
-where supported by the operating system.
+On Windows, SQLitePass requests exclusion from Clipboard History and cloud synchronization. On Linux X11, it advertises a password-manager hint that clipboard managers can honor.
 
 ---
 
@@ -493,7 +482,7 @@ Before and after injected input events SQLitePass checks:
 - process identity
 - window title
 
-These checks reduce the chance of accidental misdirection. Windows `SendInput` writes to the global keyboard stream and cannot atomically target the verified window handle, so a focus change can race with an input event. This is a best-effort control, not origin authentication or a guarantee that credentials cannot reach another window.
+Windows `SendInput` writes to the global keyboard stream, so a focus change can race with an input event. Linux Auto-Type uses XTEST for X11 and XWayland targets on the local X display and checks the active keyboard layout before typing. The user's confirmation remains the trust decision. Process identity and title provide context about the destination.
 
 ---
 
@@ -514,7 +503,7 @@ The mechanism cannot provide protection against:
 
 ## Screen Capture Protection
 
-Protected windows may use:
+On Windows, protected windows may use these native flags.
 
 ```text
 WDA_EXCLUDEFROMCAPTURE
