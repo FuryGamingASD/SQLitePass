@@ -110,14 +110,16 @@ public sealed partial class VaultWindow : Window
 
     private void ResetIdleTime() => _lastInput = Stopwatch.GetTimestamp();
 
-    private async void IdleTimer_Tick(object? sender, EventArgs e)
+    private async void IdleTimer_Tick(object? sender, EventArgs e) => await CheckDesktopIdleAsync(Stopwatch.GetElapsedTime(_lastInput));
+
+    internal async Task CheckDesktopIdleAsync(TimeSpan elapsed)
     {
         if (_closing || _systemLocked) return;
         bool minimized = WindowState == WindowState.Minimized;
         bool justMinimized = minimized && !_minimized;
         bool lockOnMinimize = justMinimized && _settings.AutoLockOnMinimize;
         _minimized = minimized;
-        bool idle = _settings.AutoLockMinutes > 0 && Stopwatch.GetElapsedTime(_lastInput) >= TimeSpan.FromMinutes(_settings.AutoLockMinutes);
+        bool idle = _settings.AutoLockMinutes > 0 && elapsed >= TimeSpan.FromMinutes(_settings.AutoLockMinutes);
         if ((idle || lockOnMinimize) && (_session != null || _operation != null)) await LockVaultAsync();
         if (justMinimized && _settings.MinimizeToTray && WindowState == WindowState.Minimized) HideInTray();
     }

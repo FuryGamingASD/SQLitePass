@@ -105,6 +105,7 @@ try {
                 $probe.ArgumentList.Add('--')
                 $probe.ArgumentList.Add('xvfb-run')
                 $probe.Environment['SQLITEPASS_TRAY_PROBE_WATCHER'] = Join-Path $PSScriptRoot 'Verify-LinuxTrayWatcher.py'
+                $probe.Environment['SQLITEPASS_LOGIN_SESSION_PROBE'] = Join-Path $PSScriptRoot 'Verify-LinuxLoginSession.py'
             } else { $probe.FileName = 'xvfb-run' }
             $probe.ArgumentList.Add('-a')
             if ($VerifyDesktopIntegrations) {
@@ -138,6 +139,8 @@ try {
         NativeClipboardVerified = [bool]$VerifyDesktopIntegrations
         NativeTrayVerified = [bool]$VerifyDesktopIntegrations
         NativeAutoTypeVerified = [bool]$VerifyDesktopIntegrations
+        NativeWindowsCaptureAffinityVerified = [bool]($VerifyDesktopIntegrations -and $IsWindows)
+        NativeLinuxLogindTransportVerified = [bool]($VerifyDesktopIntegrations -and $IsLinux)
         Assets = @(Get-ChildItem -LiteralPath $release -File | ForEach-Object {
             [ordered]@{ Name = $_.Name; SHA256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash }
         })

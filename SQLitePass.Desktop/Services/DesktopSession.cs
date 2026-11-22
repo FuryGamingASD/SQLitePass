@@ -47,11 +47,14 @@ internal sealed class WindowsDesktopSession : IDesktopSession
             ApplyCaptureProtection(handle, protectCapture);
             return;
         }
-        window.Opened += (_, _) =>
+        window.Opened += OnOpened;
+
+        void OnOpened(object? sender, EventArgs args)
         {
+            window.Opened -= OnOpened;
             if (window.TryGetPlatformHandle() is { HandleDescriptor: "HWND", Handle: var openedHandle } && openedHandle != IntPtr.Zero)
                 ApplyCaptureProtection(openedHandle, protectCapture);
-        };
+        }
     }
 
     private static void ApplyCaptureProtection(IntPtr handle, bool protectCapture)

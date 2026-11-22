@@ -45,6 +45,7 @@ public sealed partial class App : Application
                         if (AppContext.GetData("SQLitePass.ClipboardProbe") is true) await NativeClipboardVerification.VerifyAsync(window);
                         if (AppContext.GetData("SQLitePass.TrayProbe") is true) await NativeTrayVerification.VerifyAsync(window);
                         if (AppContext.GetData("SQLitePass.AutoTypeProbe") is true) await NativeAutoTypeVerification.VerifyAsync();
+                        if (AppContext.GetData("SQLitePass.TrayProbe") is true) await NativeDesktopSessionVerification.VerifyAsync(window);
                         window.Close();
                     }
                     catch (Exception error)

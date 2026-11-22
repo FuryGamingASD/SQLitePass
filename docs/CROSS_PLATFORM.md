@@ -10,7 +10,7 @@ The native jobs run `scripts/Build-AvaloniaCandidate.ps1` with `win-x64` and `li
 
 ## Before switching the release
 
-- Verify Windows session lock and capture protection on a native desktop. The Linux adapter listens for logind lock hints and suspend signals. Verify these signals on the supported Linux desktops and verify the inactivity fallback when logind is unavailable on the system bus.
+- Verify Windows session lock with Win+L on a native desktop, and Linux lock and suspend with the supported desktop environments and their installed logind. CI checks Windows capture-affinity flags on the actual app window. The Linux AppImage test sends logind-compatible lock and suspend events over a private D-Bus and tests inactivity fallback when that service disappears.
 - Verify clipboard, tray and Auto-Type on the supported Linux desktop sessions, including XWayland. The selected-entry Auto-Type flow uses two user-directed focus changes and works without a global shortcut.
 - Verify launch after Windows installation and from the AppImage on supported desktops, upgrade from the installed Windows line, update discovery and application on both platforms, and package notices for all shipped dependencies.
 

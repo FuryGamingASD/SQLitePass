@@ -36,7 +36,11 @@ public sealed partial class VaultWindow
     {
         if (_closing) return;
         _hiddenInTray = false;
-        if (!IsVisible) Show();
+        if (!IsVisible)
+        {
+            Show();
+            _desktopSession?.Protect(this, _settings.ProtectScreenCapture);
+        }
         if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
         _minimized = false;
         Activate();

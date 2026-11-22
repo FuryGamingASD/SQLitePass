@@ -35,6 +35,8 @@ foreach ($platform in $platforms) {
         [IO.Path]::GetExtension($manifest.Distribution) -cne $platform.Extension) {
         throw "Unexpected package provenance for $($platform.Runtime)."
     }
+    $sessionVerified = if ($platform.Runtime -eq 'win-x64') { $manifest.NativeWindowsCaptureAffinityVerified } else { $manifest.NativeLinuxLogindTransportVerified }
+    if ($sessionVerified -ne $true) { throw "Native desktop session evidence is missing for $($platform.Runtime)." }
     if ($PackageIdentity -eq 'release' -and $platform.Runtime -eq 'win-x64') {
         $previousVersion = if ([version]$Version -gt [version]'1.1.3') { '1.1.3' } else { '1.1.2' }
         if ($manifest.InstallerVerified -ne $true -or $manifest.InstallerUpgradeFrom -cne $previousVersion) {
