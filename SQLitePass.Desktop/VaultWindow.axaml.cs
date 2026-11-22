@@ -62,6 +62,7 @@ public sealed partial class VaultWindow : Window
         Unlock.Content = Text("LoginUnlock");
         NewVault.Content = Text("LoginNewVault");
         RestoreBackup.Content = Text("LoginRestoreBackup");
+        LoginGenerator.Content = Text("GeneratorTitle");
         LockVault.Content = Text("MenuLockVault").Replace("_", "", StringComparison.Ordinal);
         SearchBox.PlaceholderText = Text("SearchPlaceholder");
         Search.Content = Text("SearchActiveScope");
@@ -329,7 +330,8 @@ public sealed partial class VaultWindow : Window
         using (draft)
         {
             token.ThrowIfCancellationRequested();
-            var editor = new EntryEditor(draft.Current, Text, session.Storage.FilePath);
+            var editor = new EntryEditor(draft.Current, Text, session.Storage.FilePath,
+                () => CreatePasswordGenerator(token, allowUse: true));
             var saved = await ShowOwnedAsync(editor);
             await editor.WaitForOperationsAsync();
             token.ThrowIfCancellationRequested();

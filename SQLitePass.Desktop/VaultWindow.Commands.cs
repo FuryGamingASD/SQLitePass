@@ -20,6 +20,7 @@ public sealed partial class VaultWindow
         ImportBrowser.Header = Text("MenuImportBrowserCsv");
         ExportKeePass.Header = Text("MenuExportCsv");
         ClearClipboard.Header = Text("MenuClearClipboard");
+        PasswordGeneratorCommand.Header = Text("MenuPasswordGenerator");
         ExitApplication.Header = Text("MenuExit");
         FolderMenu.Header = Text("FoldersAndGroups");
         CreateFolder.Header = Text("MenuAddGroup");

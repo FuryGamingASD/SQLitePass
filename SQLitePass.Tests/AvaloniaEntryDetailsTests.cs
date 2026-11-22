@@ -55,6 +55,18 @@ public sealed partial class AvaloniaVaultTests
                     var editing = window.OpenEditorAsync(row);
                     var editor = await FindDialogAsync<EntryEditor>(window, editing, timeout.Token);
                     var passwordField = editor.FindControl<TextBox>("Password")!;
+                    editor.FindControl<Button>("GeneratePassword")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    var generator = await FindDialogAsync<PasswordGeneratorDialog>(editor, editing, timeout.Token);
+                    string? generated = generator.FindControl<TextBlock>("Result")!.Text;
+                    Assert.NotNull(generated);
+                    Assert.Equal(20, generated.Length);
+                    Assert.Contains(generated, char.IsUpper);
+                    Assert.Contains(generated, char.IsLower);
+                    Assert.Contains(generated, char.IsDigit);
+                    generator.FindControl<Button>("UsePassword")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    await Task.Yield();
+                    Assert.Equal(generated, passwordField.Text);
+                    Assert.Empty(generator.FindControl<TextBlock>("Result")!.Text!);
                     editor.RevealPassword_Click(null, new RoutedEventArgs());
                     Assert.True(passwordField.RevealPassword);
                     var copyEvent = new RoutedEventArgs(TextBox.CopyingToClipboardEvent);

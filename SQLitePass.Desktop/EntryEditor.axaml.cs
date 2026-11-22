@@ -11,6 +11,7 @@ public sealed partial class EntryEditor : Window
     private readonly Func<string, object[], string> _text;
     private readonly CancellationTokenSource _lifetime = new();
     private readonly string? _vaultPath;
+    private readonly Func<PasswordGeneratorDialog>? _createGenerator;
     private Window? _confirmation;
     private Task _operation = Task.CompletedTask;
     private bool _closed;
@@ -18,16 +19,19 @@ public sealed partial class EntryEditor : Window
 
     public EntryEditor() : this(new PwEntry(), (key, _) => key) { }
 
-    internal EntryEditor(PwEntry draft, Func<string, object[], string> text, string? vaultPath = null)
+    internal EntryEditor(PwEntry draft, Func<string, object[], string> text, string? vaultPath = null,
+        Func<PasswordGeneratorDialog>? createGenerator = null)
     {
         _draft = draft;
         _text = text;
         _vaultPath = vaultPath;
+        _createGenerator = createGenerator;
         InitializeComponent();
         Title = text(draft.Revision > 0 ? "EntryEditTitle" : "EntryNewTitle", []);
         TitleLabel.Text = text("LblTitle", []);
         UserLabel.Text = text("LblUserName", []);
         PasswordLabel.Text = text("LblPassword", []);
+        GeneratePassword.Content = text("TbGenerator", []);
         UrlLabel.Text = text("LblUrl", []);
         TagsLabel.Text = text("LblTags", []);
         NotesLabel.Text = text("LblNotes", []);
@@ -85,6 +89,23 @@ public sealed partial class EntryEditor : Window
     }
 
     private void Cancel_Click(object? sender, RoutedEventArgs e) => Close(false);
+
+    private async void GeneratePassword_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_closed || _busy || _confirmation != null) return;
+        var dialog = _createGenerator?.Invoke() ?? new PasswordGeneratorDialog(_text, null, allowUse: true);
+        _confirmation = dialog;
+        try
+        {
+            if (!await dialog.ShowDialog<bool>(this)) return;
+            string password = dialog.TakePassword();
+            if (_closed) return;
+            HideSensitiveValue();
+            Password.Text = password;
+            Password.Focus();
+        }
+        finally { _confirmation = null; }
+    }
 
     internal void Save_Click(object? sender, RoutedEventArgs e)
     {

@@ -135,6 +135,8 @@
   "GenResult": "Generiertes Passwort:",
   "GenRegenerate": "Neu generieren",
   "GenCopyAndClose": "Kopieren & Verwenden",
+  "GenUse": "Passwort verwenden",
+  "GenBrackets": "Klammern (()[]{}<>)",
   "AttachmentSelect": "Anhang auswählen",
   "AttachmentSave": "Anhang unverschlüsselt speichern",
   "AttachmentFailed": "Vorgang für den Anhang fehlgeschlagen",

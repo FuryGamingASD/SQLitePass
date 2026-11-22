@@ -25,7 +25,10 @@
                     <Button x:Name="Unlock" Classes="accent" IsDefault="True" Click="Unlock_Click" />
                     <Button x:Name="NewVault" Click="NewVault_Click" />
                 </StackPanel>
-                <Button x:Name="RestoreBackup" Click="RestoreBackup_Click" />
+                <WrapPanel>
+                    <Button x:Name="RestoreBackup" Margin="0,0,8,4" Click="RestoreBackup_Click" />
+                    <Button x:Name="LoginGenerator" Margin="0,0,8,4" Click="PasswordGenerator_Click" />
+                </WrapPanel>
             </StackPanel>
         </ScrollViewer>
         <Grid x:Name="VaultPanel" RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="12" IsVisible="False">
@@ -40,6 +43,7 @@
                         <MenuItem x:Name="ImportBrowser" Click="ImportBrowser_Click" />
                         <MenuItem x:Name="ExportKeePass" Click="ExportKeePass_Click" />
                         <Separator />
+                        <MenuItem x:Name="PasswordGeneratorCommand" Click="PasswordGenerator_Click" />
                         <MenuItem x:Name="ClearClipboard" Click="ClearClipboard_Click" />
                         <MenuItem x:Name="ExitApplication" Click="ExitApplication_Click" />
                     </MenuItem>

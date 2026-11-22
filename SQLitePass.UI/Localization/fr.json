@@ -135,6 +135,8 @@
   "GenResult": "Mot de passe généré :",
   "GenRegenerate": "Régénérer",
   "GenCopyAndClose": "Copier et utiliser",
+  "GenUse": "Utiliser le mot de passe",
+  "GenBrackets": "Parenthèses et crochets (()[]{}<>)",
   "AttachmentSelect": "Sélectionner une pièce jointe",
   "AttachmentSave": "Enregistrer la pièce jointe en clair",
   "AttachmentFailed": "Opération sur la pièce jointe non effectuée",

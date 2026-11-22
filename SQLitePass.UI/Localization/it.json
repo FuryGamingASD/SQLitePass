@@ -135,6 +135,8 @@
   "GenResult": "Password Generata:",
   "GenRegenerate": "Rigenera",
   "GenCopyAndClose": "Copia e Usa",
+  "GenUse": "Usa password",
+  "GenBrackets": "Parentesi (()[]{}<>)",
   "AttachmentSelect": "Seleziona allegato",
   "AttachmentSave": "Salva allegato in chiaro",
   "AttachmentFailed": "Operazione sull'allegato non completata",

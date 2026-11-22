@@ -14,9 +14,10 @@
                         <TextBlock x:Name="UserLabel" />
                         <TextBox x:Name="UserName" IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #UserLabel}" />
                         <TextBlock x:Name="PasswordLabel" />
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                             <TextBox x:Name="Password" PasswordChar="●" IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #PasswordLabel}" />
                             <Button x:Name="RevealPassword" Grid.Column="1" Click="RevealPassword_Click" />
+                            <Button x:Name="GeneratePassword" Grid.Column="2" Click="GeneratePassword_Click" />
                         </Grid>
                         <TextBlock x:Name="UrlLabel" />
                         <TextBox x:Name="Url" IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #UrlLabel}" />

@@ -135,6 +135,8 @@
   "GenResult": "Contraseña generada:",
   "GenRegenerate": "Regenerar",
   "GenCopyAndClose": "Copiar y usar",
+  "GenUse": "Usar contraseña",
+  "GenBrackets": "Paréntesis y corchetes (()[]{}<>)",
   "AttachmentSelect": "Seleccionar adjunto",
   "AttachmentSave": "Guardar adjunto sin cifrar",
   "AttachmentFailed": "Falló la operación del adjunto",

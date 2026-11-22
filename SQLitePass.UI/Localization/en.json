@@ -135,6 +135,8 @@
   "GenResult": "Generated Password:",
   "GenRegenerate": "Regenerate",
   "GenCopyAndClose": "Copy & Use",
+  "GenUse": "Use password",
+  "GenBrackets": "Brackets (()[]{}<>)",
   "AttachmentSelect": "Select attachment",
   "AttachmentSave": "Save plaintext attachment",
   "AttachmentFailed": "Attachment operation failed",

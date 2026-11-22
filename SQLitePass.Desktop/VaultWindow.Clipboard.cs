@@ -45,6 +45,24 @@ public sealed partial class VaultWindow
         if (_clipboard is { } clipboard) PresentClipboardClear(await clipboard.ClearAsync());
     });
 
+    private async void PasswordGenerator_Click(object? sender, RoutedEventArgs e) => await RunOperationAsync(async token =>
+    {
+        await ShowOwnedAsync(CreatePasswordGenerator(token, allowUse: false));
+    });
+
+    private PasswordGeneratorDialog CreatePasswordGenerator(CancellationToken token, bool allowUse)
+    {
+        var dialog = new PasswordGeneratorDialog(Text, _clipboard is { } clipboard ? async password =>
+        {
+            int seconds = Math.Clamp(_settings.ClipboardClearSeconds, 3, 300);
+            bool copied = await clipboard.CopyAsync(password, TimeSpan.FromSeconds(seconds), token);
+            token.ThrowIfCancellationRequested();
+            return copied ? Text("ClipboardCopiedFor", Text("GenResult").TrimEnd(' ', ':'), seconds) : Text("ClipboardBusy");
+        } : null, allowUse);
+        if (allowUse) ProtectDialog(dialog);
+        return dialog;
+    }
+
     private void ClipboardExpired(ClipboardClearResult result)
     {
         if (!_closing && _session != null && _operation == null) PresentClipboardClear(result);
