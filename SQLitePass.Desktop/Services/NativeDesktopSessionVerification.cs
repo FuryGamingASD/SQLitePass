@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using System.Text.Json;
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
@@ -19,6 +20,65 @@ internal static class NativeDesktopSessionVerification
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
         if (OperatingSystem.IsWindows()) await VerifyCaptureAsync(window, timeout.Token);
         else await VerifyLogindAsync(window, timeout.Token);
+    }
+
+    internal static async Task VerifyWindowsLockInteractivelyAsync(VaultWindow window)
+    {
+        using var deadline = new CancellationTokenSource(TimeSpan.FromMinutes(4));
+        var token = deadline.Token;
+        window.Title = "SQLitePass Win+L verification";
+        var status = window.FindControl<TextBlock>("StatusText")!;
+        var vault = window.FindControl<Grid>("VaultPanel")!;
+        var login = window.FindControl<ScrollViewer>("UnlockPanel")!;
+        string profile = (string)AppContext.GetData("SQLitePass.SettingsDirectory")!;
+        string vaultPath = Path.Combine(profile, "windows-lock-fixture.kpd");
+        const string credential = "Synthetic-Windows-session-lock!";
+        bool lockObserved = false;
+        bool unlockObserved = false;
+        bool passed = false;
+        string stage = "opening synthetic vault";
+        try
+        {
+            using var master = new MasterKey(credential);
+            await using (var seed = await VaultSession.CreateAsync(vaultPath, master, new AppSettings { EnableDualFileBackup = false },
+                "General", "Recycle bin", token)) { }
+            window.FindControl<TextBox>("VaultPath")!.Text = vaultPath;
+            window.FindControl<TextBox>("MasterPassword")!.Text = credential;
+            await window.OpenVaultAsync().WaitAsync(token);
+            if (!vault.IsVisible) throw new InvalidOperationException("The synthetic verification vault did not open.");
+            stage = "waiting for Windows session lock";
+            status.Text = "Press Win+L now, then unlock Windows to see the result.";
+            await WaitForAsync(() => !vault.IsVisible && login.IsVisible && !login.IsEnabled, token);
+            lockObserved = true;
+            stage = "waiting for Windows session unlock";
+            await WaitForAsync(() => login.IsEnabled, token);
+            unlockObserved = true;
+            if (vault.IsVisible || !string.IsNullOrEmpty(window.FindControl<TextBox>("MasterPassword")!.Text))
+                throw new InvalidOperationException("The vault was available after Windows unlocked.");
+            passed = true;
+            stage = "completed";
+            status.Text = "Passed. Win+L locked the synthetic vault and Windows unlock left it locked.";
+        }
+        catch (Exception error)
+        {
+            await window.LockVaultAsync();
+            status.Text = error is OperationCanceledException
+                ? "Verification timed out while waiting for Windows lock and unlock."
+                : $"Verification failed. {error.Message}";
+        }
+        finally
+        {
+            if (AppContext.GetData("SQLitePass.WindowsSessionLockReport") is string reportPath)
+            {
+                await using var report = new FileStream(reportPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+                await JsonSerializer.SerializeAsync(report, new
+                {
+                    Passed = passed, SessionLockObserved = lockObserved, SessionUnlockObserved = unlockObserved,
+                    Stage = stage, CompletedAtUtc = DateTimeOffset.UtcNow,
+                    Version = typeof(App).Assembly.GetName().Version?.ToString()
+                });
+            }
+        }
     }
 
     [SupportedOSPlatform("windows")]

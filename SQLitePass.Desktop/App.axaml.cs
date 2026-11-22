@@ -23,6 +23,12 @@ public sealed partial class App : Application
                 return;
             }
             var settings = AppSettingsManager.Load();
+            bool windowsLockProbe = AppContext.GetData("SQLitePass.WindowsSessionLockProbe") is true;
+            if (windowsLockProbe)
+            {
+                settings.AutoLockMinutes = 0;
+                settings.EnableDualFileBackup = false;
+            }
             AppLogger.Configure(settings.EnableDiagnosticLogging);
             RequestedThemeVariant = settings.DarkMode ? ThemeVariant.Dark : ThemeVariant.Light;
             var window = new VaultWindow(settings, useNativeSession: true);
@@ -46,6 +52,11 @@ public sealed partial class App : Application
                         if (updateProbe != null)
                         {
                             await NativeAppImageUpdateVerification.VerifyAsync(window, updateProbe);
+                            return;
+                        }
+                        if (windowsLockProbe)
+                        {
+                            await NativeDesktopSessionVerification.VerifyWindowsLockInteractivelyAsync(window);
                             return;
                         }
                         if (AppContext.GetData("SQLitePass.ClipboardProbe") is true) await NativeClipboardVerification.VerifyAsync(window);

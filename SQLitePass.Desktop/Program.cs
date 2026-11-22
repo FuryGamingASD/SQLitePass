@@ -31,7 +31,8 @@ internal static class Program
             AppContext.SetData("SQLitePass.AutoTypeProbePeer", new[] { resultPath, scenario });
             return BuildAvaloniaApp().StartWithClassicDesktopLifetime([]);
         }
-        if (args is not (["--verify-startup"] or ["--verify-startup-and-clipboard"] or ["--verify-desktop"]))
+        if (args is not (["--verify-startup"] or ["--verify-startup-and-clipboard"] or ["--verify-desktop"] or
+            ["--verify-win-session-lock"] or ["--verify-win-session-lock", _]))
         {
             if (!OperatingSystem.IsWindows()) return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
             using var instance = SingleInstanceCoordinator.StartOrSignalExisting(out bool shouldStart, applicationName);
@@ -42,7 +43,11 @@ internal static class Program
         }
         bool verifyTray = args is ["--verify-desktop"];
         bool verifyClipboard = verifyTray || args is ["--verify-startup-and-clipboard"];
+        bool verifyWinSessionLock = args is ["--verify-win-session-lock"] or ["--verify-win-session-lock", _];
         if (verifyClipboard && Environment.GetEnvironmentVariable("RUNNER_ENVIRONMENT") != "github-hosted") return 2;
+        if (verifyWinSessionLock && !OperatingSystem.IsWindows()) return 2;
+        string? lockReport = verifyWinSessionLock && args.Length == 2 ? Path.GetFullPath(args[1]) : null;
+        if (lockReport != null && (File.Exists(lockReport) || !Directory.Exists(Path.GetDirectoryName(lockReport)))) return 2;
 
         // The packaged executable can prove startup without opening a vault or loading a user's profile.
         var directory = Directory.CreateTempSubdirectory("SQLitePass-startup-");
@@ -53,6 +58,8 @@ internal static class Program
             AppContext.SetData("SQLitePass.ClipboardProbe", verifyClipboard);
             AppContext.SetData("SQLitePass.TrayProbe", verifyTray);
             AppContext.SetData("SQLitePass.AutoTypeProbe", verifyTray);
+            AppContext.SetData("SQLitePass.WindowsSessionLockProbe", verifyWinSessionLock);
+            AppContext.SetData("SQLitePass.WindowsSessionLockReport", lockReport);
             return BuildAvaloniaApp().StartWithClassicDesktopLifetime([]);
         }
         finally { directory.Delete(recursive: true); }
