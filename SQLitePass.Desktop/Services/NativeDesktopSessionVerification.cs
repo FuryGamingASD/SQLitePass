@@ -152,6 +152,17 @@ internal static class NativeDesktopSessionVerification
         await CallAsync("SetSleeping", false);
         await WaitForAsync(() => login.IsEnabled, token);
 
+        if (Environment.GetEnvironmentVariable("XDG_CURRENT_DESKTOP") == "XFCE")
+        {
+            await OpenAsync();
+            await CallAsync("SetScreenSaverActive", true);
+            await WaitForAsync(() => !vault.IsVisible && login.IsVisible && !login.IsEnabled, token);
+            await CallAsync("SetScreenSaverActive", false);
+            await WaitForAsync(() => login.IsEnabled, token);
+            if (vault.IsVisible) throw new InvalidOperationException("Xfce screen saver deactivation reopened the vault.");
+            Console.WriteLine("Verified Xfce screen saver activation locks the vault independently of logind.");
+        }
+
         await CallAsync("SetLocked", true);
         await WaitForAsync(() => !login.IsEnabled, token);
         await CallAsync("Stop");

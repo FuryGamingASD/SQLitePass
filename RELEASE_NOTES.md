@@ -24,6 +24,7 @@ SQLitePass uses a shared C# and Avalonia desktop app for Windows x64 and Linux x
 
 - The existing vault format, credential changes, backup recovery, entry history, attachments, and import and export use the shared vault engine.
 - The same settings, password generator, search and entry editor are available on both platforms. Platform-specific adapters handle clipboard expiry, tray access and session lock signals.
+- On Linux, automatic desktop locking also responds to Xfce Screensaver activation. The vault stays locked when the screen unlocks.
 - Auto-Type displays the destination window and process for confirmation. It stops when the destination loses focus. On Linux it targets X11 windows and checks the active keyboard layout before typing.
 - The Windows installer retains the existing SQLitePass installation identity. The installed app checks its platform's update feed and locks the vault before restarting to apply a confirmed update.
 

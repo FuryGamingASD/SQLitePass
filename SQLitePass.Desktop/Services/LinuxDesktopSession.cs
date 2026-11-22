@@ -7,64 +7,83 @@ namespace SQLitePass.Desktop.Services;
 internal sealed class LinuxDesktopSession : IDesktopSession
 {
     private const string LogindService = "org.freedesktop.login1";
+    private const string XfceScreenSaver = "org.xfce.ScreenSaver";
+    private const string XfceScreenSaverPath = "/org/xfce/ScreenSaver";
     private const string ManagerPath = "/org/freedesktop/login1";
     private const string SessionInterface = LogindService + ".Session";
     private const string ManagerInterface = LogindService + ".Manager";
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(5);
     private readonly Action<bool> _lockStateChanged;
-    private readonly DBusConnection? _bus;
+    private readonly DBusConnection? _systemBus;
+    private readonly DBusConnection? _sessionBus;
     private readonly object _state = new();
     private volatile bool _disposed;
     private bool _sessionLocked;
     private bool _suspended;
+    private bool _screenSaverActive;
     private int _lockHintChanges;
+    private int _screenSaverChanges;
+
+    private bool IsLocked => _sessionLocked || _suspended || _screenSaverActive;
 
     public LinuxDesktopSession(Action<bool> lockStateChanged)
     {
         _lockStateChanged = lockStateChanged;
-        if (DBusAddress.System is { Length: > 0 } address)
+        if (DBusAddress.System is { Length: > 0 } systemAddress)
         {
-            _bus = new DBusConnection(address);
-            _ = ObserveAsync(_bus);
+            _systemBus = new DBusConnection(systemAddress);
+            _ = ObserveAsync(_systemBus, LogindService, ObserveLogindAsync,
+                () => UpdateLockState(sessionLocked: false, suspended: false));
+        }
+
+        string? desktop = Environment.GetEnvironmentVariable("XDG_CURRENT_DESKTOP");
+        if (desktop?.Split(':').Contains("XFCE", StringComparer.OrdinalIgnoreCase) == true &&
+            DBusAddress.Session is { Length: > 0 } sessionAddress)
+        {
+            // Xfce Screensaver publishes activation on the session bus and may leave logind's LockedHint unchanged.
+            _sessionBus = new DBusConnection(sessionAddress);
+            _ = ObserveAsync(_sessionBus, XfceScreenSaver, ObserveXfceScreenSaverAsync,
+                () => UpdateLockState(screenSaverActive: false));
         }
     }
 
-    private async Task ObserveAsync(DBusConnection bus)
+    private async Task ObserveAsync(DBusConnection bus, string service,
+        Func<DBusConnection, string, CancellationToken, Task> observeOwner, Action reset)
     {
         try
         {
             await bus.ConnectAsync().AsTask().WaitAsync(RequestTimeout).ConfigureAwait(false);
-            using var owner = await bus.WatchNameOwnerAsync(LogindService).WaitAsync(RequestTimeout).ConfigureAwait(false);
+            using var owner = await bus.WatchNameOwnerAsync(service).WaitAsync(RequestTimeout).ConfigureAwait(false);
             while (!_disposed)
             {
                 string current = await owner.WaitForOwnerAsync().ConfigureAwait(false);
                 var replaced = owner.GetOwnerChangedCancellationToken(current);
-                try { await ObserveOwnerAsync(bus, current, replaced).ConfigureAwait(false); }
+                try { await observeOwner(bus, current, replaced).ConfigureAwait(false); }
                 catch (OperationCanceledException) when (replaced.IsCancellationRequested) { }
                 catch (Exception error) when (error is DBusExceptionBase or TimeoutException or IOException)
                 {
                     if (!_disposed && !replaced.IsCancellationRequested)
-                        AppLogger.LogError("The current logind service cannot monitor this session", error);
+                        AppLogger.LogError($"Could not monitor the desktop session through {service}", error);
                 }
-                finally { UpdateLockState(sessionLocked: false, suspended: false); }
+                finally { reset(); }
 
-                // A logind restart can change the session object path even when the system bus continues running.
+                // A replacement service can have a new owner and session object on the same bus.
                 try { await Task.Delay(Timeout.InfiniteTimeSpan, replaced).ConfigureAwait(false); }
                 catch (OperationCanceledException) when (replaced.IsCancellationRequested) { }
             }
         }
         catch (Exception exception)
         {
-            if (!_disposed) AppLogger.LogError("Linux desktop session monitoring unavailable", exception);
+            if (!_disposed) AppLogger.LogError($"Desktop session monitoring through {service} is unavailable", exception);
         }
         finally
         {
-            UpdateLockState(sessionLocked: false, suspended: false);
+            reset();
             bus.Dispose();
         }
     }
 
-    private async Task ObserveOwnerAsync(DBusConnection bus, string owner, CancellationToken replaced)
+    private async Task ObserveLogindAsync(DBusConnection bus, string owner, CancellationToken replaced)
     {
         string session = await bus.CallMethodAsync(GetSessionRequest(bus, owner),
             static (message, _) => message.GetBodyReader().ReadObjectPath().ToString()).WaitAsync(RequestTimeout, replaced).ConfigureAwait(false);
@@ -84,6 +103,28 @@ internal sealed class LinuxDesktopSession : IDesktopSession
             static (message, _) => message.GetBodyReader().ReadVariantValue().GetBool()).WaitAsync(RequestTimeout, replaced).ConfigureAwait(false);
         UpdateLockState(sessionLocked: initial, ifHintChanges: hintChanges, replaced: replaced);
         await Task.Delay(Timeout.InfiniteTimeSpan, replaced).ConfigureAwait(false);
+    }
+
+    private async Task ObserveXfceScreenSaverAsync(DBusConnection bus, string owner, CancellationToken replaced)
+    {
+        using var active = await bus.WatchSignalAsync(owner, XfceScreenSaverPath, XfceScreenSaver, "ActiveChanged",
+            static (message, _) => message.GetBodyReader().ReadBool(), (Notification<bool> change) =>
+            {
+                if (change.HasValue) UpdateLockState(screenSaverActive: change.Value, replaced: replaced);
+            }, ObserverFlags.None, emitOnCapturedContext: false).AsTask().WaitAsync(RequestTimeout, replaced).ConfigureAwait(false);
+        int changes;
+        lock (_state) changes = _screenSaverChanges;
+        bool initial = await bus.CallMethodAsync(GetScreenSaverActiveRequest(bus, owner),
+            static (message, _) => message.GetBodyReader().ReadBool()).WaitAsync(RequestTimeout, replaced).ConfigureAwait(false);
+        UpdateLockState(screenSaverActive: initial, ifScreenSaverChanges: changes, replaced: replaced);
+        await Task.Delay(Timeout.InfiniteTimeSpan, replaced).ConfigureAwait(false);
+    }
+
+    private static MessageBuffer GetScreenSaverActiveRequest(DBusConnection bus, string owner)
+    {
+        using var writer = bus.GetMessageWriter();
+        writer.WriteMethodCallHeader(owner, XfceScreenSaverPath, XfceScreenSaver, "GetActive");
+        return writer.CreateMessage();
     }
 
     private static MessageBuffer GetSessionRequest(DBusConnection bus, string owner)
@@ -119,20 +160,29 @@ internal sealed class LinuxDesktopSession : IDesktopSession
         return changes.TryGetValue("LockedHint", out var locked) ? locked.GetBool() : null;
     }
 
-    private void UpdateLockState(bool? sessionLocked = null, bool? suspended = null, int? ifHintChanges = null,
-        CancellationToken replaced = default)
+    private void UpdateLockState(bool? sessionLocked = null, bool? suspended = null, bool? screenSaverActive = null,
+        int? ifHintChanges = null, int? ifScreenSaverChanges = null, CancellationToken replaced = default)
     {
         lock (_state)
         {
-            if (_disposed || replaced.IsCancellationRequested || ifHintChanges is { } expected && expected != _lockHintChanges) return;
-            bool wasLocked = _sessionLocked || _suspended;
+            if (_disposed || replaced.IsCancellationRequested ||
+                (ifHintChanges is { } hints && hints != _lockHintChanges) ||
+                (ifScreenSaverChanges is { } activations && activations != _screenSaverChanges)) return;
+
+            bool wasLocked = IsLocked;
             if (sessionLocked is { } locked)
             {
                 _sessionLocked = locked;
                 _lockHintChanges++;
             }
             if (suspended is { } asleep) _suspended = asleep;
-            bool isLocked = _sessionLocked || _suspended;
+            if (screenSaverActive is { } active)
+            {
+                _screenSaverActive = active;
+                _screenSaverChanges++;
+            }
+
+            bool isLocked = IsLocked;
             if (wasLocked != isLocked) _lockStateChanged(isLocked);
         }
     }
@@ -142,6 +192,7 @@ internal sealed class LinuxDesktopSession : IDesktopSession
     public void Dispose()
     {
         lock (_state) _disposed = true;
-        _bus?.Dispose();
+        _systemBus?.Dispose();
+        _sessionBus?.Dispose();
     }
 }

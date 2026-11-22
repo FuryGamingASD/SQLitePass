@@ -11,7 +11,8 @@ trap 'kill "$window_manager" "$login_service" 2>/dev/null || true' EXIT
 for ((attempt = 0; attempt < 50; attempt++)); do
     if xprop -root _NET_SUPPORTING_WM_CHECK | grep -Eq 'window id # 0x[0-9a-f]+'; then
         setxkbmap -layout it
-        DBUS_SYSTEM_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" XDG_SESSION_ID=sqlitepass-verification "$@"
+        # The private bus also provides the Xfce screen saver for the session lock check.
+        DBUS_SYSTEM_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS" XDG_SESSION_ID=sqlitepass-verification XDG_CURRENT_DESKTOP=XFCE "$@"
         exit
     fi
     sleep 0.1

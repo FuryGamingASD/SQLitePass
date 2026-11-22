@@ -1,4 +1,4 @@
-"""Test logind on the private D-Bus bus created for the AppImage probe."""
+"""Exercise desktop lock providers on the private D-Bus bus created for the AppImage probe."""
 
 import dbus
 import dbus.service
@@ -11,6 +11,7 @@ SESSION = SERVICE + ".Session"
 MANAGER = SERVICE + ".Manager"
 PROPERTIES = "org.freedesktop.DBus.Properties"
 PROBE = "org.sqlitepass.Verification.Session"
+XFCE_SCREENSAVER = "org.xfce.ScreenSaver"
 SESSION_PATH = "/org/freedesktop/login1/session/sqlitepass_verification"
 
 
@@ -36,10 +37,29 @@ class Session(dbus.service.Object):
         self.PropertiesChanged(SESSION, {"LockedHint": dbus.Boolean(value)}, [])
 
 
+class ScreenSaver(dbus.service.Object):
+    def __init__(self, name):
+        super().__init__(name, "/org/xfce/ScreenSaver")
+        self.active = False
+
+    @dbus.service.method(XFCE_SCREENSAVER, in_signature="", out_signature="b")
+    def GetActive(self):
+        return self.active
+
+    @dbus.service.signal(XFCE_SCREENSAVER, signature="b")
+    def ActiveChanged(self, active):
+        pass
+
+    def set_active(self, value):
+        self.active = value
+        self.ActiveChanged(value)
+
+
 class Manager(dbus.service.Object):
-    def __init__(self, name, session, loop):
+    def __init__(self, name, session, screen_saver, loop):
         super().__init__(name, "/org/freedesktop/login1")
         self.session = session
+        self.screen_saver = screen_saver
         self.loop = loop
 
     @dbus.service.method(MANAGER, in_signature="s", out_signature="o")
@@ -64,6 +84,10 @@ class Manager(dbus.service.Object):
     def SetSleeping(self, sleeping):
         self.PrepareForSleep(sleeping)
 
+    @dbus.service.method(PROBE, in_signature="b", out_signature="")
+    def SetScreenSaverActive(self, active):
+        self.screen_saver.set_active(active)
+
     @dbus.service.method(PROBE, in_signature="", out_signature="")
     def Stop(self):
         GLib.idle_add(self.loop.quit)
@@ -72,7 +96,10 @@ class Manager(dbus.service.Object):
 if __name__ == "__main__":
     DBusGMainLoop(set_as_default=True)
     loop = GLib.MainLoop()
-    name = dbus.service.BusName(SERVICE, bus=dbus.SessionBus(), do_not_queue=True)
+    bus = dbus.SessionBus()
+    name = dbus.service.BusName(SERVICE, bus=bus, do_not_queue=True)
+    screen_saver_name = dbus.service.BusName(XFCE_SCREENSAVER, bus=bus, do_not_queue=True)
     session = Session(name)
-    manager = Manager(name, session, loop)
+    screen_saver = ScreenSaver(screen_saver_name)
+    manager = Manager(name, session, screen_saver, loop)
     loop.run()
