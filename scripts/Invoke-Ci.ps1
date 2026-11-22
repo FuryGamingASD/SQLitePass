@@ -1,9 +1,13 @@
-param([ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version='1.1.3')
+param([ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version)
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 $root=(Resolve-Path (Join-Path $PSScriptRoot '..')).ProviderPath
 Push-Location -LiteralPath $root
 try {
+    if (-not $Version) {
+        $Version = & dotnet msbuild SQLitePass.UI/SQLitePass.UI.csproj -nologo -getProperty:Version
+        if ($LASTEXITCODE -ne 0 -or $Version -notmatch '^\d+\.\d+\.\d+$') { throw 'Cannot resolve the shared application version.' }
+    }
     & (Join-Path $PSScriptRoot 'Test-ReleasePublication.ps1')
     New-Item -ItemType Directory -Path 'artifacts/verification' -Force | Out-Null
     dotnet restore SQLitePass.slnx --locked-mode

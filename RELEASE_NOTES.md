@@ -1,6 +1,6 @@
 # Release Notes
 
-This document contains the complete public release history of SQLitePass.
+This document contains release notes and the public release history of SQLitePass.
 
 Historical release notes describe functionality and expectations at the time they were published.
 
@@ -15,6 +15,17 @@ Where differences exist, the following documents take precedence:
 - BACKUP_AND_RECOVERY.md
 
 Security guarantees should always be interpreted according to the current documentation rather than historical marketing language.
+
+---
+
+# SQLitePass 1.2.0
+
+SQLitePass uses a shared C# and Avalonia desktop app for Windows x64 and Linux x64. The release includes the Windows installer and a Linux AppImage, with a separate update feed for each platform.
+
+- The existing vault format, credential changes, backup recovery, entry history, attachments, and import and export use the shared vault engine.
+- The same settings, password generator, search and entry editor are available on both platforms. Platform-specific adapters handle clipboard expiry, tray access and session lock signals.
+- Auto-Type displays the destination window and process for confirmation. It stops when the destination loses focus. On Linux it targets X11 windows and checks the active keyboard layout before typing.
+- The Windows installer retains the existing SQLitePass installation identity. The installed app checks its platform's update feed and locks the vault before restarting to apply a confirmed update.
 
 ---
 
