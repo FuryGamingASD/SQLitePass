@@ -358,6 +358,10 @@ Prevent accidental credential delivery.
 
 Windows `SendInput` uses a global keyboard stream and the target can change between a check and an event. This remains a P1 risk. Linux Auto-Type uses the shared X11 display and requires a trusted local session. SQLitePass cancels on detected focus changes, session lock and vault minimization. The user must confirm the destination. Process identity and window title provide context for this decision. [Platform behavior](CROSS_PLATFORM.md#auto-type-in-the-shared-app) · [KeePass Auto-Type](https://keepass.info/help/base/autotype.html)
 
+### Browser form filling (not implemented)
+
+The desktop flow can type into a browser, but its process and window title checks do not authenticate the active page's web origin. A browser integration should be a separate, explicit extension flow: user-invoked temporary `activeTab` access, exact canonical-origin matching, confirmation in SQLitePass, and rechecking the same tab and origin immediately before filling. Use native messaging with an exact extension allowlist; do not add a local HTTP/WebSocket listener or auto-submit a form. Even with those checks, the approved page receives the credentials and can read them. Browser support therefore adds a new trust boundary and needs separate packaging and threat review. See the official [Chrome `activeTab`](https://developer.chrome.com/docs/extensions/develop/concepts/activeTab) and [native messaging](https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging) documentation and [Edge native messaging](https://learn.microsoft.com/en-us/microsoft-edge/extensions/developer-guide/native-messaging).
+
 ---
 
 # A7 – Malicious Local User
@@ -650,6 +654,26 @@ Components not trusted:
 
 ---
 
+# A13 – Update Feed Tampering
+
+### Capabilities
+
+The attacker can replace an update feed and its package on the configured release host, for example after compromise of the repository or release-upload credentials. This does not assume ordinary HTTPS transport interception.
+
+### Security Goal
+
+Ensure that an update package was authorized by the SQLitePass publisher independently of the host that serves it.
+
+### Current Checks
+
+SQLitePass uses HTTPS, checks the Velopack application/package identity, asks the user before download and application, and verifies package hashes supplied by the feed. These checks detect inconsistent downloads but the feed hash is not an independent publisher signature: an attacker able to replace both feed and package can supply a matching pair.
+
+### Residual Risk
+
+High/P1. If a user accepts a substituted update, its code runs with the user's privileges and may access an unlocked vault. Add a detached signature verified by a public key pinned in the client, with the signing private key held separately from normal release credentials. Test feed/package tampering, invalid signatures and replay or rollback before treating updates as authenticated. This finding is based on source review of commit `5019be7`; no malicious update was executed. Velopack maintainers describe feed hashes as download-integrity checks rather than publisher authentication in [issue #105](https://github.com/velopack/velopack/issues/105).
+
+---
+
 # Security Features by Threat
 
 | Threat | Primary Mitigation |
@@ -661,6 +685,7 @@ Components not trusted:
 | Clipboard Exposure | Timed Clipboard Cleanup |
 | Window Capture | Screen Capture Protection |
 | Auto-Type Hijack | Per-event Validation; Residual Global-Input Race |
+| Update Feed Tampering | HTTPS and feed identity/hash checks; independent publisher signature pending |
 | User Error | Recovery Snapshots |
 | Failed Rekey | Pre-Rekey Backup |
 | Failed Migration | Migration Backup |
