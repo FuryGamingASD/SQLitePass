@@ -114,6 +114,19 @@ public sealed partial class AvaloniaVaultTests
                     var entries = window.FindControl<ListBox>("Entries")!;
                     var row = Assert.IsType<EntryRow>(Assert.Single(entries.Items));
                     Assert.Equal("••••••••", row.DisplayPassword);
+                    entries.SelectedItem = row;
+                    var quality = window.FindControl<ProgressBar>("PreviewQuality")!;
+                    var estimate = window.FindControl<Button>("PreviewEstimateQuality")!;
+                    Assert.False(quality.IsVisible);
+                    Assert.True(estimate.IsEffectivelyEnabled);
+                    estimate.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    await WaitAsync(() => quality.IsVisible && entries.IsEnabled, timeout.Token);
+                    Assert.Equal(PasswordGenerator.CalculateEntropy(entrySecret), quality.Value);
+                    Assert.Equal(row.PasswordMask, window.FindControl<TextBlock>("PreviewSecret")!.Text);
+                    Assert.Null(backend.Text);
+                    entries.SelectedItem = null;
+                    Assert.False(quality.IsVisible);
+                    Assert.False(estimate.IsEnabled);
 
                     DoubleClick("EntryUserCell");
                     await WaitAsync(() => backend.Text == "demo-user", timeout.Token);

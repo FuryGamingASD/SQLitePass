@@ -101,12 +101,36 @@ public sealed partial class VaultWindow
         PreviewUser.Text = selected?.UserName;
         PreviewUrl.Text = selected?.Url;
         PreviewSecret.Text = selected?.PasswordMask;
-        PreviewQuality.IsVisible = selected?.PasswordQuality != null;
-        PreviewQuality.Value = selected?.PasswordQuality ?? 0;
-        string? quality = selected?.PasswordQuality is { } score ? Text("QualityScore", score) : null;
+        SetPreviewQuality(null);
+    }
+
+    private void SetPreviewQuality(double? score)
+    {
+        PreviewQuality.IsVisible = score.HasValue;
+        PreviewQuality.Value = score ?? 0;
+        string? quality = score.HasValue ? Text("QualityScore", score.Value) : null;
         ToolTip.SetTip(PreviewQuality, quality);
         Avalonia.Automation.AutomationProperties.SetName(PreviewQuality, quality);
     }
+
+    private async void PreviewEstimateQuality_Click(object? sender, RoutedEventArgs e) => await RunOperationAsync(async token =>
+    {
+        if (_session is not { } session || _query.OnlyRecycleBin ||
+            Entries.SelectedItem is not EntryRow { HasPassword: true } row) return;
+
+        SetPreviewQuality(null);
+        var overview = await session.Storage.LoadEntryOverviewAsync(row.Id, session.Crypto, row.Revision, token);
+        try
+        {
+            token.ThrowIfCancellationRequested();
+            if (!ReferenceEquals(_session, session) || !ReferenceEquals(Entries.SelectedItem, row)) return;
+            if (overview.Password.Length > 512)
+                StatusText.Text = Text("QualityNotEstimated");
+            else if (overview.Password.Length > 0)
+                SetPreviewQuality(PasswordGenerator.CalculateEntropy(overview.Password));
+        }
+        finally { overview.ClearSecrets(); }
+    });
 
     private async void PreviewReveal_Click(object? sender, RoutedEventArgs e)
     {

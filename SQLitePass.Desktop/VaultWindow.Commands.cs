@@ -67,7 +67,7 @@ public sealed partial class VaultWindow
         CopyPassword.IsEnabled = ToolbarCopyPassword.IsEnabled = PreviewCopyPassword.IsEnabled = canCopy && selected!.HasPassword;
         AutoTypeEntry.IsEnabled = ToolbarAutoType.IsEnabled = _autoTypeAvailable && hasEntry && !_query.OnlyRecycleBin;
         OpenUrlCommand.IsEnabled = ToolbarOpenUrl.IsEnabled = selected != null && EntryUri(selected.Url) != null && !_query.OnlyRecycleBin;
-        PreviewReveal.IsEnabled = selected?.HasPassword == true && !_query.OnlyRecycleBin;
+        PreviewEstimateQuality.IsEnabled = PreviewReveal.IsEnabled = selected?.HasPassword == true && !_query.OnlyRecycleBin;
         ImportKeePass.IsEnabled = ImportBitwarden.IsEnabled = ImportBrowser.IsEnabled = writable;
         ExportKeePass.IsEnabled = _session != null;
         bool editableFolder = writable && folder is { IsRoot: false, IsRecycleBin: false };

@@ -48,6 +48,7 @@ public sealed partial class VaultWindow
         {
             (LoginTheme, "MenuToggleTheme"), (VaultTheme, "MenuToggleTheme"), (RecentVaultButton, "RecentVaults"),
             (LoginReveal, "ShowPassword"), (PreviewReveal, "ShowPassword"), (PreviewCopyPassword, "TbCopyPassword"),
+            (PreviewEstimateQuality, "EstimatePasswordQuality"),
             (LockVault, "TbLock"), (AddEntry, "TbNewEntry"), (EditEntry, "TbEdit"), (ToolbarDelete, "TbDelete"),
             (ToolbarCopyUser, "TbCopyUser"), (ToolbarCopyPassword, "TbCopyPassword"), (ToolbarOpenUrl, "TbOpenUrl"),
             (ToolbarAutoType, "TbAutoType"), (ToolbarGenerator, "TbGenerator"), (SidebarAddFolder, "NewGroup"),

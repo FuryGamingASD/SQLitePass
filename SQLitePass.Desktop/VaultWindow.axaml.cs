@@ -19,7 +19,7 @@ using SQLitePass.UI.Services;
 namespace SQLitePass.Desktop;
 
 internal sealed class EntryRow(Guid id, long revision, string title, string userName, bool hasPassword,
-    string url, string notes, string updated, double? passwordQuality) : INotifyPropertyChanged
+    string url, string notes, string updated) : INotifyPropertyChanged
 {
     private string? _revealedPassword;
 
@@ -31,7 +31,6 @@ internal sealed class EntryRow(Guid id, long revision, string title, string user
     public string Url { get; } = url;
     public string Notes { get; } = notes;
     public string Updated { get; } = updated;
-    public double? PasswordQuality { get; } = passwordQuality;
 
     public event PropertyChangedEventHandler? PropertyChanged;
     public AppIconKind Icon => AppIconLabels.Entry(Title);
@@ -336,8 +335,7 @@ public sealed partial class VaultWindow : Window
             var selectedEntry = (Entries.SelectedItem as EntryRow)?.Id;
             var rows = page.Entries.Select(entry => new EntryRow(entry.Id, entry.Revision, entry.Title, entry.UserName,
                 !string.IsNullOrEmpty(entry.Password), entry.Url, NotePreview(entry.Notes),
-                entry.UpdatedAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture),
-                entry.Password.Length is > 0 and <= 512 ? PasswordGenerator.CalculateEntropy(entry.Password) : null)).ToArray();
+                entry.UpdatedAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture))).ToArray();
             Entries.ItemsSource = rows;
             Entries.SelectedItem = rows.FirstOrDefault(row => row.Id == selectedEntry);
             EmptyEntryPanel.IsVisible = rows.Length == 0;

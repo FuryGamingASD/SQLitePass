@@ -187,6 +187,7 @@
   "ShowPassword": "Afficher le mot de passe pendant 15 secondes",
   "HidePassword": "Masquer le mot de passe",
   "QualityScore": "{0:F0}/100 (estimation)",
+  "EstimatePasswordQuality": "Estimer la qualité du mot de passe",
   "NoNotes": "Aucune note",
   "EntriesShown": "{0:N0} entrées affichées sur {1:N0}",
   "VaultLocked": "Coffre verrouillé",

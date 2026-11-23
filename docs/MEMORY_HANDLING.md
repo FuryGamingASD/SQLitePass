@@ -171,6 +171,8 @@ Sensitive entry fields include:
 
 These values are decrypted for use and are cleared from active models when those models are released or the session is locked. Managed strings and copies held by the runtime may persist until garbage collection; this does not guarantee that plaintext exists only while actively required.
 
+In the Avalonia desktop app, the shield in the entry preview estimates the selected entry's password quality on request. The preview retains the score until selection changes or the page reloads. Browsing still materializes scalar secrets during page loading. [Hardening roadmap](audit/KEEPASS_GAP_ROADMAP.md)
+
 ---
 
 ## Entry Cleanup

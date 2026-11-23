@@ -433,9 +433,12 @@
                                            Foreground="{DynamicResource WorkspaceLink}" />
                                 <TextBlock x:Name="PreviewSecret" Margin="0,0,10,2" TextTrimming="CharacterEllipsis" MaxWidth="200" />
                                 <ProgressBar x:Name="PreviewQuality" Width="64" MinWidth="0" Height="5" Maximum="100"
-                                             VerticalAlignment="Center" />
+                                             VerticalAlignment="Center" IsVisible="False" />
                             </WrapPanel>
                             <StackPanel Grid.Column="1" Grid.RowSpan="2" Orientation="Horizontal" Spacing="5">
+                                <Button x:Name="PreviewEstimateQuality" Classes="icon-tool" Click="PreviewEstimateQuality_Click">
+                                    <desktop:DesktopIcon Kind="Shield" />
+                                </Button>
                                 <Button x:Name="PreviewReveal" Classes="icon-tool" Click="PreviewReveal_Click">
                                     <desktop:DesktopIcon x:Name="PreviewRevealIcon" Kind="Eye" />
                                 </Button>

@@ -187,6 +187,7 @@
   "ShowPassword": "Show password for 15 seconds",
   "HidePassword": "Hide password",
   "QualityScore": "{0:F0}/100 (estimate)",
+  "EstimatePasswordQuality": "Estimate password quality",
   "NoNotes": "No notes",
   "EntriesShown": "Showing {0:N0} of {1:N0} entries",
   "VaultLocked": "Vault locked",
