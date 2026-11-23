@@ -6,6 +6,7 @@ using SQLitePass.Core.Services;
 namespace SQLitePass.Desktop.Services;
 
 internal enum ClipboardClearResult { Cleared, Replaced, Busy }
+internal enum ClipboardCopyBlockedReason { None, WindowsClipboardSyncEnabled, SecureWindowsClipboardUnavailable }
 
 internal interface IClipboardLease
 {
@@ -14,6 +15,7 @@ internal interface IClipboardLease
 
 internal interface ISensitiveClipboard : IDisposable
 {
+    ClipboardCopyBlockedReason CopyBlockedReason => ClipboardCopyBlockedReason.None;
     ValueTask<IClipboardLease?> TryCopyAsync(string text);
 }
 
@@ -34,6 +36,7 @@ internal sealed class SessionClipboard : IDisposable
     }
 
     internal event Action<ClipboardClearResult>? Expired;
+    internal ClipboardCopyBlockedReason CopyBlockedReason => _backend.CopyBlockedReason;
 
     internal static SessionClipboard? Create(Window window)
     {

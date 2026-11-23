@@ -259,6 +259,8 @@
   "BackupNotChecked": "Backup: nessuna verifica in questa sessione",
   "ClipboardCopiedFor": "{0} negli appunti per {1}s",
   "ClipboardBusy": "Appunti occupati: copia non eseguita.",
+  "ClipboardSyncBlocked": "Copia bloccata: disattivare la sincronizzazione degli appunti di Windows per copiare credenziali.",
+  "ClipboardSecurityUnavailable": "Copia bloccata: questa build non può garantire la privacy degli appunti di Windows.",
   "ClipboardCleared": "Appunti della sessione cancellati.",
   "ClipboardClearFailed": "Impossibile cancellare gli appunti: riprovare.",
   "ClipboardText": "Testo",

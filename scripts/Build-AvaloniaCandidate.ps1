@@ -29,7 +29,8 @@ try {
     $candidateId = "$version-$([Guid]::NewGuid().ToString('N'))"
     $publish = Join-Path $root "artifacts/avalonia/$candidateId/publish"
     $release = Join-Path $root "artifacts/avalonia/$candidateId/packages"
-    dotnet publish $project -c Release -r $Runtime --self-contained -o $publish -p:RestoreLockedMode=true -warnaserror
+    $framework = if ($Runtime -eq 'win-x64') { 'net10.0-windows10.0.17763.0' } else { 'net10.0' }
+    dotnet publish $project -c Release -f $framework -r $Runtime --self-contained -o $publish -p:RestoreLockedMode=true -warnaserror
     if ($LASTEXITCODE -ne 0) { throw 'Avalonia publish failed.' }
     $nugetRoot = & dotnet msbuild $project -nologo -getProperty:NuGetPackageRoot
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $nugetRoot -PathType Container)) { throw 'Cannot resolve the NuGet package cache.' }

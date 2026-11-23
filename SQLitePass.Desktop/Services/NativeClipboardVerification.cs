@@ -8,7 +8,7 @@ namespace SQLitePass.Desktop.Services;
 // Runs exclusively in a verification desktop, using synthetic clipboard data.
 internal static class NativeClipboardVerification
 {
-    private const string InitialText = "SQLitePass clipboard fixture Ω 🎛";
+    private const string InitialText = "SQLitePass WinRT protected clipboard fixture Ω";
     private const string ReplacementText = "Synthetic clipboard from another application";
     private static bool InspectWindowsHistory => OperatingSystem.IsWindows() &&
         Environment.GetEnvironmentVariable("SQLITEPASS_VERIFY_WINDOWS_CLIPBOARD_HISTORY") == "1";
@@ -72,9 +72,29 @@ internal static class NativeClipboardVerification
         if (!string.IsNullOrEmpty(await read.TryGetTextAsync()))
             throw new InvalidOperationException("Locking the vault did not clear its clipboard item.");
         await VerifyWaylandPeerClearedAsync(token);
-        Console.WriteLine("Verified native clipboard round-trip, privacy formats, shortened expiry, replacement and vault lock.");
+        Console.WriteLine("Verified native clipboard round-trip, privacy controls, shortened expiry, replacement and vault lock.");
         if (UseWaylandPeer) Console.WriteLine("Verified clipboard round-trip and clearing between XWayland and a Wayland-native peer.");
     }
+
+#if WINDOWS
+    [System.Runtime.Versioning.SupportedOSPlatform("windows10.0.17763")]
+    internal static async Task<bool> VerifyWindowsClipboardSyncGuardAsync(VaultWindow window)
+    {
+        if (!WindowsSensitiveClipboard.IsClipboardRoamingEnabledForCurrentUser())
+            throw new InvalidOperationException("The clipboard sync guard probe requires Windows clipboard sync to be enabled.");
+        var clipboard = window.NativeClipboard ?? throw new InvalidOperationException("Native clipboard backend unavailable.");
+        uint sequenceBefore = WindowsSensitiveClipboard.GetClipboardSequenceNumberForVerification();
+        bool copied = await clipboard.CopyAsync("SQLitePass clipboard sync guard fixture", TimeSpan.FromSeconds(30));
+        uint sequenceAfter = WindowsSensitiveClipboard.GetClipboardSequenceNumberForVerification();
+        if (copied || clipboard.CopyBlockedReason != ClipboardCopyBlockedReason.WindowsClipboardSyncEnabled || sequenceBefore != sequenceAfter)
+            throw new InvalidOperationException("The Windows clipboard sync guard did not block the copy without changing the clipboard.");
+        Console.WriteLine("Verified Windows clipboard sync blocks credential copy without modifying the clipboard.");
+        return true;
+    }
+#else
+    internal static Task<bool> VerifyWindowsClipboardSyncGuardAsync(VaultWindow window) =>
+        Task.FromException<bool>(new PlatformNotSupportedException("The Windows clipboard sync guard requires the Windows target framework."));
+#endif
 
     private static async Task VerifyWaylandPeerClearedAsync(CancellationToken token)
     {
@@ -88,8 +108,12 @@ internal static class NativeClipboardVerification
     {
         if (OperatingSystem.IsWindows())
         {
+#if WINDOWS
+            // TryCopyAsync fails closed unless Windows accepted both opt-outs via SetContentWithOptions.
+#else
             using var backend = WindowsSensitiveClipboard.Create(window.TryGetPlatformHandle()!.Handle);
             if (!backend.UsesPrivacyFormats()) throw new InvalidOperationException("Windows clipboard privacy formats were missing.");
+#endif
         }
         else
         {

@@ -67,6 +67,12 @@ public sealed partial class App : Application
                                 if (OperatingSystem.IsLinux()) desktop.Shutdown(passed ? 0 : 1);
                                 return;
                             }
+                            if (AppContext.GetData("SQLitePass.WindowsClipboardSyncGuardProbe") is true)
+                            {
+                                bool passed = await NativeClipboardVerification.VerifyWindowsClipboardSyncGuardAsync(window);
+                                desktop.Shutdown(passed ? 0 : 1);
+                                return;
+                            }
                             if (AppContext.GetData("SQLitePass.ClipboardProbe") is true) await NativeClipboardVerification.VerifyAsync(window);
                             if (AppContext.GetData("SQLitePass.TrayProbe") is true) await NativeTrayVerification.VerifyAsync(window);
                             if (AppContext.GetData("SQLitePass.AutoTypeProbe") is true) await NativeAutoTypeVerification.VerifyAsync();

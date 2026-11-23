@@ -259,6 +259,8 @@
   "BackupNotChecked": "Copia: sin verificar en esta sesión",
   "ClipboardCopiedFor": "{0} en el portapapeles durante {1}s",
   "ClipboardBusy": "Portapapeles ocupado: no se copió.",
+  "ClipboardSyncBlocked": "Copia bloqueada: desactiva la sincronización del portapapeles de Windows para copiar credenciales.",
+  "ClipboardSecurityUnavailable": "Copia bloqueada: esta compilación no puede garantizar la privacidad del portapapeles de Windows.",
   "ClipboardCleared": "Portapapeles de la sesión borrado.",
   "ClipboardClearFailed": "No se pudo borrar el portapapeles: reintenta.",
   "ClipboardText": "Texto",

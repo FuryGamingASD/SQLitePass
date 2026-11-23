@@ -259,6 +259,8 @@
   "BackupNotChecked": "Backup: not checked in this session",
   "ClipboardCopiedFor": "{0} on the clipboard for {1}s",
   "ClipboardBusy": "Clipboard busy: nothing copied.",
+  "ClipboardSyncBlocked": "Copy blocked: turn off Windows clipboard sync to copy credentials.",
+  "ClipboardSecurityUnavailable": "Copy blocked: this build cannot enforce Windows clipboard privacy.",
   "ClipboardCleared": "Session clipboard cleared.",
   "ClipboardClearFailed": "Could not clear the clipboard: try again.",
   "ClipboardText": "Text",

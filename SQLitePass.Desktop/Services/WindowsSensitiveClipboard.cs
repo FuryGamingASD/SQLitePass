@@ -1,3 +1,4 @@
+#if !WINDOWS
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Security.Cryptography;
@@ -15,6 +16,7 @@ internal sealed class WindowsSensitiveClipboard : ISensitiveClipboard
     private readonly uint _excludeFromHistory;
     private readonly uint _excludeFromCloud;
     private readonly uint _leaseFormat;
+    public ClipboardCopyBlockedReason CopyBlockedReason { get; private set; }
 
     private WindowsSensitiveClipboard(IntPtr window)
     {
@@ -29,6 +31,10 @@ internal sealed class WindowsSensitiveClipboard : ISensitiveClipboard
 
     public ValueTask<IClipboardLease?> TryCopyAsync(string text)
     {
+        CopyBlockedReason = OperatingSystem.IsWindows()
+            ? ClipboardCopyBlockedReason.SecureWindowsClipboardUnavailable
+            : ClipboardCopyBlockedReason.None;
+        if (OperatingSystem.IsWindows()) return ValueTask.FromResult<IClipboardLease?>(null);
         // The native text format is NUL-terminated. Reject values that cannot round-trip intact.
         if (text.Contains('\0') || _excludeFromMonitoring == 0 || _excludeFromHistory == 0 || _excludeFromCloud == 0 || _leaseFormat == 0 ||
             !OpenClipboard(_window)) return ValueTask.FromResult<IClipboardLease?>(null);
@@ -120,3 +126,4 @@ internal sealed class WindowsSensitiveClipboard : ISensitiveClipboard
     [DllImport("kernel32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool GlobalUnlock(IntPtr handle);
     [DllImport("kernel32.dll")] private static extern IntPtr GlobalFree(IntPtr handle);
 }
+#endif

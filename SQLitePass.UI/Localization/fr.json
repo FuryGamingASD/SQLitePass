@@ -259,6 +259,8 @@
   "BackupNotChecked": "Sauvegarde : non vérifiée dans cette session",
   "ClipboardCopiedFor": "{0} dans le presse-papiers pour {1}s",
   "ClipboardBusy": "Presse-papiers occupé : copie non effectuée.",
+  "ClipboardSyncBlocked": "Copie bloquée : désactivez la synchronisation du Presse-papiers Windows pour copier des identifiants.",
+  "ClipboardSecurityUnavailable": "Copie bloquée : cette version ne peut pas garantir la confidentialité du Presse-papiers Windows.",
   "ClipboardCleared": "Presse-papiers de la session effacé.",
   "ClipboardClearFailed": "Impossible d'effacer le presse-papiers : réessayez.",
   "ClipboardText": "Texte",
