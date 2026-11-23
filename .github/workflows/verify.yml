@@ -50,6 +50,7 @@ jobs:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
       DOTNET_NOLOGO: '1'
       PACKAGE_IDENTITY: ${{ needs.release-plan.outputs.package_identity }}
+      UPDATE_SIGNING_PUBLIC_KEY: ${{ vars.UPDATE_SIGNING_PUBLIC_KEY }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -111,6 +112,7 @@ jobs:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
       DOTNET_NOLOGO: '1'
       PACKAGE_IDENTITY: ${{ needs.release-plan.outputs.package_identity }}
+      UPDATE_SIGNING_PUBLIC_KEY: ${{ vars.UPDATE_SIGNING_PUBLIC_KEY }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -210,6 +212,7 @@ jobs:
     env:
       SOURCE_COMMIT: ${{ needs.release-plan.outputs.commit }}
       RELEASE_TAG: ${{ needs.release-plan.outputs.tag }}
+      UPDATE_SIGNING_PUBLIC_KEY: ${{ vars.UPDATE_SIGNING_PUBLIC_KEY }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -219,6 +222,10 @@ jobs:
         with:
           name: Avalonia-release-win-x64-linux-x64
           path: artifacts/release
+      - name: Sign the verified update packages
+        env:
+          UPDATE_SIGNING_PRIVATE_KEY: ${{ secrets.UPDATE_SIGNING_PRIVATE_KEY }}
+        run: ./scripts/Sign-AvaloniaUpdateRelease.ps1 -ArtifactDirectory artifacts/release
       - name: Publish verified assets
         env:
           GH_TOKEN: ${{ github.token }}

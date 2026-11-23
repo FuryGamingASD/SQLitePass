@@ -17,6 +17,10 @@ function Assert-ExistingTag {
     if($LASTEXITCODE -ne 0 -or $remoteCommit -cne $SourceCommit){throw 'The remote tag does not resolve to the verified source commit.'}
 }
 $checksums=@(Get-Content (Join-Path $ArtifactDirectory 'checksums.json') -Raw | ConvertFrom-Json)
+foreach($required in @('sqlitepass-update-auth.json','sqlitepass-update-auth.sig')){
+    if($required -notin @($checksums | ForEach-Object File)){throw 'The release is missing a signed update manifest; run the protected signing workflow step first.'}
+    if(-not (Test-Path -LiteralPath (Join-Path $ArtifactDirectory $required) -PathType Leaf)){throw "Missing signed update asset: $required"}
+}
 if($ExistingTag){
     $files=@(Get-ChildItem -LiteralPath $ArtifactDirectory -Force | Where-Object Name -cne 'checksums.json' | ForEach-Object Name)
     if($provenance.PackageId -cne 'SQLitePass' -or 'releases.win.json' -cnotin $files -or 'releases.linux.json' -cnotin $files -or

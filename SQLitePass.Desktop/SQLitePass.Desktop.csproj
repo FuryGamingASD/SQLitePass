@@ -8,6 +8,7 @@
     <Nullable>enable</Nullable>
     <RuntimeIdentifiers>win-x64;linux-x64</RuntimeIdentifiers>
     <ApplicationIcon>../SQLitePass.UI/Resources/app.ico</ApplicationIcon>
+    <UpdateSigningPublicKeyBase64 Condition="'$(UpdateSigningPublicKeyBase64)' == ''">$(UPDATE_SIGNING_PUBLIC_KEY)</UpdateSigningPublicKeyBase64>
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="SQLitePass.Tests" />
@@ -27,5 +28,9 @@
     <Compile Include="../SQLitePass.UI/Controls/AppIconLabels.cs" Link="Controls/AppIconLabels.cs" />
     <Content Include="../LICENSE" Link="LICENSE" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="../SECURITY.md" Link="SECURITY.md" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The public key is compiled into the client as its update-authentication pin. -->
+    <AssemblyMetadata Include="SQLitePass.UpdateSigningPublicKey" Value="$(UpdateSigningPublicKeyBase64)" />
   </ItemGroup>
 </Project>
