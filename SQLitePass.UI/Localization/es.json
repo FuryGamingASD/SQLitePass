@@ -260,6 +260,7 @@
   "ClipboardCopiedFor": "{0} en el portapapeles durante {1}s",
   "ClipboardBusy": "Portapapeles ocupado: no se copió.",
   "ClipboardSyncBlocked": "Copia bloqueada: desactiva la sincronización del portapapeles de Windows para copiar credenciales.",
+  "ClipboardManagerBlocked": "Copia bloqueada: hay un gestor de portapapeles X11 activo o no se puede comprobar y podría conservar las credenciales.",
   "ClipboardSecurityUnavailable": "Copia bloqueada: esta compilación no puede garantizar la privacidad del portapapeles de Windows.",
   "ClipboardCleared": "Portapapeles de la sesión borrado.",
   "ClipboardClearFailed": "No se pudo borrar el portapapeles: reintenta.",

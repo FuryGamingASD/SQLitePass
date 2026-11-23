@@ -260,6 +260,7 @@
   "ClipboardCopiedFor": "{0} für {1}s in der Zwischenablage",
   "ClipboardBusy": "Zwischenablage belegt: nicht kopiert.",
   "ClipboardSyncBlocked": "Kopieren blockiert: Deaktivieren Sie die Windows-Zwischenablage-Synchronisierung, um Zugangsdaten zu kopieren.",
+  "ClipboardManagerBlocked": "Kopieren blockiert: Ein X11-Zwischenablage-Manager ist aktiv oder nicht überprüfbar und kann Zugangsdaten speichern.",
   "ClipboardSecurityUnavailable": "Kopieren blockiert: Dieser Build kann den Datenschutz der Windows-Zwischenablage nicht gewährleisten.",
   "ClipboardCleared": "Zwischenablage der Sitzung geleert.",
   "ClipboardClearFailed": "Zwischenablage konnte nicht geleert werden: erneut versuchen.",

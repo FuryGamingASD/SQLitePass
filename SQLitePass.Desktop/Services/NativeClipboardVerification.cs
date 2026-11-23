@@ -102,6 +102,22 @@ internal static class NativeClipboardVerification
         Task.FromException<bool>(new PlatformNotSupportedException("The Windows clipboard sync guard requires the Windows target framework."));
 #endif
 
+    [System.Runtime.Versioning.SupportedOSPlatform("linux")]
+    internal static async Task<bool> VerifyLinuxClipboardManagerGuardAsync(VaultWindow window)
+    {
+        if (!OperatingSystem.IsLinux()) throw new PlatformNotSupportedException("The clipboard-manager guard requires Linux.");
+        var clipboard = window.NativeClipboard ?? throw new InvalidOperationException("Native clipboard backend unavailable.");
+        if (!await clipboard.HasX11ClipboardManagerAsync())
+            throw new InvalidOperationException("The clipboard-manager guard probe requires an X11 clipboard manager.");
+        nuint ownerBefore = clipboard.CurrentX11ClipboardOwner;
+        bool copied = await clipboard.CopyAsync("SQLitePass Linux clipboard-manager guard fixture", TimeSpan.FromSeconds(30));
+        nuint ownerAfter = clipboard.CurrentX11ClipboardOwner;
+        if (copied || clipboard.CopyBlockedReason != ClipboardCopyBlockedReason.LinuxClipboardManagerActive || ownerBefore != ownerAfter)
+            throw new InvalidOperationException("The X11 clipboard-manager guard did not block the copy without changing the selection owner.");
+        Console.WriteLine("Verified the X11 clipboard-manager guard blocks a credential copy without changing the clipboard owner.");
+        return true;
+    }
+
     private static async Task VerifyWaylandPeerClearedAsync(CancellationToken token)
     {
         if (!UseWaylandPeer) return;

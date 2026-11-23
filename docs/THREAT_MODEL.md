@@ -314,12 +314,13 @@ Reduce clipboard persistence.
 - Clipboard ownership tracking
 - Clipboard history exclusion
 - Cloud clipboard exclusion
+- On Linux X11, reject copies when a clipboard-manager selection owner or the detected Xfce Clipman D-Bus service is active
 
 ---
 
 ### Residual Risk
 
-Clipboard data remains exposed while present.
+Clipboard data remains exposed while present. Windows privacy flags are not reliable on every tested Windows build, so SQLitePass blocks copies on the affected build and whenever sync is enabled. On Linux X11, third-party manager detection covers the standard manager selection and Xfce Clipman; a configured session bus that cannot be queried also blocks copying. An unknown manager or one that starts after the check may still retain a copy.
 
 ---
 

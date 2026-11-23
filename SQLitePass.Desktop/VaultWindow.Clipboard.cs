@@ -76,6 +76,7 @@ public sealed partial class VaultWindow
     private string ClipboardCopyFailureText(SessionClipboard clipboard) => clipboard.CopyBlockedReason switch
     {
         ClipboardCopyBlockedReason.WindowsClipboardSyncEnabled => Text("ClipboardSyncBlocked"),
+        ClipboardCopyBlockedReason.LinuxClipboardManagerActive => Text("ClipboardManagerBlocked"),
         ClipboardCopyBlockedReason.SecureWindowsClipboardUnavailable => Text("ClipboardSecurityUnavailable"),
         _ => Text("ClipboardBusy")
     };

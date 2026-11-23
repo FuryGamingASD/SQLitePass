@@ -33,7 +33,7 @@ internal static class Program
         }
         if (args is not (["--verify-startup"] or ["--verify-startup-and-clipboard"] or ["--verify-desktop"] or
             ["--verify-win-session-lock"] or ["--verify-win-session-lock", _] or ["--verify-linux-session-lock", _] or
-            ["--verify-windows-clipboard-sync-guard"]))
+            ["--verify-windows-clipboard-sync-guard"] or ["--verify-linux-clipboard-manager-guard"]))
         {
             if (!OperatingSystem.IsWindows()) return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
             using var instance = SingleInstanceCoordinator.StartOrSignalExisting(out bool shouldStart, applicationName);
@@ -47,10 +47,12 @@ internal static class Program
         bool verifyWinSessionLock = args is ["--verify-win-session-lock"] or ["--verify-win-session-lock", _];
         bool verifyLinuxSessionLock = args is ["--verify-linux-session-lock", _];
         bool verifyWindowsClipboardSyncGuard = args is ["--verify-windows-clipboard-sync-guard"];
+        bool verifyLinuxClipboardManagerGuard = args is ["--verify-linux-clipboard-manager-guard"];
         if (verifyClipboard && Environment.GetEnvironmentVariable("RUNNER_ENVIRONMENT") != "github-hosted") return 2;
         if (verifyWinSessionLock && !OperatingSystem.IsWindows()) return 2;
         if (verifyLinuxSessionLock && !OperatingSystem.IsLinux()) return 2;
         if (verifyWindowsClipboardSyncGuard && !OperatingSystem.IsWindows()) return 2;
+        if (verifyLinuxClipboardManagerGuard && !OperatingSystem.IsLinux()) return 2;
         bool verifySessionLock = verifyWinSessionLock || verifyLinuxSessionLock;
         string? lockReport = verifySessionLock && args.Length == 2 ? Path.GetFullPath(args[1]) : null;
         if (lockReport != null && (File.Exists(lockReport) || !Directory.Exists(Path.GetDirectoryName(lockReport)))) return 2;
@@ -63,11 +65,13 @@ internal static class Program
             AppContext.SetData("SQLitePass.StartupProbe", true);
             AppContext.SetData("SQLitePass.ClipboardProbe", verifyClipboard);
             AppContext.SetData("SQLitePass.AllowClipboardRoamingProbe", verifyClipboard || verifySessionLock);
+            AppContext.SetData("SQLitePass.AllowLinuxClipboardManagerProbe", verifyClipboard);
             AppContext.SetData("SQLitePass.TrayProbe", verifyTray);
             AppContext.SetData("SQLitePass.AutoTypeProbe", verifyTray);
             AppContext.SetData("SQLitePass.InteractiveSessionLockProbe", verifySessionLock);
             AppContext.SetData("SQLitePass.InteractiveSessionLockReport", lockReport);
             AppContext.SetData("SQLitePass.WindowsClipboardSyncGuardProbe", verifyWindowsClipboardSyncGuard);
+            AppContext.SetData("SQLitePass.LinuxClipboardManagerGuardProbe", verifyLinuxClipboardManagerGuard);
             return BuildAvaloniaApp().StartWithClassicDesktopLifetime([]);
         }
         finally { directory.Delete(recursive: true); }

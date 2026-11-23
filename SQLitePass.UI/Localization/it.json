@@ -260,6 +260,7 @@
   "ClipboardCopiedFor": "{0} negli appunti per {1}s",
   "ClipboardBusy": "Appunti occupati: copia non eseguita.",
   "ClipboardSyncBlocked": "Copia bloccata: disattivare la sincronizzazione degli appunti di Windows per copiare credenziali.",
+  "ClipboardManagerBlocked": "Copia bloccata: un gestore appunti X11 è attivo o non verificabile e potrebbe conservare le credenziali.",
   "ClipboardSecurityUnavailable": "Copia bloccata: questa build non può garantire la privacy degli appunti di Windows.",
   "ClipboardCleared": "Appunti della sessione cancellati.",
   "ClipboardClearFailed": "Impossibile cancellare gli appunti: riprovare.",

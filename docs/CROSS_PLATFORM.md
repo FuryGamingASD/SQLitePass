@@ -53,7 +53,7 @@ On the locked screen, **Restore from .backup** authenticates a backup using the 
 
 ## Desktop clipboard
 
-Copying a user name or password uses the configured clipboard timeout. Foreground apps can paste the value until it expires, is replaced, or the vault locks. Windows requests exclusion from clipboard history and cloud synchronization. The Linux adapter uses the X11 clipboard and advertises a password-manager hint. Clipboard history tools can retain copies if they ignore that hint. Copy commands require a supported clipboard adapter.
+Copying a user name or password uses the configured clipboard timeout. Foreground apps can paste the value until it expires, is replaced, or the vault locks. Windows requests exclusion from clipboard history and cloud synchronization; credential copying is blocked on the tested Windows 11 build where those privacy requests did not prevent remote history retention. The Linux X11 adapter advertises a password-manager hint and blocks copying when an X11 clipboard-manager selection owner or the Xfce Clipman D-Bus service is detected, and when a configured D-Bus session cannot be queried. Clipman was verified to retain a synthetic fixture after expiry and shutdown. Other managers may ignore the hint; an unrecognized manager or one that starts after the check may still retain a copy. Copy commands require a supported clipboard adapter.
 
 ## Auto-Type in the shared app
 
