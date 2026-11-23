@@ -1,8 +1,10 @@
+param([switch]$OfflineKey)
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 $root=Join-Path ([IO.Path]::GetTempPath()) ('SQLitePass-release-test-'+[guid]::NewGuid().ToString('N'))
 $savedSha=$env:GITHUB_SHA; $savedRepo=$env:GITHUB_REPOSITORY
-$savedPublicKey=$env:UPDATE_SIGNING_PUBLIC_KEY; $savedPrivateKey=$env:UPDATE_SIGNING_PRIVATE_KEY
+$savedPublicKey=$env:UPDATE_SIGNING_PUBLIC_KEY
 try {
     New-Item -ItemType Directory -Path $root | Out-Null
     $env:GITHUB_SHA='0123456789012345678901234567890123456789'; $env:GITHUB_REPOSITORY='example/release-test'
@@ -25,8 +27,25 @@ try {
     $signer = [System.Security.Cryptography.RSA]::Create(3072)
     try {
         $env:UPDATE_SIGNING_PUBLIC_KEY = [Convert]::ToBase64String($signer.ExportSubjectPublicKeyInfo())
-        $env:UPDATE_SIGNING_PRIVATE_KEY = $signer.ExportPkcs8PrivateKeyPem()
-        & (Join-Path $PSScriptRoot 'Sign-AvaloniaUpdateRelease.ps1') -ArtifactDirectory $root
+        $signScript = Join-Path $PSScriptRoot 'Sign-AvaloniaUpdateRelease.ps1'
+        if ($OfflineKey) {
+            $keyFile = New-TemporaryFile
+            try {
+                $fixturePassphrase = 'synthetic offline fixture passphrase'
+                $parameters = [System.Security.Cryptography.PbeParameters]::new(
+                    [System.Security.Cryptography.PbeEncryptionAlgorithm]::Aes256Cbc,
+                    [System.Security.Cryptography.HashAlgorithmName]::SHA256, 10000)
+                $signer.ExportEncryptedPkcs8PrivateKeyPem($fixturePassphrase, $parameters) |
+                    Set-Content -LiteralPath $keyFile.FullName -Encoding utf8
+                function Read-Host([string]$Prompt, [switch]$AsSecureString) {
+                    if (-not $AsSecureString) { throw 'The offline signer must read a protected passphrase.' }
+                    ConvertTo-SecureString $fixturePassphrase -AsPlainText -Force
+                }
+                & $signScript -ArtifactDirectory $root -PrivateKeyPath $keyFile.FullName
+            } finally { Remove-Item -LiteralPath $keyFile.FullName }
+        } else {
+            & $signScript -ArtifactDirectory $root -Signer $signer
+        }
     } finally { $signer.Dispose() }
     function gh {
         $global:LASTEXITCODE=0
@@ -67,6 +86,11 @@ try {
         return $state
     }
     $publisher=Join-Path $PSScriptRoot 'Publish-GitHubRelease.ps1'
+    $global:SQLitePassReleaseTestState=New-State $false $true $false
+    & $publisher -ArtifactDirectory $root -ExistingTag 'v1.1.3' -VerifyOnly
+    if ($global:SQLitePassReleaseTestState.Exists -or $global:SQLitePassReleaseTestState.Writes.Count -ne 0) {
+        throw 'Local verification changed the remote release state.'
+    }
     $signaturePath = Join-Path $root 'sqlitepass-update-auth.sig'
     $signature = [IO.File]::ReadAllBytes($signaturePath)
     $invalidSignature = [byte[]]$signature.Clone()
@@ -148,10 +172,10 @@ try {
     $rejected=$false
     try { & $publisher -ArtifactDirectory $root -ExistingTag 'v1.1.3' } catch { $rejected=$true }
     if(-not $rejected -or $global:SQLitePassReleaseTestState.Writes.Count -ne 0){ throw 'A missing channel was not rejected before writing.' }
-    Write-Output 'Ten publication safety scenarios passed using an in-memory CLI and an ephemeral RSA key.'
+    Write-Output 'Eleven publication safety scenarios passed using an in-memory CLI and an ephemeral RSA key.'
 } finally {
     $env:GITHUB_SHA=$savedSha;$env:GITHUB_REPOSITORY=$savedRepo
-    $env:UPDATE_SIGNING_PUBLIC_KEY=$savedPublicKey; $env:UPDATE_SIGNING_PRIVATE_KEY=$savedPrivateKey
+    $env:UPDATE_SIGNING_PUBLIC_KEY=$savedPublicKey
     Remove-Variable SQLitePassReleaseTestState -Scope Global -ErrorAction SilentlyContinue
     $resolved=[IO.Path]::GetFullPath($root)
     if(-not $resolved.StartsWith([IO.Path]::GetFullPath([IO.Path]::GetTempPath()),[StringComparison]::OrdinalIgnoreCase) -or -not [IO.Path]::GetFileName($resolved).StartsWith('SQLitePass-release-test-')){throw 'Invalid test cleanup path.'}

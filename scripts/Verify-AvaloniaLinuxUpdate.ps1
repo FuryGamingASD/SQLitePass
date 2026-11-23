@@ -10,7 +10,7 @@ if (-not (Test-Path -LiteralPath '/dev/fuse')) { throw 'The AppImage upgrade pro
 $candidate = (Resolve-Path -LiteralPath $CandidateDirectory).ProviderPath
 $manifestPath = Join-Path $candidate 'candidate-verification.json'
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-$baseline = '1.2.1'
+$baseline = '1.2.2'
 if ($manifest.PackageId -cne 'SQLitePass' -or $manifest.Runtime -cne 'linux-x64' -or
     $manifest.Version -notmatch '^\d+\.\d+\.\d+$' -or [version]$manifest.Version -le [version]$baseline -or
     $manifest.Distribution -cnotmatch '^SQLitePass[-a-zA-Z0-9.]*\.AppImage$') {
@@ -25,7 +25,7 @@ try {
     $installedPath = Join-Path $isolated 'SQLitePass.AppImage'
     Invoke-WebRequest -Uri "https://github.com/FuryGamingASD/SQLitePass/releases/download/v$baseline/SQLitePass.AppImage" -OutFile $installedPath
     $beforeHash = (Get-FileHash -LiteralPath $installedPath).Hash
-    if ($beforeHash -cne '8229B7EF485E31A71277BBADAF24A7A9C89A664D67B5056299918835278BDE7F') {
+    if ($beforeHash -cne 'A5D38FF401AA1A7FF972D20E5006D31908E636A7A8FEDE1C1EF2295C218F79ED') {
         throw 'The public baseline AppImage checksum differs.'
     }
     & chmod +x -- $installedPath

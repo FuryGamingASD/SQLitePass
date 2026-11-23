@@ -1,12 +1,15 @@
-param([Parameter(Mandatory)][string]$ArtifactDirectory)
+[CmdletBinding(DefaultParameterSetName = 'OfflineKey')]
+param(
+    [Parameter(Mandatory)][string]$ArtifactDirectory,
+    [Parameter(Mandatory, ParameterSetName = 'OfflineKey')][string]$PrivateKeyPath,
+    [Parameter(Mandatory, ParameterSetName = 'ProvidedSigner')][System.Security.Cryptography.RSA]$Signer
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $directory = (Resolve-Path -LiteralPath $ArtifactDirectory).ProviderPath
-$privatePem = $env:UPDATE_SIGNING_PRIVATE_KEY
 $publicBase64 = $env:UPDATE_SIGNING_PUBLIC_KEY
-$env:UPDATE_SIGNING_PRIVATE_KEY = $null
 
 $manifestPath = Join-Path $directory 'sqlitepass-update-auth.json'
 $signaturePath = Join-Path $directory 'sqlitepass-update-auth.sig'
@@ -18,14 +21,12 @@ $checksumsTemporaryPath = $checksumsPath + $temporarySuffix
 $ownsManifest = $false
 $ownsSignature = $false
 $signingComplete = $false
-$rsa = $null
+$rsa = $Signer
+$ownsSigner = $false
 
 try {
-if ([string]::IsNullOrWhiteSpace($privatePem)) {
-    throw 'Release signing requires the UPDATE_SIGNING_PRIVATE_KEY GitHub Actions secret.'
-}
 if ([string]::IsNullOrWhiteSpace($publicBase64)) {
-    throw 'Release signing requires the UPDATE_SIGNING_PUBLIC_KEY repository variable embedded in the client.'
+    throw 'Set UPDATE_SIGNING_PUBLIC_KEY to the public key embedded in the release clients.'
 }
 if ((Test-Path -LiteralPath $manifestPath) -or (Test-Path -LiteralPath $signaturePath)) {
     throw 'The candidate already contains update-authentication assets.'
@@ -44,8 +45,19 @@ foreach ($entry in $checksums) {
     }
 }
 
-$rsa = [System.Security.Cryptography.RSA]::Create()
-    $rsa.ImportFromPem($privatePem)
+    if ($PSCmdlet.ParameterSetName -eq 'OfflineKey') {
+        if ($env:GITHUB_ACTIONS -eq 'true') { throw 'The production private key must be loaded outside GitHub Actions.' }
+        $pem = Get-Content -LiteralPath $PrivateKeyPath -Raw
+        $password = Read-Host 'Signing key passphrase' -AsSecureString
+        try {
+            $rsa = [System.Security.Cryptography.RSA]::Create()
+            $ownsSigner = $true
+            $rsa.ImportFromEncryptedPem($pem, [PSCredential]::new('signing-key', $password).GetNetworkCredential().Password)
+        } finally {
+            $pem = $null
+            $password.Dispose()
+        }
+    }
     if ($rsa.KeySize -lt 3072 -or $rsa.KeySize -gt 8192) { throw 'The update signing key must be RSA 3072-bit or larger.' }
     $derivedPublic = [Convert]::ToBase64String($rsa.ExportSubjectPublicKeyInfo())
     if ($derivedPublic -cne $publicBase64) { throw 'The private signing key does not match UPDATE_SIGNING_PUBLIC_KEY.' }
@@ -69,7 +81,7 @@ $rsa = [System.Security.Cryptography.RSA]::Create()
     $signingComplete = $true
 }
 finally {
-    if ($rsa) { $rsa.Dispose() }
+    if ($ownsSigner) { $rsa.Dispose() }
     foreach ($temporaryPath in @($manifestTemporaryPath, $signatureTemporaryPath, $checksumsTemporaryPath)) {
         if (Test-Path -LiteralPath $temporaryPath) { Remove-Item -LiteralPath $temporaryPath -Force }
     }
@@ -77,7 +89,6 @@ finally {
         if ($ownsManifest -and (Test-Path -LiteralPath $manifestPath)) { Remove-Item -LiteralPath $manifestPath -Force }
         if ($ownsSignature -and (Test-Path -LiteralPath $signaturePath)) { Remove-Item -LiteralPath $signaturePath -Force }
     }
-    $privatePem = $null
     $publicBase64 = $null
 }
 

@@ -55,6 +55,7 @@
 | 2026-11-23 | Build gate repair | On Linux, locked restore initially stopped with `NETSDK1100` after the Windows-specific clipboard target was added to the shared project. `896469c` enables Windows reference targeting on Linux and disables Windows-only CsWinRT generation and IID optimization there. The same commit records the regenerated legacy WPF lockfiles for the KDBX dependency. `76e094a` adds that project to the legacy solution's Release build. |
 | 2026-11-23 | Integrated verification | Commit `b4f0424` passed locked restore, warning-free Release builds, all 225 tests and the NuGet advisory gate on Windows and FuryUbuntu. It also passed both self-contained preview startup checks, including Xvfb on Linux, and the legacy WPF Release build. The Linux publish first failed with `NU1004` because the KDBX project's lock listed only the Windows runtime. Regenerating that project's lock for both platforms resolved it. Logs and test results are retained under `artifacts/verification/keepass-gap-integrated/`. |
 | 2026-11-23 | Production release check | The GitHub repository lists neither the `UPDATE_SIGNING_PUBLIC_KEY` variable nor the `UPDATE_SIGNING_PRIVATE_KEY` secret. Native installer transition and signed production publication remain open. The globally published version is 1.2.2. |
+| 2026-11-23 | Offline signing path | Tagged Verify runs assemble the Windows and Linux release bundle with the public key. The signer accepts an encrypted private key on the independently controlled machine. The publisher verifies the signed bundle locally before any publication action. Windows and Linux transition probes now pin the public 1.2.2 artifacts as the current baseline. The selected freshness design uses a separately distributed, signed, expiring checkpoint. |
 
 ## Order of work
 
@@ -76,8 +77,10 @@
 - [x] Prepare a scoped project review of the format, credential rotation, backup, import and update packages. Record the reviewed commit and follow-up findings.
 - [ ] Obtain an independent third-party security review and penetration test. The project review provides scope and inputs for that work.
 - [x] Add independent publisher authentication for update feeds/packages with a pinned client key and tests for feed/package tampering, invalid signatures and replay/rollback. This mitigates release-host-only compromise. The production key is not provisioned; keep the trust-domain and release-transition actions below open.
-  - [x] Document the manual transition from existing clients and the freshness decision. [Update signing runbook](../UPDATE_SIGNING.md#transition-for-existing-installations)
-  - [ ] Before publishing authenticated releases, provision an independently controlled production signing key, rehearse the first installation and subsequent signed updates on both platforms, and decide how to authenticate freshness.
+  - [x] Separate bundle building, offline signing and publication. Update the Windows and Linux transition probes to cover the public 1.2.2 baseline. [Update signing runbook](../UPDATE_SIGNING.md#build-sign-and-publish)
+  - [x] Select an independently distributed, signed, expiring checkpoint for update freshness. [Freshness policy](../UPDATE_SIGNING.md#freshness-policy)
+  - [ ] Provision the encrypted RSA production key with the signing operator and register its public key. Rehearse the first installation and subsequent signed updates on both platforms.
+  - [ ] Choose the independent checkpoint origin and renewal cadence, then integrate and verify the checkpoint before claiming automated freshness protection.
 - [x] Evaluate and implement optional machine-level configuration for locking, export and Auto-Type. Personal installations retain existing user preferences when no managed policy is present; administrators can apply the documented Windows or Linux policy.
 - [x] Run the full Release suite and desktop startup probe on FuryUbuntu for the integrated revision.
 

@@ -1,7 +1,8 @@
 param(
     [Parameter(Mandatory)][string]$ArtifactDirectory,
     [ValidatePattern('^[0-9a-f]{40}$')][string]$SourceCommit = $env:GITHUB_SHA,
-    [ValidatePattern('^v\d+\.\d+\.\d+$')][string]$ExistingTag
+    [ValidatePattern('^v\d+\.\d+\.\d+$')][string]$ExistingTag,
+    [switch]$VerifyOnly
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
@@ -54,6 +55,10 @@ try {
 $expectedManifest = & (Join-Path $PSScriptRoot 'Get-AvaloniaUpdateManifest.ps1') -ArtifactDirectory $ArtifactDirectory
 if ([Text.Encoding]::UTF8.GetString($manifest) -cne $expectedManifest) {
     throw 'The signed update manifest does not match the packages, feeds and provenance being published.'
+}
+if ($VerifyOnly) {
+    Write-Output 'Verified the signed release bundle locally.'
+    return
 }
 if($ExistingTag){Assert-ExistingTag}
 $existingText=& gh release view $tag --repo $env:GITHUB_REPOSITORY --json apiUrl,isDraft,targetCommitish 2>$null

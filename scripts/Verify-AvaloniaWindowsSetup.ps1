@@ -44,6 +44,9 @@ $previousHashes = [ordered]@{
     '1.2.1' = '63AD97E6BCA08D47295A451D9589358FE9E1CC7458C3D12E7A693B6AF77AD07B'
 }
 if ([version]$manifest.Version -le [version]'1.2.1') { throw 'The candidate must be newer than the public Avalonia baseline.' }
+if ([version]$manifest.Version -gt [version]'1.2.2') {
+    $previousHashes['1.2.2'] = 'DC25A95A6092044CC33271F3F524B5BD2AA36A5E2E744FD4B62C3CF285A18A36'
+}
 if ($ExistingInstallerSha256) { $previousHashes[$manifest.Version] = $ExistingInstallerSha256.ToUpperInvariant() }
 $isolated = [IO.Directory]::CreateTempSubdirectory('SQLitePass-Avalonia-package-').FullName
 $logs = (New-Item -ItemType Directory -Path 'artifacts/verification/avalonia-windows-setup' -Force).FullName
