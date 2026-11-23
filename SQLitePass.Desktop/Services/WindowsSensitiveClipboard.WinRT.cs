@@ -9,6 +9,7 @@ namespace SQLitePass.Desktop.Services;
 internal sealed class WindowsSensitiveClipboard : ISensitiveClipboard
 {
     private const uint RoInitSingleThreaded = 0;
+    private const int ClipboardPrivacyFailureBuild = 26300;
     private readonly IntPtr _window;
     public ClipboardCopyBlockedReason CopyBlockedReason { get; private set; }
 
@@ -23,6 +24,9 @@ internal sealed class WindowsSensitiveClipboard : ISensitiveClipboard
         try { return Clipboard.IsRoamingEnabled(); }
         finally { RoUninitialize(); }
     }
+
+    internal static bool IsClipboardPrivacyUnreliableOnCurrentBuild() =>
+        Environment.OSVersion.Version.Build == ClipboardPrivacyFailureBuild;
 
     internal static uint GetClipboardSequenceNumberForVerification() => GetClipboardSequenceNumber();
 
@@ -39,10 +43,18 @@ internal sealed class WindowsSensitiveClipboard : ISensitiveClipboard
         bool clipboardSet = false;
         try
         {
-            if (Clipboard.IsRoamingEnabled() && AppContext.GetData("SQLitePass.AllowClipboardRoamingProbe") is not true)
+            if (AppContext.GetData("SQLitePass.AllowClipboardRoamingProbe") is not true)
             {
-                CopyBlockedReason = ClipboardCopyBlockedReason.WindowsClipboardSyncEnabled;
-                return ValueTask.FromResult<IClipboardLease?>(null);
+                if (Clipboard.IsRoamingEnabled())
+                {
+                    CopyBlockedReason = ClipboardCopyBlockedReason.WindowsClipboardSyncEnabled;
+                    return ValueTask.FromResult<IClipboardLease?>(null);
+                }
+                if (IsClipboardPrivacyUnreliableOnCurrentBuild())
+                {
+                    CopyBlockedReason = ClipboardCopyBlockedReason.SecureWindowsClipboardUnavailable;
+                    return ValueTask.FromResult<IClipboardLease?>(null);
+                }
             }
 
             var package = new DataPackage();
