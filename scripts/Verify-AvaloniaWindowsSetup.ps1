@@ -35,16 +35,20 @@ if ($manifest.PackageId -cne 'SQLitePass' -or $manifest.Runtime -cne 'win-x64' -
 }
 $setup = Join-Path $candidate $manifest.Distribution
 $updatePackage = Join-Path $candidate $manifest.UpdatePackage
-$previousVersion = if ([version]$manifest.Version -gt [version]'1.1.3') { '1.1.3' } else { '1.1.2' }
-$previousHash = @{
+$previousHashes = [ordered]@{
     '1.1.3' = 'F9782717230A6AA1123F8E4BFB13DB02A9DB3202C3E6B2214E20926AA5D9C2B5'
-    '1.1.2' = '9679209912914F611FF5AEB5B544B7C60B20B6643055F98D04F4691D99764723'
-}[$previousVersion]
+    '1.2.0' = '524DC476347B508FC1A9E45F48E29F5688FE0FCB81C8E1338B842B1D6FD9E847'
+}
+if ([version]$manifest.Version -le [version]'1.2.0') { throw 'The candidate must be newer than the public Avalonia baseline.' }
 $isolated = [IO.Directory]::CreateTempSubdirectory('SQLitePass-Avalonia-package-').FullName
 $logs = (New-Item -ItemType Directory -Path 'artifacts/verification/avalonia-windows-setup' -Force).FullName
-$previousSetup = Join-Path $isolated 'PreviousSetup.exe'
-Invoke-WebRequest -Uri "https://github.com/FuryGamingASD/SQLitePass/releases/download/v$previousVersion/SQLitePass-win-Setup.exe" -OutFile $previousSetup
-if ((Get-FileHash -LiteralPath $previousSetup).Hash -cne $previousHash) { throw 'The previous public installer checksum differs.' }
+$previousSetups = @{}
+foreach ($version in $previousHashes.Keys) {
+    $previousSetup = Join-Path $isolated "SQLitePass-$version-Setup.exe"
+    Invoke-WebRequest -Uri "https://github.com/FuryGamingASD/SQLitePass/releases/download/v$version/SQLitePass-win-Setup.exe" -OutFile $previousSetup
+    if ((Get-FileHash -LiteralPath $previousSetup).Hash -cne $previousHashes[$version]) { throw "The public $version installer checksum differs." }
+    $previousSetups[$version] = $previousSetup
+}
 
 function Start-PackageProcess([string]$File, [string[]]$Arguments) {
     $start = [Diagnostics.ProcessStartInfo]::new($File)
@@ -104,21 +108,25 @@ New-Item -ItemType Directory -Path $testProfileDirectory | Out-Null
 $marker = Join-Path $testProfileDirectory 'isolated-verification.txt'
 Set-Content -LiteralPath $marker -Value 'Synthetic user data outside the installation' -Encoding utf8
 $markerHash = (Get-FileHash -LiteralPath $marker).Hash
-foreach ($scenario in @('fresh', 'upgrade')) {
+foreach ($previousVersion in @('') + @($previousHashes.Keys)) {
+    $scenario = if ($previousVersion) { "upgrade-$previousVersion" } else { 'fresh' }
     $installation = Join-Path $isolated $scenario
     $updater = Join-Path $installation 'Update.exe'
-    $inputSetup = if ($scenario -eq 'upgrade') { $previousSetup } else { $setup }
-    $startupApp = if ($scenario -eq 'upgrade') { Join-Path $isolated 'OtherInstallation/SQLitePass.exe' } else { Join-Path $installation 'current/SQLitePass.exe' }
+    $inputSetup = if ($previousVersion) { $previousSetups[$previousVersion] } else { $setup }
+    $startupApp = if ($previousVersion) { Join-Path $isolated 'OtherInstallation/SQLitePass.exe' } else { Join-Path $installation 'current/SQLitePass.exe' }
     $startupEntry = '"' + $startupApp + '" --minimized'
     try {
         Invoke-PackageCommand $inputSetup @('--silent', '--installto', $installation, '--log', (Join-Path $logs "$scenario-install.log"))
-        if ($scenario -eq 'upgrade') {
-            $oldPayload = Join-Path $installation 'current/SQLitePass.dll'
+        if ($previousVersion) {
+            $oldPayloadName = if ($previousVersion -eq '1.1.3') { 'SQLitePass.dll' } else { 'SQLitePass.Desktop.dll' }
+            $oldPayload = Join-Path $installation "current/$oldPayloadName"
             if ([Reflection.AssemblyName]::GetAssemblyName($oldPayload).Version.ToString() -cne "$previousVersion.0") {
-                throw 'The public WPF installation did not report the expected version.'
+                throw 'The public installation did not report the expected version.'
             }
-            Invoke-PackageCommand $updater @('--silent', '--log', (Join-Path $logs 'upgrade-apply.log'), 'apply', '--package', $updatePackage, '--norestart')
-            if (Test-Path -LiteralPath $oldPayload) { throw 'The update left the WPF assembly in the current application directory.' }
+            Invoke-PackageCommand $updater @('--silent', '--log', (Join-Path $logs "$scenario-apply.log"), 'apply', '--package', $updatePackage, '--norestart')
+            if ($previousVersion -eq '1.1.3' -and (Test-Path -LiteralPath $oldPayload)) {
+                throw 'The update left the WPF assembly in the current application directory.'
+            }
         }
         Assert-AvaloniaStartup $installation
         if ($scenario -eq 'fresh') { Assert-WindowWakesAndCloses $installation }
@@ -135,12 +143,12 @@ foreach ($scenario in @('fresh', 'upgrade')) {
     if (Test-Path -LiteralPath (Join-Path $installation 'current/SQLitePass.exe')) { throw 'Uninstall left the app installed.' }
     if ((Get-FileHash -LiteralPath $marker).Hash -cne $markerHash) { throw 'The package lifecycle changed synthetic data outside the installation.' }
     $observed = Get-StartupEntry
-    if ($scenario -eq 'upgrade') {
+    if ($previousVersion) {
         if ($observed -cne $startupEntry) { throw 'Uninstall changed a startup entry belonging to a different installation.' }
         Remove-ItemProperty -LiteralPath $startupKey -Name SQLitePass
     } elseif ($null -ne $observed) { throw 'Uninstall left its own Windows startup entry.' }
 }
 
 $manifest | Add-Member -NotePropertyName InstallerVerified -NotePropertyValue $true
-$manifest | Add-Member -NotePropertyName InstallerUpgradeFrom -NotePropertyValue $previousVersion
+$manifest | Add-Member -NotePropertyName InstallerUpgradeFrom -NotePropertyValue @($previousHashes.Keys)
 $manifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $manifestPath -Encoding utf8

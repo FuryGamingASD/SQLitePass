@@ -1,8 +1,11 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using SQLitePass.Core.Models;
 using SQLitePass.Core.Services;
@@ -14,6 +17,55 @@ internal static class NativeAutoTypeVerification
     private const string DestinationTitle = "SQLitePass Auto-Type verification target";
     private const string UserName = "SyntheticUser42";
     private const string Password = "Synthetic!@#€93";
+
+    internal static async Task SeedShortcutEntryAsync(VaultSession seed, Guid folder)
+    {
+        var entry = new PwEntry
+        {
+            Title = DestinationTitle, GroupId = folder, UserName = UserName, Password = Password,
+            AutoTypeEnabled = true, AutoTypeSequence = "{USERNAME}{TAB}{PASSWORD}{ENTER}"
+        };
+        try { await seed.Storage.SaveEntryAsync(entry, seed.Crypto); }
+        finally { entry.ClearSecrets(); }
+    }
+
+    [SupportedOSPlatform("windows")]
+    internal static async Task VerifyGlobalShortcutAsync(VaultWindow window, string directory, CancellationToken token)
+    {
+        string path = Path.Combine(directory, "autotype-shortcut.txt");
+        using var peer = StartPeer(path, "complete");
+        try
+        {
+            var input = new WindowsAutoTypeInput();
+            IntPtr target = await WaitForPeerAsync(input, peer, token);
+            if (input.ForegroundWindow != target) throw new InvalidOperationException("The shortcut target lost focus.");
+            keybd_event(0x11, 0, 0, IntPtr.Zero);
+            keybd_event(0x12, 0, 0, IntPtr.Zero);
+            keybd_event(0x41, 0, 0, IntPtr.Zero);
+            keybd_event(0x41, 0, 2, IntPtr.Zero);
+            keybd_event(0x12, 0, 2, IntPtr.Zero);
+            keybd_event(0x11, 0, 2, IntPtr.Zero);
+
+            while (window.OwnedWindows.Count == 0) await Task.Delay(45, token);
+            var dialog = window.OwnedWindows.Single();
+            if (File.Exists(path) || !dialog.GetLogicalDescendants().OfType<TextBlock>().Any(label => label.Text?.Contains(DestinationTitle) == true))
+                throw new InvalidOperationException("The shortcut did not ask for confirmation of the synthetic destination.");
+            dialog.GetLogicalDescendants().OfType<Button>().Single(button => !button.IsCancel)
+                .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            while (input.ForegroundWindow != target)
+            {
+                input.Activate(target);
+                await Task.Delay(45, token);
+            }
+            if (await ReadResultAsync(path, token) != UserName + "\n" + Password)
+                throw new InvalidOperationException("Global Auto-Type did not send the verified synthetic sequence.");
+            Console.WriteLine("Verified Windows Ctrl+Alt+A, destination confirmation and native Auto-Type into the verification peer.");
+        }
+        finally { await StopPeerAsync(peer, CancellationToken.None); }
+    }
+
+    [DllImport("user32.dll")]
+    private static extern void keybd_event(byte key, byte scanCode, uint flags, IntPtr extraInfo);
 
     internal static Window CreatePeerWindow(string path, string scenario)
     {

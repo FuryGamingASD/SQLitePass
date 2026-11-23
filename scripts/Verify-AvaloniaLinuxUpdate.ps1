@@ -10,36 +10,26 @@ if (-not (Test-Path -LiteralPath '/dev/fuse')) { throw 'The AppImage upgrade pro
 $candidate = (Resolve-Path -LiteralPath $CandidateDirectory).ProviderPath
 $manifestPath = Join-Path $candidate 'candidate-verification.json'
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-$baseline = '1.1.3'
+$baseline = '1.2.0'
 if ($manifest.PackageId -cne 'SQLitePass' -or $manifest.Runtime -cne 'linux-x64' -or
     $manifest.Version -notmatch '^\d+\.\d+\.\d+$' -or [version]$manifest.Version -le [version]$baseline -or
     $manifest.Distribution -cnotmatch '^SQLitePass[-a-zA-Z0-9.]*\.AppImage$') {
-    throw 'The AppImage upgrade probe requires a release candidate newer than its synthetic baseline.'
+    throw 'The AppImage upgrade probe requires a release candidate newer than the public Avalonia baseline.'
 }
 
 $isolated = [IO.Directory]::CreateTempSubdirectory('SQLitePass-AppImage-upgrade-').FullName
-$baselinePublish = Join-Path $isolated 'publish'
-$baselinePackages = Join-Path $isolated 'baseline'
 $evidencePath = Join-Path $isolated 'evidence'
 New-Item -ItemType Directory -Path $evidencePath | Out-Null
-$root = Split-Path -Parent $PSScriptRoot
-Push-Location -LiteralPath $root
 $evidence = (New-Item -ItemType Directory -Path 'artifacts/verification/avalonia-linux-update' -Force).FullName
 try {
-    dotnet publish SQLitePass.Desktop/SQLitePass.Desktop.csproj -c Release -r linux-x64 --self-contained -o $baselinePublish `
-        "-p:Version=$baseline" -p:RestoreLockedMode=true -warnaserror
-    if ($LASTEXITCODE -ne 0) { throw 'The synthetic AppImage baseline build failed.' }
-    dotnet tool run vpk -- pack --skip-updates -u SQLitePass -v $baseline -p $baselinePublish -e SQLitePass.Desktop `
-        -o $baselinePackages -r linux-x64 -c linux -i (Join-Path $root 'SQLitePass.UI/Resources/app_icon.png')
-    if ($LASTEXITCODE -ne 0) { throw 'The synthetic AppImage baseline packaging failed.' }
-
-    $images = @(Get-ChildItem -LiteralPath $baselinePackages -Filter '*.AppImage' -File)
-    if ($images.Count -ne 1) { throw 'The baseline did not produce exactly one AppImage.' }
     $installedPath = Join-Path $isolated 'SQLitePass.AppImage'
-    Copy-Item -LiteralPath $images[0].FullName -Destination $installedPath
+    Invoke-WebRequest -Uri "https://github.com/FuryGamingASD/SQLitePass/releases/download/v$baseline/SQLitePass.AppImage" -OutFile $installedPath
+    $beforeHash = (Get-FileHash -LiteralPath $installedPath).Hash
+    if ($beforeHash -cne 'D6FE102541974764B2612B2B51065DC2445DD656F44805F30AFEEEA7A8C2461E') {
+        throw 'The public baseline AppImage checksum differs.'
+    }
     & chmod +x -- $installedPath
     if ($LASTEXITCODE -ne 0) { throw 'Could not make the installed AppImage executable.' }
-    $beforeHash = (Get-FileHash -LiteralPath $installedPath).Hash
     $expectedHash = (Get-FileHash -LiteralPath (Join-Path $candidate $manifest.Distribution)).Hash
     if ($beforeHash -ceq $expectedHash) { throw 'The update fixture and release AppImage have identical bytes.' }
 
@@ -74,7 +64,7 @@ try {
     $manifest | Add-Member -NotePropertyName AppImageUpgradeVerified -NotePropertyValue $true
     $manifest | Add-Member -NotePropertyName AppImageUpgradeFrom -NotePropertyValue $baseline
     $manifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $manifestPath -Encoding utf8
-    Write-Output "Verified in-place AppImage upgrade from synthetic $baseline to $($manifest.Version), restart and vault preservation."
+    Write-Output "Verified in-place AppImage upgrade from public $baseline to $($manifest.Version), restart and synthetic vault preservation."
 } finally {
     foreach ($stage in @('before', 'scheduled', 'after')) {
         $receiptPath = Join-Path $evidencePath "$stage.json"
@@ -82,5 +72,4 @@ try {
     }
     $velopackLog = Join-Path ([IO.Path]::GetTempPath()) 'velopack_SQLitePass.log'
     if (Test-Path -LiteralPath $velopackLog -PathType Leaf) { Copy-Item -LiteralPath $velopackLog -Destination $evidence }
-    Pop-Location
 }

@@ -70,7 +70,7 @@ jobs:
       - name: Build the Avalonia Windows candidate
         id: avalonia-win
         run: ./scripts/Build-AvaloniaCandidate.ps1 -Runtime win-x64 -PackageIdentity $env:PACKAGE_IDENTITY -VerifyNativeLaunch -VerifyDesktopIntegrations
-      - name: Verify Windows installation and upgrade from the public WPF line
+      - name: Verify Windows installation and upgrades from public WPF and Avalonia releases
         if: needs.release-plan.outputs.package_identity == 'release'
         env:
           CANDIDATE_PATH: ${{ steps.avalonia-win.outputs.candidate_path }}

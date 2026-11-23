@@ -140,6 +140,7 @@ try {
         NativeTrayVerified = [bool]$VerifyDesktopIntegrations
         NativeAutoTypeVerified = [bool]$VerifyDesktopIntegrations
         NativeWindowsCaptureAffinityVerified = [bool]($VerifyDesktopIntegrations -and $IsWindows)
+        NativeWindowsWorkspaceVerified = [bool]($VerifyDesktopIntegrations -and $IsWindows)
         NativeLinuxLogindTransportVerified = [bool]($VerifyDesktopIntegrations -and $IsLinux)
         Assets = @(Get-ChildItem -LiteralPath $release -File | ForEach-Object {
             [ordered]@{ Name = $_.Name; SHA256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash }

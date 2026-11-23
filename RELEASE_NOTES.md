@@ -18,6 +18,19 @@ Security guarantees should always be interpreted according to the current docume
 
 ---
 
+# SQLitePass 1.2.1
+
+This update restores the desktop workflows and visual design lost during the migration to Avalonia. It is available for Windows x64 and Linux x64.
+
+- The unlock screen has the SQLitePass design, recent vaults, an optional key file, and a temporary password reveal. Theme and settings controls are available on the unlock screen and in the vault.
+- The vault has a resizable group tree, the icon toolbar, contextual actions, drag-and-drop, live search, sortable columns, and an entry preview.
+- Double-click the title to open a record, the user name or password to copy it with the configured timeout, or the URL to open it. Passwords remain masked by default. The editor asks before discarding changes.
+- On Windows, Ctrl+Alt+A starts global Auto-Type, which asks for confirmation of the matching entry and destination. On Linux, selected-entry Auto-Type targets X11 and XWayland windows.
+
+SQLitePass 1.2.0 installations can use **Check for Updates**. Both platforms keep Vault Format 2 and the existing credentials. The Windows installer remains unsigned. [Release verification](https://github.com/FuryGamingASD/SQLitePass/blob/v1.2.1/docs/releases/RELEASE_OUTCOME_1.2.1.md)
+
+---
+
 # SQLitePass 1.2.0
 
 Released on 22 November 2026.

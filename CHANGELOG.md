@@ -2,10 +2,13 @@
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-11-23
+
 - Restore the branded unlock card, light and dark palettes, nested group sidebar, icon toolbar, settings shortcuts and entry preview in the Avalonia desktop app.
 - Restore entry double-click actions, column sorting, live search, recent vaults, folder drag-and-drop, and edit discard confirmation.
 - Restore timed password reveals, saved window sizes and the Windows Ctrl+Alt+A Auto-Type shortcut with target confirmation.
 - Document feature parity and remaining verification for each release from 1.0.0 through the published 1.2.0.
+- Verify native Windows folder drag-and-drop and global Auto-Type with synthetic credentials. Test updates from the public 1.2.0 packages on Windows and Linux.
 
 ## [1.2.0] - 2026-11-22
 
