@@ -132,6 +132,26 @@ public partial class VaultSecurityTests
     }
 
     [Fact]
+    public async Task StoredDraftDoesNotWriteHistoryOrOverwriteAConcurrentEdit()
+    {
+        using var vault = await TestVault.Create();
+        var original = await vault.Add();
+        long revision = original.Revision;
+        var editable = await vault.Storage.LoadEntryAsync(original.Id, vault.Crypto, revision);
+        using var draft = EntryEditDraft.TakeStoredEntry(editable,
+            token => vault.Storage.LoadEntryAsync(original.Id, vault.Crypto, revision, token));
+        draft.Current.Password = "stale draft value";
+        original.Password = "concurrent edit";
+        await vault.Storage.SaveEntryAsync(original, vault.Crypto);
+
+        await Assert.ThrowsAsync<VaultConflictException>(() => draft.PrepareForSaveAsync());
+        Assert.Empty(draft.Current.History);
+        var saved = await vault.Storage.LoadEntryAsync(original.Id, vault.Crypto);
+        Assert.Equal("concurrent edit", saved.Password);
+        Assert.Empty(saved.History);
+    }
+
+    [Fact]
     public async Task StreamedKeyRotationPreservesEveryEntryAndItsChildren()
     {
         using var vault = await TestVault.Create(); var first = await DetailedEntry(vault); var second = await DetailedEntry(vault);

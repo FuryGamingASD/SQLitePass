@@ -367,12 +367,26 @@ public sealed partial class VaultWindow : Window
     internal Task OpenEditorAsync(EntryRow? row) => RunOperationAsync(async token =>
     {
         if (_session is not { } session || _query.OnlyRecycleBin) return;
-        var source = row == null
-            ? new PwEntry { GroupId = _query.GroupId ?? RootFolderId ?? throw new VaultConflictException("A vault root is required.") }
-            : await session.Storage.LoadEntryAsync(row.Id, session.Crypto, row.Revision, token);
         EntryEditDraft draft;
-        try { draft = await Task.Run(() => EntryEditDraft.Create(source), token); }
-        finally { source.ClearSecrets(); }
+        if (row == null)
+        {
+            var groupId = _query.GroupId ?? RootFolderId ?? throw new VaultConflictException("A vault root is required.");
+            draft = EntryEditDraft.Create(new PwEntry { GroupId = groupId });
+        }
+        else
+        {
+            var entry = await session.Storage.LoadEntryAsync(row.Id, session.Crypto, row.Revision, token);
+            try
+            {
+                draft = EntryEditDraft.TakeStoredEntry(entry,
+                    cancellation => session.Storage.LoadEntryAsync(row.Id, session.Crypto, row.Revision, cancellation));
+            }
+            catch
+            {
+                entry.ClearSecrets();
+                throw;
+            }
+        }
         using (draft)
         {
             token.ThrowIfCancellationRequested();

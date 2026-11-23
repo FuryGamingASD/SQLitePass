@@ -121,6 +121,16 @@ public sealed partial class AvaloniaVaultTests
                 Assert.Equal("saved-inline", saved.CustomFields.Single(field => field.Key == "New field").Value);
                 Assert.Equal(new byte[] { 4, 5, 6 }, Assert.Single(saved.Attachments).Data);
                 Assert.Equal(2, saved.History.Count);
+                var former = Assert.Single(saved.History, revision => revision.Title == "Current entry");
+                var previous = EntrySerialization.Deserialize(former.SnapshotJson);
+                try
+                {
+                    Assert.Equal("earlier-secret", previous.Password);
+                    Assert.Null(previous.ExpiryDate);
+                    Assert.Equal(new byte[] { 4, 5, 6 }, Assert.Single(previous.Attachments).Data);
+                    Assert.Empty(previous.History);
+                }
+                finally { previous.ClearSecrets(); }
             }
             finally { saved.ClearSecrets(); }
         }
