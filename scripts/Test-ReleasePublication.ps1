@@ -83,6 +83,23 @@ try {
     [IO.File]::WriteAllBytes($signaturePath, $signature)
     Write-Checksums
 
+    $provenancePath = Join-Path $root 'release-provenance.json'
+    $originalProvenance = [IO.File]::ReadAllBytes($provenancePath)
+    $otherCommit = '1234567890123456789012345678901234567890'
+    $changedProvenance = Get-Content -LiteralPath $provenancePath -Raw | ConvertFrom-Json
+    $changedProvenance.SourceCommit = $otherCommit
+    $changedProvenance | ConvertTo-Json | Set-Content -LiteralPath $provenancePath -Encoding utf8
+    Write-Checksums
+    $global:SQLitePassReleaseTestState=New-State $false $true $false
+    $rejected=$false
+    try { & $publisher -ArtifactDirectory $root -SourceCommit $otherCommit } catch {
+        if ($_.Exception.Message -ne 'The signed update manifest does not match the packages, feeds and provenance being published.') { throw }
+        $rejected=$true
+    }
+    if (-not $rejected -or $global:SQLitePassReleaseTestState.Writes.Count -ne 0) { throw 'A valid signature for different provenance reached publication.' }
+    [IO.File]::WriteAllBytes($provenancePath, $originalProvenance)
+    Write-Checksums
+
     $global:SQLitePassReleaseTestState=New-State $false $true $false
     & $publisher -ArtifactDirectory $root
     if($global:SQLitePassReleaseTestState.Draft -or -not $global:SQLitePassReleaseTestState.Writes.Contains('publish')){throw 'Fresh publication test failed.'}
@@ -100,7 +117,6 @@ try {
     try {& $publisher -ArtifactDirectory $root} catch {$rejected=$true}
     if(-not $rejected -or $global:SQLitePassReleaseTestState.Writes.Contains('publish')){throw 'Digest mismatch did not stop publication.'}
     $global:SQLitePassReleaseTestState=New-State $false $true $false
-    $provenancePath=Join-Path $root 'release-provenance.json'
     $provenance=Get-Content -LiteralPath $provenancePath -Raw | ConvertFrom-Json
     $provenance.Version='9999.9999.9999'
     $provenance | ConvertTo-Json | Set-Content -LiteralPath $provenancePath -Encoding utf8
@@ -132,7 +148,7 @@ try {
     $rejected=$false
     try { & $publisher -ArtifactDirectory $root -ExistingTag 'v1.1.3' } catch { $rejected=$true }
     if(-not $rejected -or $global:SQLitePassReleaseTestState.Writes.Count -ne 0){ throw 'A missing channel was not rejected before writing.' }
-    Write-Output 'Nine publication safety scenarios passed using an in-memory CLI and an ephemeral RSA key.'
+    Write-Output 'Ten publication safety scenarios passed using an in-memory CLI and an ephemeral RSA key.'
 } finally {
     $env:GITHUB_SHA=$savedSha;$env:GITHUB_REPOSITORY=$savedRepo
     $env:UPDATE_SIGNING_PUBLIC_KEY=$savedPublicKey; $env:UPDATE_SIGNING_PRIVATE_KEY=$savedPrivateKey
