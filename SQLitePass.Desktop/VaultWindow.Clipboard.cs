@@ -31,12 +31,16 @@ public sealed partial class VaultWindow
         string value = password
             ? await session.Storage.LoadEntryPasswordAsync(row.Id, session.Crypto, row.Revision, token)
             : await session.Storage.LoadEntryUserNameAsync(row.Id, session.Crypto, row.Revision, token);
-        token.ThrowIfCancellationRequested();
-        if (value.Length == 0 || !ReferenceEquals(_session, session)) return;
-        int seconds = Math.Clamp(_settings.ClipboardClearSeconds, 3, 300);
-        bool copied = await clipboard.CopyAsync(value, TimeSpan.FromSeconds(seconds), token);
-        token.ThrowIfCancellationRequested();
-        ClipboardStatus.Text = copied ? Text("ClipboardCopiedFor", Text(password ? "ColPassword" : "ColUserName"), seconds) : ClipboardCopyFailureText(clipboard);
+        try
+        {
+            token.ThrowIfCancellationRequested();
+            if (value.Length == 0 || !ReferenceEquals(_session, session)) return;
+            int seconds = Math.Clamp(_settings.ClipboardClearSeconds, 3, 300);
+            bool copied = await clipboard.CopyAsync(value, TimeSpan.FromSeconds(seconds), token);
+            token.ThrowIfCancellationRequested();
+            ClipboardStatus.Text = copied ? Text("ClipboardCopiedFor", Text(password ? "ColPassword" : "ColUserName"), seconds) : ClipboardCopyFailureText(clipboard);
+        }
+        finally { value = string.Empty; }
     });
 
     private async void ClearClipboard_Click(object? sender, RoutedEventArgs e) => await RunOperationAsync(async _ =>
@@ -53,10 +57,14 @@ public sealed partial class VaultWindow
     {
         var dialog = new PasswordGeneratorDialog(Text, _clipboard is { } clipboard ? async password =>
         {
-            int seconds = Math.Clamp(_settings.ClipboardClearSeconds, 3, 300);
-            bool copied = await clipboard.CopyAsync(password, TimeSpan.FromSeconds(seconds), token);
-            token.ThrowIfCancellationRequested();
-            return copied ? Text("ClipboardCopiedFor", Text("GenResult").TrimEnd(' ', ':'), seconds) : ClipboardCopyFailureText(clipboard);
+            try
+            {
+                int seconds = Math.Clamp(_settings.ClipboardClearSeconds, 3, 300);
+                bool copied = await clipboard.CopyAsync(password, TimeSpan.FromSeconds(seconds), token);
+                token.ThrowIfCancellationRequested();
+                return copied ? Text("ClipboardCopiedFor", Text("GenResult").TrimEnd(' ', ':'), seconds) : ClipboardCopyFailureText(clipboard);
+            }
+            finally { password = string.Empty; }
         } : null, allowUse);
         if (allowUse) ProtectDialog(dialog);
         return dialog;

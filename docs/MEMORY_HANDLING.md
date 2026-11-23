@@ -374,6 +374,8 @@ On Windows build 26300, copies fail closed even when the roaming API reports dis
 
 Clipboard calls pass an immutable managed string through the asynchronous operation. Windows transfers a separate buffer to OS ownership; the X11 adapter retains a `DataTransfer` during its clipboard lease. SQLitePass can clear only the copy it still owns. The runtime, clipboard manager, history service and other consumers may retain additional copies.
 
+The vault-copy caller and clipboard coordinator now drop their local string references in `finally` after processing. The Windows adapter zeroes its temporary native-format byte array after transfer; X11 must keep its `DataTransfer` available while SQLitePass owns the selection. These steps reduce application-held references but do not erase immutable strings or copies already held by the OS.
+
 ---
 
 # Auto-Type Memory Considerations

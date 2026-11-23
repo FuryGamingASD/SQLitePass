@@ -69,7 +69,11 @@ internal sealed class SessionClipboard : IDisposable
             _timer.Start();
             return true;
         }
-        finally { _operations.Release(); }
+        finally
+        {
+            text = string.Empty;
+            _operations.Release();
+        }
     }
 
     internal Task<ClipboardClearResult> ClearAsync() => ClearAsync(expected: null);
