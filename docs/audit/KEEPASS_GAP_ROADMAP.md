@@ -34,6 +34,7 @@
 | 2026-11-23 | Deferred editor detail design | Open the editor and read-only viewer with scalar credentials and custom fields. Load attachments and history independently from the original revision. Save must recover any unvisited collection before writing. Restoring a complete history snapshot replaces the attachment collection even if its tab was unopened. |
 | 2026-11-23 | Deferred editor detail implementation | The Attachments and History tabs request independent authenticated projections. The draft takes ownership of loaded collections and restores unvisited ones from the original revision during save preparation. Partial models stay blocked from storage writes. |
 | 2026-11-23 | Deferred editor detail verification on Windows | All 184 Release tests passed. Coverage includes independent tab loads, preservation of unopened collections, replacement via a restored snapshot, rejection of stale loads, and an unchanged save without visiting the detail tabs. The legacy WPF solution built with zero warnings or errors. |
+| 2026-11-23 | Deferred editor detail verification on Linux | On FuryUbuntu x64, `4d62769` passed locked restore and all 184 Release tests with SDK 10.0.404. Source startup passed under Xvfb. Package and native desktop retesting remain pending. |
 
 ## Order of work
 
