@@ -25,13 +25,15 @@ internal static class NativeAppImageUpdateVerification
         string directory = args[^1];
         string vaultPath = Path.Combine(directory, "upgrade-fixture.kpd");
         var locator = VelopackLocator.Current;
-        string? imagePath = Environment.GetEnvironmentVariable("APPIMAGE");
-        if (locator.AppId != "SQLitePass" || locator.Channel != "linux" || locator.CurrentlyInstalledVersion == null || !File.Exists(imagePath))
-            throw new InvalidOperationException("The upgrade probe needs a running official Linux AppImage.");
+        bool signedProbe = args[0] is "--verify-signed-update" or "--verify-signed-restarted";
+        string channel = OperatingSystem.IsWindows() ? "win" : "linux";
+        string? imagePath = OperatingSystem.IsWindows() ? Environment.ProcessPath : Environment.GetEnvironmentVariable("APPIMAGE");
+        if (locator.AppId != "SQLitePass" || locator.Channel != channel || locator.CurrentlyInstalledVersion == null || !File.Exists(imagePath))
+            throw new InvalidOperationException("The upgrade probe needs an installed SQLitePass package.");
 
         var receipt = new Receipt(locator.CurrentlyInstalledVersion.ToString(),
             typeof(Program).Assembly.GetName().Version!.ToString(), imagePath);
-        if (args[0] == "--verify-appimage-restarted")
+        if (args[0] is "--verify-appimage-restarted" or "--verify-signed-restarted")
         {
             if (!window.FindControl<ScrollViewer>("UnlockPanel")!.IsVisible ||
                 !string.IsNullOrEmpty(window.FindControl<TextBox>("MasterPassword")!.Text))
@@ -45,18 +47,19 @@ internal static class NativeAppImageUpdateVerification
 
         await CreateFixtureAsync(vaultPath, token);
         await OpenFixtureAsync(window, vaultPath, token);
-        if (window.NativeClipboard is not { } clipboard ||
-            !await clipboard.CopyAsync("Synthetic AppImage update clipboard test", TimeSpan.FromMinutes(2), token))
+        if (!signedProbe && (window.NativeClipboard is not { } clipboard ||
+            !await clipboard.CopyAsync("Synthetic AppImage update clipboard test", TimeSpan.FromMinutes(2), token)))
             throw new InvalidOperationException("The old AppImage could not seed the verification clipboard.");
         WriteReceipt(directory, "before", receipt);
-        var update = window.CheckUpdatesAsync(CreateSignedProbeSource(args[1]), ["--verify-appimage-restarted", directory]);
+        var update = window.CheckUpdatesAsync(CreateSignedProbeSource(args[1], channel),
+            [signedProbe ? "--verify-signed-restarted" : "--verify-appimage-restarted", directory]);
         while (window.OwnedWindows.Count == 0 && !update.IsCompleted) await Task.Delay(40, token);
         var confirmation = window.OwnedWindows.SingleOrDefault()
             ?? throw new InvalidOperationException($"No update confirmation was shown. Status: {window.FindControl<TextBlock>("StatusText")!.Text}");
         confirmation.GetLogicalDescendants().OfType<Button>().Single(button => !button.IsCancel)
             .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         if (!await update.WaitAsync(token) || window.FindControl<Grid>("VaultPanel")!.IsVisible ||
-            !string.IsNullOrEmpty(await window.Clipboard!.TryGetTextAsync()))
+            !signedProbe && !string.IsNullOrEmpty(await window.Clipboard!.TryGetTextAsync()))
             throw new InvalidOperationException("The old AppImage did not lock, clear its clipboard and schedule the update.");
         WriteReceipt(directory, "scheduled", receipt);
     }
@@ -90,32 +93,38 @@ internal static class NativeAppImageUpdateVerification
         File.Move(path + ".tmp", path);
     }
 
-    private static AuthenticatedUpdateSource CreateSignedProbeSource(string directory)
+    private static AuthenticatedUpdateSource CreateSignedProbeSource(string directory, string channel)
     {
         // This key exists only in the isolated synthetic upgrade probe. It is never used by release builds.
         using var signer = RSA.Create(3072);
-        var feed = VelopackAssetFeed.FromJson(File.ReadAllText(Path.Combine(directory, "releases.linux.json")));
+        var feed = VelopackAssetFeed.FromJson(File.ReadAllText(Path.Combine(directory, $"releases.{channel}.json")));
         var package = feed.Assets.Single(asset => asset.Type == VelopackAssetType.Full);
         string packagePath = Path.Combine(directory, package.FileName);
         using var packageStream = File.OpenRead(packagePath);
         string digest = Convert.ToHexString(SHA256.HashData(packageStream));
-        var linux = new UpdateManifestAsset("linux", package.PackageId, package.Version.ToString(), "Full",
+        var actual = new UpdateManifestAsset(channel, package.PackageId, package.Version.ToString(), "Full",
             package.FileName, new FileInfo(packagePath).Length, digest);
         // Keep the production manifest shape stable across its two supported release channels.
-        var windows = new UpdateManifestAsset("win", "SQLitePass", package.Version.ToString(), "Full",
-            "synthetic-windows-package.nupkg", 1, new string('0', 64));
-        var manifest = new UpdateManifestDocument(1, "SQLitePass", package.Version.ToString(), new string('0', 40), [windows, linux]);
+        var companion = new UpdateManifestAsset(channel == "win" ? "linux" : "win", "SQLitePass", package.Version.ToString(), "Full",
+            "synthetic-companion-package.nupkg", 1, new string('0', 64));
+        var manifest = new UpdateManifestDocument(1, "SQLitePass", package.Version.ToString(), new string('0', 40), [companion, actual]);
         byte[] manifestBytes = JsonSerializer.SerializeToUtf8Bytes(manifest);
         byte[] signature = signer.SignData(manifestBytes, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-        var provider = new InlineManifestProvider(new SignedManifestBytes(manifestBytes, signature));
+        var now = DateTimeOffset.UtcNow;
+        byte[] checkpoint = JsonSerializer.SerializeToUtf8Bytes(new UpdateFreshnessDocument(1, "SQLitePass", manifest.Version,
+            Convert.ToHexString(SHA256.HashData(manifestBytes)), now, now.AddHours(1)));
+        byte[] envelope = JsonSerializer.SerializeToUtf8Bytes(new SignedUpdateFreshness(Convert.ToBase64String(checkpoint),
+            Convert.ToBase64String(signer.SignData(checkpoint, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1))));
+        var provider = new InlineManifestProvider(new SignedManifestBytes(manifestBytes, signature), envelope);
         string publicKey = Convert.ToBase64String(signer.ExportSubjectPublicKeyInfo());
         return new AuthenticatedUpdateSource(new SimpleFileSource(new DirectoryInfo(directory)), provider,
             new UpdateManifestVerifier(publicKey));
     }
 
-    private sealed class InlineManifestProvider(SignedManifestBytes signed) : IUpdateManifestProvider
+    private sealed class InlineManifestProvider(SignedManifestBytes signed, byte[] envelope) : IUpdateManifestProvider, IUpdateFreshnessProvider
     {
         public Task<SignedManifestBytes> GetAsync(Velopack.SemanticVersion version) => Task.FromResult(signed);
+        public Task<byte[]> GetFreshnessAsync() => Task.FromResult(envelope);
     }
 
     private sealed record Receipt(string Version, string AssemblyVersion, string AppImagePath);

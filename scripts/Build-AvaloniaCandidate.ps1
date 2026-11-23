@@ -117,6 +117,15 @@ try {
         }
     } finally { $archive.Dispose() }
 
+    if ($PackageIdentity -eq 'release' -and $VerifyDesktopIntegrations) {
+        $parts = [version]$version
+        $probeVersion = "$($parts.Major).$($parts.Minor).$($parts.Build + 1)"
+        $probePackages = Join-Path (Split-Path -Parent $release) 'signed-upgrade'
+        dotnet tool run vpk -- pack --skip-updates -u $packageId -v $probeVersion -p $publish -e $executable -o $probePackages `
+            -r $Runtime -c $channel -i (Join-Path $root "SQLitePass.UI/Resources/$icon") --packTitle $packageTitle
+        if ($LASTEXITCODE -ne 0) { throw 'The isolated signed upgrade fixture could not be packaged.' }
+    }
+
     if ($VerifyNativeLaunch) {
         $probe = [Diagnostics.ProcessStartInfo]::new()
         $probe.UseShellExecute = $false

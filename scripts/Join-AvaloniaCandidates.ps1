@@ -56,6 +56,9 @@ foreach ($platform in $platforms) {
         ($manifest.AppImageUpgradeVerified -ne $true -or $manifest.AppImageUpgradeFrom -cne '1.2.2')) {
         throw 'The Linux release requires AppImage upgrade verification.'
     }
+    if ($PackageIdentity -eq 'release' -and $manifest.SignedUpgradeVerified -ne $true) {
+        throw "The release requires a signed native update rehearsal for $($platform.Runtime)."
+    }
     $versions += $manifest.Version
     $provenance += $manifest
     $manifestFiles = @($manifest.Assets | ForEach-Object Name)

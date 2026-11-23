@@ -112,6 +112,28 @@ function Assert-AvaloniaStartup([string]$Path) {
     Invoke-PackageCommand (Join-Path $Path 'current/SQLitePass.exe') @('--verify-startup')
 }
 
+function Assert-AuthenticatedUpgrade([string]$Path) {
+    $packages = Join-Path (Split-Path -Parent $candidate) 'signed-upgrade'
+    $probeFeed = Get-Content -LiteralPath (Join-Path $packages 'releases.win.json') -Raw | ConvertFrom-Json
+    $target = @($probeFeed.Assets)[0]
+    $evidence = (New-Item -ItemType Directory -Path (Join-Path $logs 'signed-upgrade')).FullName
+    $mainExe = Join-Path $Path 'current/SQLitePass.exe'
+    Invoke-PackageCommand $mainExe @('--verify-signed-update', $packages, $evidence)
+    $after = Join-Path $evidence 'after.json'
+    $deadline = [Diagnostics.Stopwatch]::StartNew()
+    while (-not (Test-Path -LiteralPath $after -PathType Leaf)) {
+        if ($deadline.Elapsed.TotalSeconds -ge 60) { throw 'The signed Windows upgrade did not restart.' }
+        Start-Sleep -Milliseconds 200
+    }
+    foreach ($stage in @('before','scheduled','after')) {
+        $receipt = Get-Content -LiteralPath (Join-Path $evidence "$stage.json") -Raw | ConvertFrom-Json
+        $expected = if ($stage -eq 'after') { $target.Version } else { $manifest.Version }
+        if ($receipt.Version -cne $expected -or $receipt.AppImagePath -cne $mainExe -or
+            $receipt.AssemblyVersion -cne "$($manifest.Version).0") { throw 'Unexpected signed Windows upgrade receipt.' }
+    }
+    Write-Output 'Verified a signed Windows package upgrade, locked restart and reopening the synthetic vault.'
+}
+
 New-Item -ItemType Directory -Path $testProfileDirectory | Out-Null
 $marker = Join-Path $testProfileDirectory 'isolated-verification.txt'
 Set-Content -LiteralPath $marker -Value 'Synthetic user data outside the installation' -Encoding utf8
@@ -155,7 +177,10 @@ foreach ($previousVersion in @('') + @($previousHashes.Keys)) {
             }
         }
         Assert-AvaloniaStartup $installation
-        if ($scenario -eq 'fresh') { Assert-WindowWakesAndCloses $installation }
+        if ($scenario -eq 'fresh') {
+            Assert-WindowWakesAndCloses $installation
+            Assert-AuthenticatedUpgrade $installation
+        }
         if (-not (Test-Path -LiteralPath $startupKey)) { New-Item -Path $startupKey | Out-Null }
         Set-ItemProperty -LiteralPath $startupKey -Name SQLitePass -Value $startupEntry
         Write-Output "Verified Windows $scenario with the installed SQLitePass.exe entry point."
@@ -176,6 +201,7 @@ foreach ($previousVersion in @('') + @($previousHashes.Keys)) {
 }
 
 $manifest | Add-Member -NotePropertyName InstallerVerified -NotePropertyValue $true
+$manifest | Add-Member -NotePropertyName SignedUpgradeVerified -NotePropertyValue $true
 $manifest | Add-Member -NotePropertyName InstallerUpgradeFrom -NotePropertyValue @($previousHashes.Keys | Where-Object { $_ -cne $manifest.Version })
 if ($ExistingInstallerSha256) { $manifest | Add-Member -NotePropertyName InstallerSameVersionReinstallVerified -NotePropertyValue $true }
 $manifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $manifestPath -Encoding utf8

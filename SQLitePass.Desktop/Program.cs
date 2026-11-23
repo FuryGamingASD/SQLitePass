@@ -25,6 +25,13 @@ internal static class Program
             AppContext.SetData("SQLitePass.AppImageUpdateProbe", args);
             return BuildAvaloniaApp().StartWithClassicDesktopLifetime([]);
         }
+        if (args is ["--verify-signed-update", _, _] or ["--verify-signed-restarted", _])
+        {
+            if (Environment.GetEnvironmentVariable("RUNNER_ENVIRONMENT") != "github-hosted") return 2;
+            AppContext.SetData("SQLitePass.SettingsDirectory", Path.Combine(args[^1], "profile"));
+            AppContext.SetData("SQLitePass.AppImageUpdateProbe", args);
+            return BuildAvaloniaApp().StartWithClassicDesktopLifetime([]);
+        }
         if (args is ["--verify-autotype-peer", var resultPath, var scenario])
         {
             if (Environment.GetEnvironmentVariable("RUNNER_ENVIRONMENT") != "github-hosted") return 2;
