@@ -18,6 +18,16 @@ Security guarantees should always be interpreted according to the current docume
 
 ---
 
+# SQLitePass 1.2.2
+
+- The workspace heading shows **SQLitePass**. The vault name remains in the group tree.
+- The unlock window fits its contents and uses a draggable app header. The standard window controls return when the vault opens.
+- A visible outline highlights the destination folder while you drag an entry or group over it.
+
+Use **Check for Updates** from SQLitePass 1.2.1. The Windows and Linux packages use the same Vault Format 2 and existing credentials. [Release verification](https://github.com/FuryGamingASD/SQLitePass/blob/v1.2.2/docs/releases/RELEASE_OUTCOME_1.2.2.md)
+
+---
+
 # SQLitePass 1.2.1
 
 This update restores the desktop workflows and visual design lost during the migration to Avalonia. It is available for Windows x64 and Linux x64.

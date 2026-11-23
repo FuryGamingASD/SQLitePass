@@ -38,8 +38,9 @@ $updatePackage = Join-Path $candidate $manifest.UpdatePackage
 $previousHashes = [ordered]@{
     '1.1.3' = 'F9782717230A6AA1123F8E4BFB13DB02A9DB3202C3E6B2214E20926AA5D9C2B5'
     '1.2.0' = '524DC476347B508FC1A9E45F48E29F5688FE0FCB81C8E1338B842B1D6FD9E847'
+    '1.2.1' = '63AD97E6BCA08D47295A451D9589358FE9E1CC7458C3D12E7A693B6AF77AD07B'
 }
-if ([version]$manifest.Version -le [version]'1.2.0') { throw 'The candidate must be newer than the public Avalonia baseline.' }
+if ([version]$manifest.Version -le [version]'1.2.1') { throw 'The candidate must be newer than the public Avalonia baseline.' }
 $isolated = [IO.Directory]::CreateTempSubdirectory('SQLitePass-Avalonia-package-').FullName
 $logs = (New-Item -ItemType Directory -Path 'artifacts/verification/avalonia-windows-setup' -Force).FullName
 $previousSetups = @{}

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-11-23
+
+- Use SQLitePass as the workspace heading.
+- Fit the unlock window to its contents without a system title bar. Restore the normal window controls when a vault opens.
+- Highlight the destination folder while dragging an entry or group over it.
+
 ## [1.2.1] - 2026-11-23
 
 - Restore the branded unlock card, light and dark palettes, nested group sidebar, icon toolbar, settings shortcuts and entry preview in the Avalonia desktop app.

@@ -28,8 +28,9 @@ The root [README](../README.md), [security policy](../SECURITY.md), [changelog](
 
 ## Releases
 
-- [SQLitePass 1.2.1 release outcome and downloads](releases/RELEASE_OUTCOME_1.2.1.md).
-- [SQLitePass 1.2.1 release notes](../RELEASE_NOTES.md#sqlitepass-121).
+- [SQLitePass 1.2.2 release outcome and downloads](releases/RELEASE_OUTCOME_1.2.2.md).
+- [SQLitePass 1.2.2 release notes](../RELEASE_NOTES.md#sqlitepass-122).
+- [SQLitePass 1.2.1 release outcome](releases/RELEASE_OUTCOME_1.2.1.md).
 - [SQLitePass 1.2.0 release outcome](releases/RELEASE_OUTCOME_1.2.0.md).
 
 ### Historical Windows releases

@@ -47,12 +47,12 @@ foreach ($platform in $platforms) {
     }
     if ($PackageIdentity -eq 'release' -and $platform.Runtime -eq 'win-x64') {
         if ($manifest.InstallerVerified -ne $true -or '1.1.3' -cnotin $manifest.InstallerUpgradeFrom -or
-            '1.2.0' -cnotin $manifest.InstallerUpgradeFrom) {
-            throw 'The Windows setup and upgrades from 1.1.3 and 1.2.0 require native verification.'
+            '1.2.0' -cnotin $manifest.InstallerUpgradeFrom -or '1.2.1' -cnotin $manifest.InstallerUpgradeFrom) {
+            throw 'The Windows setup and upgrades from 1.1.3, 1.2.0 and 1.2.1 require native verification.'
         }
     }
     if ($PackageIdentity -eq 'release' -and $platform.Runtime -eq 'linux-x64' -and
-        ($manifest.AppImageUpgradeVerified -ne $true -or $manifest.AppImageUpgradeFrom -cne '1.2.0')) {
+        ($manifest.AppImageUpgradeVerified -ne $true -or $manifest.AppImageUpgradeFrom -cne '1.2.1')) {
         throw 'The Linux release requires AppImage upgrade verification.'
     }
     $versions += $manifest.Version
