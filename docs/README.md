@@ -17,6 +17,8 @@ The root [README](../README.md), [security policy](../SECURITY.md), [changelog](
 - [Performance measurements and limits](PERFORMANCE_2026-11-16.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)
 - [Windows and Linux desktop guide](CROSS_PLATFORM.md)
+- [Machine-managed policy](MACHINE_POLICY.md)
+- [Update package authentication and transition](UPDATE_SIGNING.md)
 
 ## Audit evidence and findings
 

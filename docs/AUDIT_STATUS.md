@@ -22,6 +22,8 @@ It reflects the current state of publicly available evidence.
 
 # Current Assessment
 
+The [KeePass migration and hardening roadmap](audit/KEEPASS_GAP_ROADMAP.md) records additional work on the unpublished branch, including KDBX import, managed policy, clipboard guards and update signatures. The branch results are scoped to the commits and test environments listed there. An external cryptographic audit and penetration test remain open.
+
 | Area | Status |
 |---------|---------|
 | Source Code Review | Internal review of the audit baseline and subsequent fixes. Independent review remains open. |
