@@ -109,6 +109,15 @@ public sealed partial class AvaloniaVaultTests
                     sequence.Text = "{S:New field}{TAB}{PASSWORD}";
                     editor.Save_Click(null, new RoutedEventArgs());
                     await editing;
+                    Assert.Empty(editor.FindControl<TextBox>("EntryTitle")!.Text!);
+                    Assert.Empty(editor.FindControl<TextBox>("UserName")!.Text!);
+                    Assert.Empty(passwordField.Text!);
+                    Assert.Empty(editor.FindControl<TextBox>("Url")!.Text!);
+                    Assert.Empty(editor.FindControl<TextBox>("Tags")!.Text!);
+                    Assert.Empty(editor.FindControl<TextBox>("Notes")!.Text!);
+                    Assert.Empty(editor.FindControl<TextBox>("Sequence")!.Text!);
+                    Assert.Empty(editor.FindControl<TextBox>("FieldName")!.Text!);
+                    Assert.Empty(editor.FindControl<TextBox>("FieldValue")!.Text!);
                 }
                 finally
                 {
