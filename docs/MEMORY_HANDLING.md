@@ -370,7 +370,7 @@ Auto-Type requires temporary access to:
 - Passwords
 - Custom fields
 
-These values exist in memory before simulated keyboard entry.
+Candidate matching authenticates the vault and reads the title, URL, eligibility and identity from each inspected record. It returns the title, ID and revision for confirmation. The confirmed read checks that revision and loads the fields supported by the Auto-Type sequence, including custom fields. Attachments and entry history are outside that read. Decryption still produces a temporary record buffer, which is zeroed after reading.
 
 SQLitePass attempts to:
 

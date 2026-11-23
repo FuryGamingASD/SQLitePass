@@ -340,12 +340,13 @@ public sealed partial class SqliteStorageProvider : IDisposable
     }
     private static List<PwEntry> ReadEntries(SqliteConnection c, SqliteTransaction tx, CryptoEngine crypto, VaultMetadata m,
         Guid? groupId = null, bool includeDetails = true, Guid? entryId = null,
-        CancellationToken cancellationToken = default, IProgress<VaultReadProgress>? progress = null)
+        CancellationToken cancellationToken = default, IProgress<VaultReadProgress>? progress = null,
+        JsonSerializerOptions? projection = null)
     {
         var result = new List<PwEntry>();
         try
         {
-            foreach (var entry in EnumerateEntries(c, tx, crypto, m, groupId, includeDetails, entryId, cancellationToken, progress)) result.Add(entry);
+            foreach (var entry in EnumerateEntries(c, tx, crypto, m, groupId, includeDetails, entryId, cancellationToken, progress, projection)) result.Add(entry);
             return result;
         }
         catch { foreach (var entry in result) entry.ClearSecrets(); throw; }
@@ -354,7 +355,8 @@ public sealed partial class SqliteStorageProvider : IDisposable
     // The consumer owns each yielded model and must clear models it does not retain.
     private static IEnumerable<PwEntry> EnumerateEntries(SqliteConnection c, SqliteTransaction tx, CryptoEngine crypto, VaultMetadata m,
         Guid? groupId = null, bool includeDetails = true, Guid? entryId = null,
-        CancellationToken cancellationToken = default, IProgress<VaultReadProgress>? progress = null)
+        CancellationToken cancellationToken = default, IProgress<VaultReadProgress>? progress = null,
+        JsonSerializerOptions? projection = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         using var cmd = c.CreateCommand(); cmd.Transaction = tx;
@@ -380,11 +382,11 @@ public sealed partial class SqliteStorageProvider : IDisposable
             PwEntry entry;
             try
             {
-                entry = JsonSerializer.Deserialize<PwEntry>(plain, includeDetails ? EntrySerialization.Options : EntrySerialization.OverviewOptions)
+                entry = JsonSerializer.Deserialize<PwEntry>(plain, projection ?? (includeDetails ? EntrySerialization.Options : EntrySerialization.OverviewOptions))
                     ?? throw new InvalidDataException("Voce vuota.");
                 if (entry.Id != id || entry.GroupId != group || entry.Revision != revision)
                 { entry.ClearSecrets(); throw new InvalidDataException("Identità della voce non valida."); }
-                if (!includeDetails) entry.MarkAsOverview();
+                if (!includeDetails || projection != null) entry.MarkAsOverview();
             }
             finally { CryptographicOperations.ZeroMemory(plain); }
             // Report only after ownership has passed to the consumer, including on cancellation.

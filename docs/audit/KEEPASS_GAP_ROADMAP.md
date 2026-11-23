@@ -11,6 +11,8 @@
 | 2026-11-23 | Scoring helper | Removed the lowercased plaintext copy and the distinct-character collection from the shared scoring helper. The case comparison agreed with the prior behavior for the characters in the weak-pattern list across the Basic Multilingual Plane on the Windows development machine. The Release suite passed all 169 tests after adding a mixed-case regression assertion. |
 | 2026-11-23 | Paging implementation | Page cursors store the boundary entry ID and the snapshot and query stamps. The Core resolves its sort key by ID inside the authenticated read transaction. This keeps passwords and other sort values out of the cursors retained between page loads. |
 | 2026-11-23 | Paging verification | The Windows Release suite passed 171 tests. The new cases exercise both password sort directions, case-insensitive ties, empty passwords, forward and backward navigation, focused reload, and rejection of a missing boundary. |
+| 2026-11-23 | Auto-Type memory | Candidate lookup projects identity, title, URL and eligibility for matching. The confirmation retains only ID, revision and title. The confirmed read projects fields usable by Auto-Type and skips attachments and history. Both paths still decrypt and clear a temporary authenticated record buffer. |
+| 2026-11-23 | Auto-Type verification | The Windows Release suite passed 171 tests, including title and URL matching, ambiguity and revision rejection, and use of custom fields with attachments and history absent from the confirmed model. The legacy WPF Release project built with zero warnings or errors. Native desktop retesting is pending. |
 
 ## Order of work
 
@@ -22,4 +24,4 @@
 - [ ] Prepare a scoped independent review of the format, credential rotation, backup, import and update packages. Record the reviewed commit and follow-up findings.
 - [ ] Evaluate machine-level configuration for locking, export and Auto-Type when deployment requirements are available.
 
-The browsing scan still decrypts each scalar overview. Password sorting temporarily uses the plaintext value. Review whether the normal grid and Auto-Type candidate lookup can materialize fewer fields while keeping the authenticated record and revision checks.
+The browsing scan still decrypts each scalar overview. Password sorting temporarily uses the plaintext value. The next memory pass should reduce fields materialized by the normal grid while preserving sorting, search, selection and the explicit reveal path.

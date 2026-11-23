@@ -167,31 +167,31 @@ public sealed partial class SqliteStorageProvider
         }, cancellationToken, progress);
     }
 
-    public Task<List<PwEntry>> FindAutoTypeCandidatesAsync(CryptoEngine crypto, string windowTitle,
+    public Task<List<AutoTypeCandidate>> FindAutoTypeCandidatesAsync(CryptoEngine crypto, string windowTitle,
         Guid? selectedEntryId = null, long? expectedRevision = null, CancellationToken cancellationToken = default)
     {
         CheckCrypto(crypto);
         return ReadAsync((connection, transaction, key, metadata) =>
         {
-            var result = new List<PwEntry>();
-            try
+            var result = new List<AutoTypeCandidate>();
+            foreach (var entry in EnumerateEntries(connection, transaction, key, metadata, entryId: selectedEntryId,
+                cancellationToken: cancellationToken, projection: EntrySerialization.AutoTypeMatchOptions))
             {
-                foreach (var entry in EnumerateEntries(connection, transaction, key, metadata, includeDetails: false,
-                    entryId: selectedEntryId, cancellationToken: cancellationToken))
+                try
                 {
+                    if (selectedEntryId.HasValue && expectedRevision.HasValue && entry.Revision != expectedRevision)
+                        throw new VaultConflictException("Entry changed before Auto-Type.");
                     bool matches = entry.AutoTypeEnabled && entry.GroupId != metadata.RecycleBinGroupId &&
                         (selectedEntryId.HasValue ||
                         !string.IsNullOrWhiteSpace(entry.Title) && windowTitle.Contains(entry.Title, StringComparison.OrdinalIgnoreCase) ||
                         Uri.TryCreate(entry.Url, UriKind.Absolute, out var uri) && !string.IsNullOrWhiteSpace(uri.Host) && windowTitle.Contains(uri.Host, StringComparison.OrdinalIgnoreCase));
-                    if (selectedEntryId.HasValue && expectedRevision.HasValue && entry.Revision != expectedRevision)
-                    { entry.ClearSecrets(); throw new VaultConflictException("Entry changed before Auto-Type."); }
-                    if (matches) result.Add(entry); else entry.ClearSecrets();
+                    if (matches) result.Add(new(entry.Id, entry.Revision, entry.Title));
                     // Two candidates are sufficient to reject an ambiguous match.
                     if (result.Count == 2) break;
                 }
-                cancellationToken.ThrowIfCancellationRequested(); return result;
+                finally { entry.ClearSecrets(); }
             }
-            catch { foreach (var entry in result) entry.ClearSecrets(); throw; }
+            cancellationToken.ThrowIfCancellationRequested(); return result;
         }, cancellationToken);
     }
 
@@ -202,7 +202,7 @@ public sealed partial class SqliteStorageProvider
         return ReadAsync((connection, transaction, key, metadata) =>
         {
             var entry = ReadEntries(connection, transaction, key, metadata, entryId: entryId,
-                cancellationToken: cancellationToken).SingleOrDefault()
+                cancellationToken: cancellationToken, projection: EntrySerialization.AutoTypeExecutionOptions).SingleOrDefault()
                 ?? throw new VaultConflictException("The Auto-Type entry no longer exists.");
             if (entry.Revision != expectedRevision || !entry.AutoTypeEnabled || entry.GroupId == metadata.RecycleBinGroupId)
             { entry.ClearSecrets(); throw new VaultConflictException("The confirmed Auto-Type entry changed or is unavailable."); }

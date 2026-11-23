@@ -231,12 +231,15 @@ public partial class VaultSecurityTests
     {
         using var vault = await TestVault.Create();
         await vault.Storage.SaveEntryAsync(new PwEntry { GroupId = vault.Root.Id, Title = "A visible entry" }, vault.Crypto);
-        var target = new PwEntry { GroupId = vault.Root.Id, Title = "Z controlled target", Password = "synthetic" };
+        var target = new PwEntry { GroupId = vault.Root.Id, Title = "Z controlled target", Password = "synthetic", Url = "https://example.test/login" };
         await vault.Storage.SaveEntryAsync(target, vault.Crypto);
         var page = await vault.Storage.LoadEntryPageAsync(vault.Crypto, new(PageSize: 1));
         Assert.DoesNotContain(page.Entries, entry => entry.Id == target.Id);
         var candidates = await vault.Storage.FindAutoTypeCandidatesAsync(vault.Crypto, "Z controlled target - synthetic application");
-        Assert.Equal(target.Id, Assert.Single(candidates).Id);
+        var candidate = new AutoTypeCandidate(target.Id, target.Revision, target.Title);
+        Assert.Equal(candidate, Assert.Single(candidates));
+        Assert.Equal(candidate, Assert.Single(await vault.Storage.FindAutoTypeCandidatesAsync(vault.Crypto, "example.test")));
+        Assert.DoesNotContain("synthetic", JsonSerializer.Serialize(candidate));
         long previous = target.Revision; target.Password = "changed"; await vault.Storage.SaveEntryAsync(target, vault.Crypto);
         await Assert.ThrowsAsync<VaultConflictException>(() => vault.Storage.FindAutoTypeCandidatesAsync(vault.Crypto, "controlled target", target.Id, previous));
     }
@@ -264,9 +267,14 @@ public partial class VaultSecurityTests
         using var vault = await TestVault.Create(); var entry = await vault.Add();
         entry.AutoTypeSequence = "{S:token}";
         entry.CustomFields.Add(new PwCustomField { Key = "token", Value = "synthetic token", IsProtected = true });
+        entry.Attachments.Add(new PwAttachment { EntryId = entry.Id, FileName = "fixture.bin", FileSize = 1, Data = [1] });
+        entry.History.Add(entry.CreateHistorySnapshot());
         await vault.Storage.SaveEntryAsync(entry, vault.Crypto);
         var confirmed = await vault.Storage.LoadAutoTypeEntryAsync(entry.Id, entry.Revision, vault.Crypto);
         Assert.Equal("synthetic token", Assert.Single(AutoTypeService.Parse(confirmed)).Text);
+        Assert.False(confirmed.HasLoadedDetails);
+        Assert.Empty(confirmed.History);
+        Assert.Empty(confirmed.Attachments);
         confirmed.ClearSecrets();
         entry.AutoTypeEnabled = false; await vault.Storage.SaveEntryAsync(entry, vault.Crypto);
         await Assert.ThrowsAsync<VaultConflictException>(() => vault.Storage.LoadAutoTypeEntryAsync(entry.Id, entry.Revision, vault.Crypto));
