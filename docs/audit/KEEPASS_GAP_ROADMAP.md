@@ -8,6 +8,7 @@
 | 2026-11-23 | Implementation | Removed eager estimates from the Avalonia grid. The shield in the selected entry preview estimates quality on request after loading the authenticated entry revision. The score clears when the selection or page changes. The existing browsing path still materializes scalar secrets during page loading. |
 | 2026-11-23 | Focused verification | The Avalonia workspace test passed on Windows. It verifies that the score starts hidden, appears only on request without revealing or copying the password, and clears when the selection is removed. Existing entry gestures remain covered by the same test. |
 | 2026-11-23 | Regression suite | The Release suite passed 169 tests on Windows. The five locale files parsed and contain the new label. Local targets for links in the three updated Markdown files were checked. |
+| 2026-11-23 | Scoring helper | Removed the lowercased plaintext copy and the distinct-character collection from the shared scoring helper. The case comparison agreed with the prior behavior for the characters in the weak-pattern list across the Basic Multilingual Plane on the Windows development machine. The Release suite passed all 169 tests after adding a mixed-case regression assertion. |
 
 ## Order of work
 
@@ -19,4 +20,4 @@
 - [ ] Prepare a scoped independent review of the format, credential rotation, backup, import and update packages. Record the reviewed commit and follow-up findings.
 - [ ] Evaluate machine-level configuration for locking, export and Auto-Type when deployment requirements are available.
 
-The next memory pass should review the scoring helper and the Core browsing path. Password sorting is an existing desktop option, and its in-memory page cursors can hold plaintext sort values. Preserve ordering and cursor invalidation while reducing how long those values are retained.
+The next memory pass should review the Core browsing path. Password sorting is an existing desktop option, and its in-memory page cursors can hold plaintext sort values. Preserve ordering and cursor invalidation while reducing how long those values are retained.

@@ -25,6 +25,8 @@ namespace SQLitePass.Core.Services
         public const string SpecialChars = "!@#$%^&*_-+=~|:;,.?";
         public const string BracketChars = "()[]{}<>";
         public const string LookAlikeChars = "Il1O0|";
+        private static readonly string[] CommonPasswordFragments =
+            ["password", "qwerty", "123456", "abcdef", "letmein", "admin", "welcome", "ciao", "iloveyou"];
 
         public static string Generate(PasswordGeneratorOptions options)
         {
@@ -92,9 +94,12 @@ namespace SQLitePass.Core.Services
 
             int poolSize = 0;
             bool hasUpper = false, hasLower = false, hasDigits = false, hasSpecial = false;
+            bool hasDifferentCharacters = false;
+            char first = password[0];
 
             foreach (char c in password)
             {
+                hasDifferentCharacters |= c != first;
                 if (char.IsUpper(c)) hasUpper = true;
                 else if (char.IsLower(c)) hasLower = true;
                 else if (char.IsDigit(c)) hasDigits = true;
@@ -106,16 +111,18 @@ namespace SQLitePass.Core.Services
             if (hasDigits) poolSize += 10;
             if (hasSpecial) poolSize += 32;
 
-            if (poolSize == 0) return 0.0;
+            if (!hasDifferentCharacters) return 0.0;
             // Compatibility name: the UI presents this as a heuristic score, never measured entropy.
-            string lower = password.ToLowerInvariant();
-            if (password.Distinct().Count() <= 1) return 0;
             double bits = Math.Log2(poolSize) * password.Length;
             for (int period = 1; period <= password.Length / 2; period++)
                 if (password.Length % period == 0 && Enumerable.Range(0, password.Length).All(i => password[i] == password[i % period]))
                 { bits = Math.Min(bits, Math.Log2(poolSize) * period); break; }
             double score = Math.Min(100, bits * 100 / 128);
-            if (new[] { "password", "qwerty", "123456", "abcdef", "letmein", "admin", "welcome", "ciao", "iloveyou" }.Any(lower.Contains)) score = Math.Min(score, 20);
+            foreach (string fragment in CommonPasswordFragments)
+            {
+                if (password.Contains(fragment, StringComparison.OrdinalIgnoreCase))
+                    return Math.Round(Math.Min(score, 20), 1);
+            }
             return Math.Round(score, 1);
         }
 

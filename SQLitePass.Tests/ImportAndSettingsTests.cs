@@ -45,6 +45,7 @@ public class ImportAndSettingsTests
     {
         Assert.Equal(0, PasswordGenerator.CalculateEntropy(new string('a', 28)));
         Assert.InRange(PasswordGenerator.CalculateEntropy("Password123!"), 0, 20);
+        Assert.Equal(20, PasswordGenerator.CalculateEntropy("À9!PaSSwORd£6$"));
         Assert.InRange(PasswordGenerator.CalculateEntropy("Ab1!Ab1!Ab1!Ab1!"), 0, 30);
     }
     [Fact]
