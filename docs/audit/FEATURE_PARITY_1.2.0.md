@@ -1,6 +1,6 @@
 # Parità funzionale di SQLitePass dalla 1.0.0 alla 1.2.0
 
-La **1.2.0 pubblicata conserva il motore del vault e i principali flussi di gestione dei dati, ma perde diverse funzioni desktop della 1.1.3**. La migrazione ad Avalonia ha sostituito la superficie desktop WPF. La presenza del sorgente WPF nel repository non rende i suoi controlli disponibili nei pacchetti 1.2.0.
+La **1.2.0 pubblicata ha perso diverse funzioni desktop della 1.1.3**. Il motore del vault e i principali flussi di gestione dei dati sono rimasti disponibili. I pacchetti 1.2.0 usano la nuova interfaccia Avalonia.
 
 Il confronto usa le note di rilascio, il changelog e il codice dei tag. La colonna sul ramo di ripristino descrive il lavoro successivo alla 1.2.0 pubblicata. I risultati in CI e quelli interattivi sono indicati con il loro perimetro. [Note di rilascio](../../RELEASE_NOTES.md) · [Changelog](../../CHANGELOG.md) · [Esito 1.2.0](../releases/RELEASE_OUTCOME_1.2.0.md)
 
@@ -44,7 +44,7 @@ Il confronto usa le note di rilascio, il changelog e il codice dei tag. La colon
 | Impostazioni e cambio tema | Impostazioni nel menu File e nella schermata di sblocco. Tema selezionabile dalle impostazioni. Manca l'azione diretta. | Impostazioni visibili in entrambe le schermate e cambio chiaro/scuro immediato con salvataggio della preferenza. |
 | Menu, barra con icone e comandi contestuali | Menu ridotti, azioni principali distribuite in più righe. | Barra riordinata con icone originali, Azioni file/modifica/visualizza/strumenti e menu contestuali per voci e gruppi. |
 | Sidebar dei gruppi, espansione, percorso | Combobox con percorsi, senza albero. | Albero espandibile con icone, cestino, percorso e preferenze per vault. |
-| Drag-and-drop e riordino | Spostamento tramite dialoghi e riordino da menu. Manca il trascinamento. | Trascinamento in-process di voci e gruppi, ordinamento relativo e spostamento alla radice. Restano da provare le gesture native del drag-and-drop su Windows e Linux. |
+| Drag-and-drop e riordino | Spostamento tramite dialoghi e riordino da menu. Manca il trascinamento. | Trascinamento di voci e gruppi, ordinamento relativo e spostamento alla radice. Le prove X11 confermano lo spostamento di una voce, l'annidamento e il riordino di cartelle, anche partendo da una cartella non selezionata. Resta il collaudo interattivo su Windows. |
 | Intestazioni cliccabili, lista più ricca | Elenco a tre colonne, sorting da selettore. | Titolo, utente, password, URL, note e ultima modifica con intestazioni ordinabili. Note e data si nascondono quando lo spazio è ridotto. |
 | Ricerca mentre si digita | Invio o comando di ricerca. | Ricerca ritardata durante la digitazione, con i filtri e le pagine esistenti. |
 | Doppio clic e anteprima | Mancano le azioni sul doppio clic, la colonna password e il pannello dedicato. | Doppio clic apre la scheda su titolo, copia su utente/password e apre l'URL. Tornano anteprima, copia rapida, qualità e reveal temporizzati. |
@@ -52,4 +52,8 @@ Il confronto usa le note di rilascio, il changelog e il codice dei tag. La colon
 | Scorciatoie desktop | Auto-Type dalla voce selezionata. Mancano vari comandi a tastiera. | Comandi locali tra cui Ctrl+H, F5, Ctrl+I, Ctrl+G e Ctrl+L. Su Windows torna la registrazione Ctrl+Alt+A con verifica del target e conferma. La prova nativa della scorciatoia globale resta aperta. |
 | Accessibilità, geometria e rifiniture WPF | Etichette Avalonia e controllo da tastiera di base. La matrice di layout e contrasto WPF non misura la UI Avalonia. | Etichette e tooltips, layout compatto e chiaro/scuro, palette ad alto contrasto su richiesta del sistema e dimensioni delle finestre salvate. Restano le prove native della matrice DPI, Narrator e contrasto. |
 
-Il confronto evidenzia le perdite di interfaccia e i cambiamenti volontari di piattaforma. Le verifiche della release 1.2.0 coprivano compatibilità del vault, packaging e alcune integrazioni native. Il piano di verifica del ramo aggiunge navigazione dell'albero, doppi clic su voci sintetiche, tema e chiusura dell'editor durante il lock.
+## Verifiche del ramo di ripristino
+
+- Il test desktop con vault sintetico esercita la navigazione dell'albero con il mouse, i doppi clic su titolo, utente e password, il tema e la chiusura dell'editor mentre è aperta la conferma di scarto.
+- Su Linux, in una sessione X11 isolata, i doppi clic hanno copiato i valori sintetici e aperto l'editor nativo. Lo spostamento della voce, l'annidamento e l'ordine relativo di cartelle sono stati controllati riaprendo il vault.
+- La pipeline del ramo esegue la suite condivisa e le verifiche native di avvio, sessione, clipboard, tray e Auto-Type, quindi assembla i pacchetti di prova per Windows e Linux. [Esecuzioni del ramo](https://github.com/FuryGamingASD/SQLitePass/actions/workflows/verify.yml?query=branch%3Acodex%2Favalonia-desktop-parity)

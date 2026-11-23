@@ -68,6 +68,7 @@ public sealed partial class VaultWindow
         _previewRevealTimer.Tick += (_, _) => HidePreviewPassword();
         _columnRevealTimer.Tick += (_, _) => HideColumnPasswords();
         AddHandler(KeyDownEvent, Workspace_KeyDown, RoutingStrategies.Tunnel);
+        InitializeWorkspaceDrag();
         _backupBadgeTimer.Tick += BackupBadgeTimer_Tick;
         _expansionTimer.Tick += SaveExpansion_Tick;
         MasterPassword.AddHandler(TextBox.CopyingToClipboardEvent, (_, args) => args.Handled = true);

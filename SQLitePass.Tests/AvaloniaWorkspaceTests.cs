@@ -68,8 +68,19 @@ public sealed partial class AvaloniaVaultTests
                     var nested = Assert.Single(parent.Children);
                     Assert.Equal("Nested group", nested.Caption);
                     Assert.True(tree.IsVisible);
-                    tree.SelectedItem = nested;
+                    parent.Expanded = true;
+                    window.UpdateLayout();
+                    var folderName = tree.GetVisualDescendants().OfType<TextBlock>().Single(label => label.Text == nested.Caption);
+                    var folderPoint = CenterOf(folderName);
+                    var folderPath = window.FindControl<TextBlock>("FolderPath")!;
+                    string? previousPath = folderPath.Text;
+                    window.MouseMove(folderPoint, RawInputModifiers.None);
+                    window.MouseDown(folderPoint, MouseButton.Left, RawInputModifiers.None);
+                    Assert.True(tree.IsEffectivelyEnabled);
+                    Assert.Equal(previousPath, folderPath.Text);
+                    window.MouseUp(folderPoint, MouseButton.Left, RawInputModifiers.None);
                     await WaitAsync(() => (tree.SelectedItem as GroupChoice)?.Id == nested.Id &&
+                        folderPath.Text == nested.Name &&
                         window.FindControl<Grid>("VaultPanel")!.IsEnabled &&
                         window.FindControl<WrapPanel>("VaultToolbar")!.IsEnabled, timeout.Token);
                     var entries = window.FindControl<ListBox>("Entries")!;
@@ -103,7 +114,7 @@ public sealed partial class AvaloniaVaultTests
                     {
                         window.UpdateLayout();
                         var cell = window.GetVisualDescendants().OfType<Border>().Single(border => border.Name == name);
-                        var point = cell.TranslatePoint(new Point(cell.Bounds.Width / 2, cell.Bounds.Height / 2), window)!.Value;
+                        var point = CenterOf(cell);
                         window.MouseMove(point, RawInputModifiers.None);
                         for (int click = 0; click < 2; click++)
                         {
@@ -111,6 +122,9 @@ public sealed partial class AvaloniaVaultTests
                             window.MouseUp(point, MouseButton.Left, RawInputModifiers.None);
                         }
                     }
+
+                    Point CenterOf(Control control) =>
+                        control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), window)!.Value;
                 }
                 finally
                 {

@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using SQLitePass.Core.Models;
 using SQLitePass.Core.Services;
 
@@ -17,6 +18,12 @@ public sealed partial class VaultWindow
 
     private WorkspaceDrag? _pendingWorkspaceDrag;
     private WorkspaceDrag? _activeWorkspaceDrag;
+
+    private void InitializeWorkspaceDrag()
+    {
+        AddHandler(PointerMovedEvent, WorkspacePointerMoved, RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(PointerReleasedEvent, WorkspacePointerReleased, RoutingStrategies.Tunnel, handledEventsToo: true);
+    }
 
     private void EntryRow_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
@@ -41,13 +48,13 @@ public sealed partial class VaultWindow
             _pendingWorkspaceDrag = new WorkspaceDrag(session, row, e, point.Position);
     }
 
-    private async void WorkspaceRow_PointerMoved(object? sender, PointerEventArgs e)
+    private async void WorkspacePointerMoved(object? sender, PointerEventArgs e)
     {
         if (_pendingWorkspaceDrag is not { } drag || e.Pointer != drag.Press.Pointer) return;
         var point = e.GetCurrentPoint(this);
         if (!point.Properties.IsLeftButtonPressed)
         {
-            _pendingWorkspaceDrag = null;
+            await FinishWorkspacePressAsync(drag);
             return;
         }
         var offset = point.Position - drag.Origin;
@@ -67,9 +74,26 @@ public sealed partial class VaultWindow
             if (_session != null) StatusText.Text = Text("ErrorUnexpected");
         }
         finally { _activeWorkspaceDrag = null; }
+        await BrowsePressedFolderAsync(drag);
     }
 
-    private void WorkspaceRow_PointerReleased(object? sender, PointerReleasedEventArgs e) => _pendingWorkspaceDrag = null;
+    private async void WorkspacePointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (_pendingWorkspaceDrag is { } drag && e.Pointer == drag.Press.Pointer && e.InitialPressMouseButton == MouseButton.Left)
+            await FinishWorkspacePressAsync(drag);
+    }
+
+    private Task FinishWorkspacePressAsync(WorkspaceDrag drag)
+    {
+        _pendingWorkspaceDrag = null;
+        return BrowsePressedFolderAsync(drag);
+    }
+
+    private Task BrowsePressedFolderAsync(WorkspaceDrag drag) =>
+        ReferenceEquals(_session, drag.Session) && drag.Row is PwGroup folder &&
+        Groups.SelectedItem is GroupChoice selected && selected.Id == folder.Id && _query.GroupId != folder.Id
+            ? SelectGroupAsync(selected)
+            : Task.CompletedTask;
 
     private FolderDrop? DropForTarget(object? sender, DragEventArgs e)
     {

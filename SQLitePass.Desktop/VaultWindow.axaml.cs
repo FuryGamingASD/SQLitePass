@@ -288,7 +288,10 @@ public sealed partial class VaultWindow : Window
 
     private async void Group_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (Groups.SelectedItem is GroupChoice group) await SelectGroupAsync(group);
+        if (Groups.SelectedItem is not GroupChoice group) return;
+        // Loading the selected folder replaces the group rows, including the pointer's drag source.
+        if (_pendingWorkspaceDrag?.Row is PwGroup pressed && pressed.Id == group.Id) return;
+        await SelectGroupAsync(group);
     }
 
     internal Task SelectGroupAsync(GroupChoice group) => RunOperationAsync(async token =>
@@ -400,6 +403,7 @@ public sealed partial class VaultWindow : Window
 
     internal async Task LockVaultAsync()
     {
+        _pendingWorkspaceDrag = null;
         HidePasswordReveals();
         _searchTimer.Stop();
         _autoTypeHotkey?.Dispose();

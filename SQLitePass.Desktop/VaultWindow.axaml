@@ -296,7 +296,6 @@
                                 <TreeDataTemplate x:DataType="desktop:GroupChoice" ItemsSource="{CompiledBinding Children}">
                                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="7" MinHeight="27"
                                           Background="Transparent" DragDrop.AllowDrop="True" PointerPressed="GroupRow_PointerPressed"
-                                          PointerMoved="WorkspaceRow_PointerMoved" PointerReleased="WorkspaceRow_PointerReleased"
                                           DragDrop.DragOver="GroupRow_DragOver" DragDrop.DragLeave="GroupRow_DragLeave" DragDrop.Drop="GroupRow_Drop">
                                         <Border Grid.ColumnSpan="2" Height="2" VerticalAlignment="Top" Classes="drop-indicator drop-top"
                                                 Background="{DynamicResource WorkspaceLink}" IsHitTestVisible="False" />
@@ -362,8 +361,7 @@
                                      SelectionChanged="Entries_SelectionChanged" KeyDown="Entries_KeyDown">
                                 <ListBox.ItemTemplate>
                                     <DataTemplate x:DataType="desktop:EntryRow">
-                                        <Grid ColumnDefinitions="2*,1.35*,Auto,1.65*,Auto,Auto" PointerPressed="EntryRow_PointerPressed"
-                                              PointerMoved="WorkspaceRow_PointerMoved" PointerReleased="WorkspaceRow_PointerReleased">
+                                        <Grid ColumnDefinitions="2*,1.35*,Auto,1.65*,Auto,Auto" PointerPressed="EntryRow_PointerPressed">
                                             <Border Name="EntryTitleCell" Classes="entry-cell" DoubleTapped="EntryTitle_DoubleTapped">
                                                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
                                                     <desktop:DesktopIcon Kind="{CompiledBinding Icon}" Width="14" Height="14" VerticalAlignment="Center"
