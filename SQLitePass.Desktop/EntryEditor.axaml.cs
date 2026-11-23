@@ -203,8 +203,8 @@ public sealed partial class EntryEditor : Window
         _draft.AutoTypeSequence = Sequence.Text ?? "";
         if (_draft.AutoTypeEnabled)
         {
-            try { AutoTypeService.Parse(_draft); }
-            catch (Exception error) when (error is InvalidDataException or InvalidOperationException or OverflowException or System.Text.RegularExpressions.RegexMatchTimeoutException)
+            try { AutoTypeService.ValidateSequence(_draft); }
+            catch (Exception error) when (error is InvalidDataException or InvalidOperationException or OverflowException)
             {
                 ShowValidation("EntryAutoTypeInvalid");
                 Sections.SelectedItem = AutoTypeTab;

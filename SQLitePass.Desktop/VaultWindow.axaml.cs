@@ -21,15 +21,19 @@ namespace SQLitePass.Desktop;
 internal sealed class EntryRow(Guid id, long revision, string title, string userName, bool hasPassword,
     string url, string notes, string updated) : INotifyPropertyChanged
 {
+    private string _title = title;
+    private string _userName = userName;
+    private string _url = url;
+    private string _notes = notes;
     private string? _revealedPassword;
 
     public Guid Id { get; } = id;
     public long Revision { get; } = revision;
-    public string Title { get; } = title;
-    public string UserName { get; } = userName;
+    public string Title => _title;
+    public string UserName => _userName;
     public bool HasPassword { get; } = hasPassword;
-    public string Url { get; } = url;
-    public string Notes { get; } = notes;
+    public string Url => _url;
+    public string Notes => _notes;
     public string Updated { get; } = updated;
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -41,6 +45,17 @@ internal sealed class EntryRow(Guid id, long revision, string title, string user
     {
         if (_revealedPassword == password) return;
         _revealedPassword = password;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DisplayPassword)));
+    }
+
+    internal void ClearSensitiveValues()
+    {
+        _title = _userName = _url = _notes = string.Empty;
+        _revealedPassword = null;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Title)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(UserName)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Url)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Notes)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DisplayPassword)));
     }
 }
@@ -336,8 +351,10 @@ public sealed partial class VaultWindow : Window
             var rows = page.Entries.Select(entry => new EntryRow(entry.Id, entry.Revision, entry.Title, entry.UserName,
                 entry.HasPassword, entry.Url, NotePreview(entry.Notes),
                 entry.UpdatedAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture))).ToArray();
+            var oldRows = Entries.Items.OfType<EntryRow>().ToArray();
             Entries.ItemsSource = rows;
             Entries.SelectedItem = rows.FirstOrDefault(row => row.Id == selectedEntry);
+            foreach (var oldRow in oldRows) oldRow.ClearSensitiveValues();
             EmptyEntryPanel.IsVisible = rows.Length == 0;
             UpdateEntryPreview();
             EntryCount.Text = Text("EntriesPageRange", page.FirstIndex, page.Entries.Count == 0 ? 0 : page.FirstIndex + page.Entries.Count - 1, page.MatchedCount);
@@ -418,7 +435,10 @@ public sealed partial class VaultWindow : Window
         ClipboardStatus.Text = "";
         FolderPath.Text = EntryCount.Text = BackupStatus.Text = SearchBox.Text = MasterPassword.Text = KeyFilePath.Text = "";
         UseKeyFile.IsChecked = false;
+        var oldRows = Entries.Items.OfType<EntryRow>().ToArray();
         Entries.ItemsSource = null;
+        Entries.SelectedItem = null;
+        foreach (var oldRow in oldRows) oldRow.ClearSensitiveValues();
         Groups.ItemsSource = null;
         FolderChoices = [];
         UpdateEntryPreview();

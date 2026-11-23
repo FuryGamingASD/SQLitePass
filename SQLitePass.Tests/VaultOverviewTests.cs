@@ -5,6 +5,7 @@ using System.Text.Json.Nodes;
 using Microsoft.Data.Sqlite;
 using SQLitePass.Core.Crypto;
 using SQLitePass.Core.Models;
+using SQLitePass.Desktop;
 
 namespace SQLitePass.Tests;
 
@@ -336,6 +337,19 @@ public partial class VaultSecurityTests
         var history = new PwEntryHistory { Title = "private old title", SnapshotJson = "private snapshot" };
         entry.History.Add(history); entry.ClearSecrets();
         Assert.Empty(entry.AutoTypeSequence); Assert.Empty(history.Title); Assert.Empty(history.SnapshotJson);
+    }
+
+    [Fact]
+    public void EntryRowClearsDisplayedCredentialStringsAndRevealedPassword()
+    {
+        var row = new EntryRow(Guid.NewGuid(), 1, "private title", "private user", true,
+            "https://private.example", "private note", "updated");
+        row.SetRevealedPassword("private password");
+
+        row.ClearSensitiveValues();
+
+        Assert.Empty(row.Title); Assert.Empty(row.UserName); Assert.Empty(row.Url); Assert.Empty(row.Notes);
+        Assert.Equal(row.PasswordMask, row.DisplayPassword);
     }
 
     [Fact]

@@ -60,8 +60,11 @@ public sealed partial class AvaloniaVaultTests
                     Assert.True(vaultPanel.IsVisible);
                     Assert.Equal(2, entryList.Items.Count);
                     var groups = window.FindControl<TreeView>("Groups")!;
+                    var replacedRows = entryList.Items.OfType<EntryRow>().ToArray();
                     await window.SelectGroupAsync(window.FolderChoices.Single(item => item.Folder?.IsRoot == true));
                     Assert.Equal(2, entryList.Items.Count);
+                    Assert.All(replacedRows, row => Assert.True(string.IsNullOrEmpty(row.Title) &&
+                        string.IsNullOrEmpty(row.UserName) && string.IsNullOrEmpty(row.Url) && string.IsNullOrEmpty(row.Notes)));
                     var tag = window.FindControl<TextBox>("TagFilter")!;
                     tag.Text = "de";
                     await window.SearchAsync();
@@ -99,8 +102,11 @@ public sealed partial class AvaloniaVaultTests
                     editor = await FindDialogAsync<EntryEditor>(window, editing, timeout.Token);
                     editor.FindControl<TextBox>("UserName")!.Text = "discarded-user";
 
+                    var lockedRows = entryList.Items.OfType<EntryRow>().ToArray();
                     await window.LockVaultAsync();
                     await editing;
+                    Assert.All(lockedRows, row => Assert.True(string.IsNullOrEmpty(row.Title) &&
+                        string.IsNullOrEmpty(row.UserName) && string.IsNullOrEmpty(row.Url) && string.IsNullOrEmpty(row.Notes)));
                     Assert.False(vaultPanel.IsVisible);
                     Assert.False(editor.IsVisible);
                     Assert.Empty(entryList.Items);
