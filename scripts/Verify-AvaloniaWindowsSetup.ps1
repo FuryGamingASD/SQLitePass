@@ -169,6 +169,8 @@ foreach ($previousVersion in @('') + @($previousHashes.Keys)) {
                 if ((Get-FileHash -LiteralPath $oldPayload).Hash -cne $expected) {
                     throw 'Running Setup again did not replace the same-version application files.'
                 }
+            } elseif ($previousVersion -ceq '1.2.2') {
+                Invoke-PackageCommand $setup @('--silent', '--installto', $installation, '--log', (Join-Path $logs "$scenario-manual-install.log"))
             } else {
                 Invoke-PackageCommand $updater @('--silent', '--log', (Join-Path $logs "$scenario-apply.log"), 'apply', '--package', $updatePackage, '--norestart')
             }

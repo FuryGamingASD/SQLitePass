@@ -67,6 +67,14 @@ try {
 
     [ordered]@{ InstalledAppImageSHA256 = $afterHash; BaselineVersion = $baseline; InstalledVersion = $manifest.Version } |
         ConvertTo-Json | Set-Content -LiteralPath (Join-Path $evidence 'in-place-upgrade.json') -Encoding utf8
+
+    $manualDirectory = (New-Item -ItemType Directory -Path (Join-Path $isolated 'manual')).FullName
+    $installedPath = Join-Path $manualDirectory 'SQLitePass.AppImage'
+    Copy-Item -LiteralPath (Join-Path $candidate $manifest.Distribution) -Destination $installedPath
+    & chmod +x -- $installedPath
+    if ($LASTEXITCODE -ne 0 -or (Get-FileHash -LiteralPath $installedPath).Hash -cne $expectedHash) {
+        throw 'The manual AppImage installation differs from the candidate.'
+    }
     $probePackages = Join-Path (Split-Path -Parent $candidate) 'signed-upgrade'
     Invoke-AppImageUpgrade $installedPath $probePackages $signedEvidence '--verify-signed-update'
     $probeFeed = Get-Content -LiteralPath (Join-Path $probePackages 'releases.linux.json') -Raw | ConvertFrom-Json
