@@ -21,6 +21,7 @@
 | 2026-11-23 | Selected credential read design | Replace the Avalonia scalar overview reads for copy, single-entry reveal and scoring with authenticated reads for the selected username or password. Reuse the existing identity and revision checks. |
 | 2026-11-23 | Selected credential reads | Copy, preview reveal and quality estimation now request the specific username or password. The Core authenticates the vault, checks the record identity and revision, and clears the decrypted payload buffer. |
 | 2026-11-23 | Credential verification on Windows | All 175 Release tests passed. Coverage includes the two projections, escaped Unicode values, an empty password, cancellation, stale revisions, full-vault authentication, and the Avalonia copy, reveal and score actions. The legacy WPF Release project built with zero warnings or errors. |
+| 2026-11-23 | Credential verification on Linux | On FuryUbuntu x64, `42d133a` passed locked restore and all 175 Release tests with SDK 10.0.404. Source startup passed under Xvfb. Package and native input probes remain pending. |
 
 ## Order of work
 
