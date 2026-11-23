@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-## [1.3.0] - 2026-11-23
+## [1.3.0] - 2026-11-24
 
 - Import KeePass KDBX 4.0 and 4.1 into a new encrypted vault with a migration report.
 - Use optional machine policy to enforce vault locking and restrict exports or Auto-Type.

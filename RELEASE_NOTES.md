@@ -26,7 +26,7 @@ Security guarantees should always be interpreted according to the current docume
 - Apply the new clipboard safeguards on Windows and Linux. Credential copying is unavailable on Windows build 26300, when Windows clipboard roaming is enabled, and when an incompatible Linux clipboard manager is detected.
 - Verify update packages with the pinned publisher key and require a current, signed latest-release checkpoint. Manage signing outside GitHub Actions.
 
-For the first installation of a client with the publisher key, use the verified Windows installer or Linux AppImage and follow the manual transition. Existing vault files and credentials remain compatible. The Windows installer has no Authenticode signature. The application verifies subsequent updates using the pinned SQLitePass signing key. [Update signing and transition](docs/UPDATE_SIGNING.md#transition-for-existing-installations)
+For the first installation of a client with the publisher key, use the verified Windows installer or Linux AppImage and follow the manual transition. Existing vault files and credentials remain compatible. The Windows installer has no Authenticode signature. The application verifies subsequent updates using the pinned SQLitePass signing key. [Update signing and transition](https://github.com/FuryGamingASD/SQLitePass/blob/v1.3.0/docs/UPDATE_SIGNING.md#transition-for-existing-installations)
 
 ---
 
