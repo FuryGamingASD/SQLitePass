@@ -194,11 +194,11 @@ namespace SQLitePass.UI
             _isPerformingAutoType = true;
             _autoTypeCancellation.Dispose(); _autoTypeCancellation = new();
             var cancellation = _autoTypeCancellation;
-            List<PwEntry>? candidates = null;
+            PwEntry? confirmed = null;
             try
             {
                 string targetProcessName = AutoTypeService.GetWindowProcessName(foregroundProcessId);
-                candidates = await storage.FindAutoTypeCandidatesAsync(crypto, winTitle, pending?.Id, pending?.Revision, cancellation.Token);
+                var candidates = await storage.FindAutoTypeCandidatesAsync(crypto, winTitle, pending?.Id, pending?.Revision, cancellation.Token);
                 if (_isLocked || generation != _sessionGeneration) return;
                 if (!AutoTypeService.IsForegroundTarget(foregroundWin, winTitle, foregroundProcessId))
                 {
@@ -213,11 +213,9 @@ namespace SQLitePass.UI
                 var selected = candidates[0];
                 if (new AutoTypeConfirmDialog(selected.Title, winTitle, targetProcessName) { Owner = this }.ShowDialog() != true || _isLocked || generation != _sessionGeneration) return;
                 // A confirmation must not authorize credentials from a revision changed meanwhile.
-                var confirmed = await storage.LoadAutoTypeEntryAsync(selected.Id, selected.Revision, crypto, cancellation.Token);
-                foreach (var entry in candidates) entry.ClearSecrets();
-                candidates = [confirmed];
-                if (_isLocked || generation != _sessionGeneration || candidates.Count != 1) return;
-                await AutoTypeService.ExecuteAutoTypeAsync(candidates[0], foregroundWin, 250, cancellation.Token,
+                confirmed = await storage.LoadAutoTypeEntryAsync(selected.Id, selected.Revision, crypto, cancellation.Token);
+                if (_isLocked || generation != _sessionGeneration) return;
+                await AutoTypeService.ExecuteAutoTypeAsync(confirmed, foregroundWin, 250, cancellation.Token,
                     expectedTitle: winTitle, expectedProcessId: foregroundProcessId);
             }
             catch (OperationCanceledException)
@@ -230,7 +228,7 @@ namespace SQLitePass.UI
             }
             finally
             {
-                if (candidates != null) foreach (var entry in candidates) entry.ClearSecrets();
+                confirmed?.ClearSecrets();
                 _isPerformingAutoType = false;
             }
         }

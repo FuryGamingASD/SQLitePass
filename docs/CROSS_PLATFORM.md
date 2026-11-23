@@ -1,6 +1,6 @@
 # Windows and Linux desktop guide
 
-The Avalonia application in `SQLitePass.Desktop` uses `SQLitePass.Core` for the existing vault format, authentication, verification, paging, and writes. Both builds read the version from `Directory.Build.props`. SQLitePass 1.2.0 ships the shared app on Windows x64 and Linux x64. The Windows 1.1.3 release used WPF. [1.2.0 release outcome](releases/RELEASE_OUTCOME_1.2.0.md)
+The Avalonia application in `SQLitePass.Desktop` uses `SQLitePass.Core` for the vault format, authentication, verification, paging and writes. Both builds read the version from `Directory.Build.props`. SQLitePass 1.2.0 introduced the shared app for Windows x64 and Linux x64. Version 1.3.0 adds read-only KeePass migration, optional machine policy and authenticated updates for both builds. [Release notes](../RELEASE_NOTES.md#sqlitepass-130)
 
 ## Verification builds
 
@@ -20,7 +20,7 @@ CI checks Windows capture-affinity flags on the native window. On Linux, the pri
 
 ### Native session results for 1.2.0
 
-- Windows VM. On 2026-11-22 the maintainer confirmed that pressing Win+L locked an open vault in the test VM. This result is a manual observation.
+- Windows VM. A manual check on 2026-11-22 confirmed that pressing Win+L locked the open vault.
 - Linux system logind. A dedicated SSH session on Ubuntu 26.04.1 LTS verified that the vault locks when the installed logind reports a session lock and stays locked when the hint clears.
 - Linux suspend and resume. A disposable Ubuntu 24.04.5 LTS VM entered ACPI S3. SQLitePass had closed the synthetic vault by the time QEMU reported suspension, and the vault stayed closed on resume.
 - Linux Xfce lock screen. In an Ubuntu 24.04.5 LTS VM with Xfce 4.18.3 and LightDM, `xflock4` activated the actual screen locker while logind's `LockedHint` stayed false. The original build left the vault open. The corrected build closed the vault while the screen was locked and kept it closed after desktop authentication.
@@ -39,11 +39,13 @@ The unlocked window places minimize, maximize, restore and close next to the men
 
 ## Releasing both platforms
 
-Set the shared version in `Directory.Build.props` and add one matching `# SQLitePass X.Y.Z` section to `RELEASE_NOTES.md`. For a version newer than 1.1.3, push its `vX.Y.Z` tag on a commit in `main`. Verify schedules the Windows and Linux builds in parallel. It assembles their verified assets, validates their hashes, and publishes the Windows installer, AppImage and both Velopack feeds in one GitHub release. The Windows package retains the `SQLitePass` package ID, `SQLitePass.exe` apphost and `win` channel. The Linux package uses the `linux` channel. After publication, the workflow compares both public feed files with the verified copies.
+Set the shared version in `Directory.Build.props` and add one matching `# SQLitePass X.Y.Z` section to `RELEASE_NOTES.md`. Tag the approved commit on `main`. Verify builds and tests both packages, then retains the verified bundle. The release operator checks the source, signs the approved bundle offline, publishes it and compares both public feeds and the signed metadata with the approved copies. Windows uses the `SQLitePass` package ID, `SQLitePass.exe` apphost and `win` channel. Linux uses the `linux` channel. [Release signing and transition](UPDATE_SIGNING.md)
 
-The shared app offers **Check for Updates** on the unlock screen and in the vault menu. Official packages check their platform's channel. A confirmed update downloads while the app is open and locks the vault before restarting. A cancelled download does not trigger automatic installation on the next startup. The Linux upgrade probe runs the checksum-verified public 1.2.1 AppImage against the candidate's local feed. It checks the replacement, restart, and reopening of a synthetic vault.
+The shared app offers **Check for Updates** on the unlock screen and in the vault menu. Official packages check their platform's channel. From 1.3.0 the client verifies the package signature and signed latest-release checkpoint. A confirmed update downloads while the app is open and locks the vault before restarting. A cancelled download does not trigger automatic installation on the next startup. Follow the manual installation procedure when moving to 1.3.0. [First installation and update trust](UPDATE_SIGNING.md#transition-for-existing-installations)
 
-To rehearse this from a branch, run Verify with the `release_rehearsal` input. This builds with the public package identity and retains the combined bundle as a CI artifact. Publication requires a pushed release tag. The Windows job verifies fresh installation, tray activation, clean shutdown before updating, upgrades from the public 1.1.3, 1.2.0 and 1.2.1 installers, and uninstall with synthetic data outside the installation. It also checks the unlock-window frame, folder drop feedback and global Auto-Type on the isolated Windows desktop.
+To rehearse this from a branch, run Verify with the `release_rehearsal` input, a version newer than 1.2.2 and the approved public key. This builds with the public package identity and retains the combined bundle as a CI artifact. The Windows job verifies fresh installation, tray activation, clean shutdown before updating, upgrades from the public 1.1.3, 1.2.0, 1.2.1 and 1.2.2 installers, and uninstall with synthetic data outside the installation. It also checks the unlock-window frame, folder drop feedback and global Auto-Type on the isolated Windows desktop.
+
+The Linux upgrade rehearsal starts from the checksum-verified public 1.2.2 AppImage and checks replacement with the exact candidate AppImage, restart and reopening of a synthetic vault. Both jobs then exercise a signed update with an ephemeral verification key and the same candidate binaries at a later package version. The release bundle retains only the candidate assets.
 
 For a same-version replacement, pass the original public Windows installer checksum in `existing_windows_installer_sha256` during rehearsal. The Windows job installs that build, runs the replacement Setup over it, compares the installed assembly with the candidate package and checks that synthetic user data survives. An existing 1.2.2 installation needs a manual download when the published package is replaced at the same version.
 
@@ -53,7 +55,7 @@ On the locked screen, **Restore from .backup** authenticates a backup using the 
 
 ## Desktop clipboard
 
-Copying a user name or password uses the configured clipboard timeout. Foreground apps can paste the value until it expires, is replaced, or the vault locks. Windows requests exclusion from clipboard history and cloud synchronization. The Linux adapter uses the X11 clipboard and advertises a password-manager hint. Clipboard history tools can retain copies if they ignore that hint. Copy commands require a supported clipboard adapter.
+Copying a user name or password uses the configured clipboard timeout. Foreground apps can paste the value until it expires, is replaced, or the vault locks. Windows requests exclusion from clipboard history and cloud synchronization. SQLitePass blocks credential copying when roaming is enabled and on Windows build 26300, where a paired PC retained clipboard history during a test with roaming disabled. The Linux X11 adapter advertises a password-manager hint and blocks copying when an X11 clipboard-manager selection owner or the Xfce Clipman D-Bus service is detected, and when a configured D-Bus session cannot be queried. Clipman retained a synthetic fixture after expiry and shutdown. An unrecognized manager or one that starts after the check can still retain a copy. Copy commands require a supported clipboard adapter.
 
 ## Auto-Type in the shared app
 

@@ -340,12 +340,13 @@ public sealed partial class SqliteStorageProvider : IDisposable
     }
     private static List<PwEntry> ReadEntries(SqliteConnection c, SqliteTransaction tx, CryptoEngine crypto, VaultMetadata m,
         Guid? groupId = null, bool includeDetails = true, Guid? entryId = null,
-        CancellationToken cancellationToken = default, IProgress<VaultReadProgress>? progress = null)
+        CancellationToken cancellationToken = default, IProgress<VaultReadProgress>? progress = null,
+        JsonSerializerOptions? projection = null)
     {
         var result = new List<PwEntry>();
         try
         {
-            foreach (var entry in EnumerateEntries(c, tx, crypto, m, groupId, includeDetails, entryId, cancellationToken, progress)) result.Add(entry);
+            foreach (var entry in EnumerateEntries(c, tx, crypto, m, groupId, includeDetails, entryId, cancellationToken, progress, projection)) result.Add(entry);
             return result;
         }
         catch { foreach (var entry in result) entry.ClearSecrets(); throw; }
@@ -354,7 +355,8 @@ public sealed partial class SqliteStorageProvider : IDisposable
     // The consumer owns each yielded model and must clear models it does not retain.
     private static IEnumerable<PwEntry> EnumerateEntries(SqliteConnection c, SqliteTransaction tx, CryptoEngine crypto, VaultMetadata m,
         Guid? groupId = null, bool includeDetails = true, Guid? entryId = null,
-        CancellationToken cancellationToken = default, IProgress<VaultReadProgress>? progress = null)
+        CancellationToken cancellationToken = default, IProgress<VaultReadProgress>? progress = null,
+        JsonSerializerOptions? projection = null, IReadOnlyList<Guid>? entryIds = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         using var cmd = c.CreateCommand(); cmd.Transaction = tx;
@@ -364,6 +366,16 @@ public sealed partial class SqliteStorageProvider : IDisposable
         {
             cmd.CommandText += groupId.HasValue ? " AND id=$id" : " WHERE id=$id";
             cmd.Parameters.AddWithValue("$id", entryId.Value.ToString());
+        }
+        else if (entryIds != null)
+        {
+            var parameters = new string[entryIds.Count];
+            for (int i = 0; i < entryIds.Count; i++)
+            {
+                parameters[i] = "$id" + i.ToString(CultureInfo.InvariantCulture);
+                cmd.Parameters.AddWithValue(parameters[i], entryIds[i].ToString());
+            }
+            cmd.CommandText += (groupId.HasValue ? " AND " : " WHERE ") + $"id IN ({string.Join(", ", parameters)})";
         }
         int total = 0;
         if (progress != null)
@@ -380,11 +392,11 @@ public sealed partial class SqliteStorageProvider : IDisposable
             PwEntry entry;
             try
             {
-                entry = JsonSerializer.Deserialize<PwEntry>(plain, includeDetails ? EntrySerialization.Options : EntrySerialization.OverviewOptions)
+                entry = JsonSerializer.Deserialize<PwEntry>(plain, projection ?? (includeDetails ? EntrySerialization.Options : EntrySerialization.OverviewOptions))
                     ?? throw new InvalidDataException("Voce vuota.");
                 if (entry.Id != id || entry.GroupId != group || entry.Revision != revision)
                 { entry.ClearSecrets(); throw new InvalidDataException("Identità della voce non valida."); }
-                if (!includeDetails) entry.MarkAsOverview();
+                if (!includeDetails || projection != null) entry.MarkAsOverview();
             }
             finally { CryptographicOperations.ZeroMemory(plain); }
             // Report only after ownership has passed to the consumer, including on cancellation.
@@ -399,18 +411,56 @@ public sealed partial class SqliteStorageProvider : IDisposable
     public Task<List<PwEntry>> LoadEntriesAsync(Guid? groupId, CryptoEngine crypto)
     { CheckCrypto(crypto); return ReadAsync((c, tx, key, m) => ReadEntries(c, tx, key, m, groupId)); }
     public Task<PwEntry> LoadEntryAsync(Guid entryId, CryptoEngine crypto, long? expectedRevision = null,
-        CancellationToken cancellationToken = default) => LoadEntryAsync(entryId, crypto, expectedRevision, includeDetails: true, cancellationToken);
+        CancellationToken cancellationToken = default) => LoadEntryAsync(entryId, crypto, expectedRevision, projection: null, cancellationToken);
 
     public Task<PwEntry> LoadEntryOverviewAsync(Guid entryId, CryptoEngine crypto, long expectedRevision,
-        CancellationToken cancellationToken = default) => LoadEntryAsync(entryId, crypto, expectedRevision, includeDetails: false, cancellationToken);
+        CancellationToken cancellationToken = default) => LoadEntryAsync(entryId, crypto, expectedRevision, EntrySerialization.OverviewOptions, cancellationToken);
 
-    private Task<PwEntry> LoadEntryAsync(Guid entryId, CryptoEngine crypto, long? expectedRevision, bool includeDetails,
+    public async Task<EntryEditDraft> OpenEntryDraftAsync(Guid entryId, CryptoEngine crypto, long expectedRevision,
         CancellationToken cancellationToken = default)
+    {
+        var entry = await LoadEntryAsync(entryId, crypto, expectedRevision, EntrySerialization.EditorOptions, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return EntryEditDraft.TakeDeferredEntry(entry,
+                token => LoadEntryAsync(entryId, crypto, expectedRevision, token),
+                token => LoadEntryAsync(entryId, crypto, expectedRevision, EntrySerialization.AttachmentOptions, token),
+                token => LoadEntryAsync(entryId, crypto, expectedRevision, EntrySerialization.HistoryOptions, token));
+        }
+        catch
+        {
+            entry.ClearSecrets();
+            throw;
+        }
+    }
+
+    public Task<string> LoadEntryUserNameAsync(Guid entryId, CryptoEngine crypto, long expectedRevision,
+        CancellationToken cancellationToken = default) => LoadEntryCredentialAsync(entryId, crypto, expectedRevision, password: false, cancellationToken);
+
+    public Task<string> LoadEntryPasswordAsync(Guid entryId, CryptoEngine crypto, long expectedRevision,
+        CancellationToken cancellationToken = default) => LoadEntryCredentialAsync(entryId, crypto, expectedRevision, password: true, cancellationToken);
+
+    private async Task<string> LoadEntryCredentialAsync(Guid entryId, CryptoEngine crypto, long expectedRevision,
+        bool password, CancellationToken cancellationToken)
+    {
+        var projection = password ? EntrySerialization.PasswordOptions : EntrySerialization.UserNameOptions;
+        var entry = await LoadEntryAsync(entryId, crypto, expectedRevision, projection, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return (password ? entry.Password : entry.UserName) ?? string.Empty;
+        }
+        finally { entry.ClearSecrets(); }
+    }
+
+    private Task<PwEntry> LoadEntryAsync(Guid entryId, CryptoEngine crypto, long? expectedRevision,
+        JsonSerializerOptions? projection, CancellationToken cancellationToken)
     {
         CheckCrypto(crypto);
         return ReadAsync((c, tx, key, m) =>
         {
-            var entry = ReadEntries(c, tx, key, m, includeDetails: includeDetails, entryId: entryId, cancellationToken: cancellationToken).SingleOrDefault()
+            var entry = ReadEntries(c, tx, key, m, entryId: entryId, cancellationToken: cancellationToken, projection: projection).SingleOrDefault()
                 ?? throw new VaultConflictException("La voce non esiste più. Aggiornare il vault.");
             if (expectedRevision.HasValue && entry.Revision != expectedRevision.Value)
             { entry.ClearSecrets(); throw new VaultConflictException("La voce è cambiata in un'altra sessione. Aggiornare e riprovare."); }

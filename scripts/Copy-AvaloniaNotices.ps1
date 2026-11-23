@@ -20,17 +20,27 @@ $metadata = foreach ($libraryName in $libraries.Keys) {
     $nuspecPath = Join-Path $packageDirectory ($package.ToLowerInvariant() + '.nuspec')
     $nuspec = ([xml](Get-Content -LiteralPath $nuspecPath -Raw)).DocumentElement.SelectSingleNode("*[local-name()='metadata']")
     $license = $nuspec.SelectSingleNode("*[local-name()='license']")
+    $licenseUrl = $nuspec.SelectSingleNode("*[local-name()='licenseUrl']")
     $copyright = $nuspec.SelectSingleNode("*[local-name()='copyright']")
     $repository = $nuspec.SelectSingleNode("*[local-name()='repository']")
-    if ($null -eq $license -or [string]::IsNullOrWhiteSpace($license.InnerText) -or $null -eq $copyright -or
+    $windowsSdkLicense = $package -ceq 'Microsoft.Windows.SDK.NET.Ref' -and $licenseUrl.InnerText -ceq 'https://aka.ms/WinSDKLicenseURL'
+    if ((-not $windowsSdkLicense -and ($null -eq $license -or [string]::IsNullOrWhiteSpace($license.InnerText))) -or $null -eq $copyright -or
         [string]::IsNullOrWhiteSpace($copyright.InnerText)) { throw "Missing license or copyright for $package/$version." }
 
     $notices = @(Get-ChildItem -LiteralPath $packageDirectory -File | Where-Object Name -Match '^(LICENSE|COPYING|NOTICE|THIRD-PARTY-NOTICES)(\.|$)')
-    if ($license.GetAttribute('type') -eq 'file') {
+    if ($windowsSdkLicense) {
+        $licenseValue = $licenseUrl.InnerText
+        $licenseType = 'url'
+        $notices += Get-Item -LiteralPath (Join-Path $desktopNotices 'Microsoft-Windows-SDK-NOTICE.txt')
+    } else {
+        $licenseValue = $license.InnerText
+        $licenseType = $license.GetAttribute('type')
+    }
+    if ($licenseType -eq 'file') {
         if ([IO.Path]::GetFileName($license.InnerText) -cne $license.InnerText -or $license.InnerText -cnotin $notices.Name) {
             throw "The declared license file is missing for $package/$version."
         }
-    } elseif (-not @($notices | Where-Object Name -Match '^(LICENSE|COPYING)(\.|$)').Count) {
+    } elseif (-not $windowsSdkLicense -and -not @($notices | Where-Object Name -Match '^(LICENSE|COPYING)(\.|$)').Count) {
         $fallback = switch -Regex ($package) {
             '^Avalonia(\.|$)' { Join-Path $desktopNotices 'Avalonia-LICENSE.txt'; break }
             '^Konscious\.' { 'Konscious-LICENSE.txt'; break }
@@ -49,7 +59,7 @@ $metadata = foreach ($libraryName in $libraries.Keys) {
     New-Item -ItemType Directory -Path $destination | Out-Null
     foreach ($notice in $notices) { Copy-Item -LiteralPath $notice.FullName -Destination $destination }
     [ordered]@{
-        Package = $package; Version = $version; License = $license.InnerText; LicenseType = $license.GetAttribute('type')
+        Package = $package; Version = $version; License = $licenseValue; LicenseType = $licenseType
         Copyright = $copyright.InnerText
         Repository = $(if ($repository) { $repository.GetAttribute('url') })
         Commit = $(if ($repository) { $repository.GetAttribute('commit') })
@@ -57,3 +67,9 @@ $metadata = foreach ($libraryName in $libraries.Keys) {
     }
 }
 $metadata | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $output 'dependency-metadata.json') -Encoding utf8
+
+$kdbxSource = Join-Path $root 'SQLitePass.Kdbx'
+$kdbxNotices = New-Item -ItemType Directory -Path (Join-Path $output 'DgNet.Keepass')
+foreach ($name in @('LICENSE', 'NOTICE.md')) {
+    Copy-Item -LiteralPath (Join-Path $kdbxSource $name) -Destination $kdbxNotices.FullName
+}

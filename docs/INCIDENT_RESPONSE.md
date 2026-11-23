@@ -1,6 +1,6 @@
 # Incident Response
 
-Updated on 22 November 2026 for SQLitePass 1.2.0.
+Updated on 23 November 2026 for SQLitePass 1.3.0.
 
 This runbook covers suspected vulnerabilities, credential exposure, vault integrity failures, backup failures, malicious releases and supply-chain concerns. It supplements the device owner's and organization's incident process; it does not determine legal notification duties.
 
@@ -43,7 +43,7 @@ Develop the narrowest safe fix or mitigation. Add regression coverage for the re
 
 ### 6. Communicate and release
 
-Prepare an advisory that states affected versions, impact, prerequisites, mitigation, fixed version and remaining limits. Avoid publishing exploit details before users have a practical mitigation. Verify the release assets and both platform update feeds before directing users to them.
+Prepare an advisory that states affected versions, impact, prerequisites, mitigation, fixed version and remaining limits. Avoid publishing exploit details before users have a practical mitigation. Verify the release assets, both platform feeds, the update signature and freshness checkpoint before directing users to them. If the signing key may be compromised, suspend signing and prepare a trusted manual installation with a new pin. [Signing and transition](UPDATE_SIGNING.md)
 
 ### 7. Recover and learn
 

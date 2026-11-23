@@ -60,8 +60,12 @@ internal static class NativeDesktopSessionVerification
         string profile = (string)AppContext.GetData("SQLitePass.SettingsDirectory")!;
         string vaultPath = Path.Combine(profile, "desktop-lock-fixture.kpd");
         const string credential = "Synthetic-desktop-session-lock!";
-        bool lockObserved = false;
-        bool unlockObserved = false;
+        bool dialogLockObserved = false;
+        bool dialogClosedAfterLock = false;
+        bool dialogUnlockObserved = false;
+        bool operationLockObserved = false;
+        bool operationCancelled = false;
+        bool operationUnlockObserved = false;
         bool passed = false;
         string stage = "opening synthetic vault";
         try
@@ -69,25 +73,54 @@ internal static class NativeDesktopSessionVerification
             using var master = new MasterKey(credential);
             await using (var seed = await VaultSession.CreateAsync(vaultPath, master, new AppSettings { EnableDualFileBackup = false },
                 "General", "Recycle bin", token)) { }
-            window.FindControl<TextBox>("VaultPath")!.Text = vaultPath;
-            window.FindControl<TextBox>("MasterPassword")!.Text = credential;
-            await window.OpenVaultAsync().WaitAsync(token);
-            if (!vault.IsVisible) throw new InvalidOperationException("The synthetic verification vault did not open.");
-            stage = $"waiting for {platform} session lock";
-            status.Text = windows ? "Press Win+L now, then unlock Windows to see the result."
-                : "Lock the test desktop session now, then unlock it to see the result.";
-            if (!windows) Console.WriteLine("SQLitePass session probe ready.");
+            await OpenSyntheticVaultAsync();
+
+            stage = $"waiting for {platform} lock with a dialog open";
+            status.Text = windows ? "The Settings dialog is open. Press Win+L now, then unlock Windows."
+                : "The Settings dialog is open. Lock the test session now, then unlock it.";
+            var dialogOperation = window.OpenSettingsAsync(() => new AppSettings(), _ => null);
+            await WaitForAsync(() => dialogOperation.IsCompleted || window.OwnedWindows.OfType<SettingsWindow>().Any(), token);
+            var settings = window.OwnedWindows.OfType<SettingsWindow>().SingleOrDefault()
+                ?? throw new InvalidOperationException("The synthetic Settings dialog did not open.");
+            settings.Title = windows ? "SQLitePass verification: press Win+L to test the open dialog"
+                : "SQLitePass verification: lock the session to test the open dialog";
+            if (!windows) Console.WriteLine("SQLitePass dialog probe ready.");
             await WaitForAsync(() => !vault.IsVisible && login.IsVisible && !login.IsEnabled, token);
-            lockObserved = true;
-            stage = $"waiting for {platform} session unlock";
-            if (!windows) Console.WriteLine("SQLitePass observed the test session lock.");
+            dialogLockObserved = true;
+            stage = $"checking the dialog closed after {platform} lock";
+            await WaitForAsync(() => dialogOperation.IsCompleted && !window.OwnedWindows.OfType<SettingsWindow>().Any(), token);
+            dialogClosedAfterLock = true;
+            stage = $"waiting for {platform} unlock after dialog lock";
+            if (!windows) Console.WriteLine("SQLitePass observed the dialog lock.");
             await WaitForAsync(() => login.IsEnabled, token);
-            unlockObserved = true;
-            if (vault.IsVisible || !string.IsNullOrEmpty(window.FindControl<TextBox>("MasterPassword")!.Text))
-                throw new InvalidOperationException("The vault was available after the desktop session unlocked.");
+            dialogUnlockObserved = true;
+            if (!windows) Console.WriteLine("SQLitePass observed the dialog unlock.");
+            EnsureSyntheticVaultRemainsLocked();
+
+            await OpenSyntheticVaultAsync();
+            stage = $"waiting for {platform} lock during an active operation";
+            var operation = window.RunOperationAsync(operationToken => Task.Delay(Timeout.InfiniteTimeSpan, operationToken), canCancel: true);
+            await WaitForAsync(() => window.FindControl<Button>("CancelOperation")!.IsVisible, token);
+            status.Text = windows ? "A cancellable operation is active. Press Win+L now, then unlock Windows."
+                : "A cancellable operation is active. Lock the test session now, then unlock it.";
+            window.Title = windows ? "SQLitePass verification: press Win+L to test an active operation"
+                : "SQLitePass verification: lock the session to test an active operation";
+            if (!windows) Console.WriteLine("SQLitePass operation probe ready.");
+            await WaitForAsync(() => !vault.IsVisible && login.IsVisible && !login.IsEnabled, token);
+            operationLockObserved = true;
+            stage = $"checking operation cancellation after {platform} lock";
+            await WaitForAsync(() => operation.IsCompleted, token);
+            operationCancelled = true;
+            stage = $"waiting for {platform} unlock after operation lock";
+            if (!windows) Console.WriteLine("SQLitePass observed the operation lock.");
+            await WaitForAsync(() => login.IsEnabled, token);
+            operationUnlockObserved = true;
+            if (!windows) Console.WriteLine("SQLitePass observed the operation unlock.");
+            EnsureSyntheticVaultRemainsLocked();
+
             passed = true;
             stage = "completed";
-            status.Text = "Passed. The desktop lock closed the synthetic vault and desktop unlock left it locked.";
+            status.Text = "Passed. Desktop lock closed the dialog, cancelled the active operation and left the synthetic vault locked after each unlock.";
         }
         catch (Exception error)
         {
@@ -103,7 +136,15 @@ internal static class NativeDesktopSessionVerification
                 await using var report = new FileStream(reportPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
                 await JsonSerializer.SerializeAsync(report, new
                 {
-                    Passed = passed, SessionLockObserved = lockObserved, SessionUnlockObserved = unlockObserved,
+                    Passed = passed,
+                    SessionLockObserved = dialogLockObserved && operationLockObserved,
+                    SessionUnlockObserved = dialogUnlockObserved && operationUnlockObserved,
+                    DialogLockObserved = dialogLockObserved,
+                    DialogClosedAfterLock = dialogClosedAfterLock,
+                    DialogUnlockObserved = dialogUnlockObserved,
+                    OperationLockObserved = operationLockObserved,
+                    OperationCancelled = operationCancelled,
+                    OperationUnlockObserved = operationUnlockObserved,
                     Stage = stage, CompletedAtUtc = DateTimeOffset.UtcNow, Platform = platform,
                     SessionId = windows ? null : Environment.GetEnvironmentVariable("XDG_SESSION_ID"),
                     Version = typeof(App).Assembly.GetName().Version?.ToString()
@@ -111,6 +152,20 @@ internal static class NativeDesktopSessionVerification
             }
         }
         return passed;
+
+        async Task OpenSyntheticVaultAsync()
+        {
+            window.FindControl<TextBox>("VaultPath")!.Text = vaultPath;
+            window.FindControl<TextBox>("MasterPassword")!.Text = credential;
+            await window.OpenVaultAsync().WaitAsync(token);
+            if (!vault.IsVisible) throw new InvalidOperationException("The synthetic verification vault did not open.");
+        }
+
+        void EnsureSyntheticVaultRemainsLocked()
+        {
+            if (vault.IsVisible || !string.IsNullOrEmpty(window.FindControl<TextBox>("MasterPassword")!.Text))
+                throw new InvalidOperationException("The synthetic vault was available after the desktop session unlocked.");
+        }
     }
 
     [SupportedOSPlatform("windows")]

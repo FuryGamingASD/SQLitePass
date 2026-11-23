@@ -2,11 +2,12 @@
 
 SQLitePass is a local password manager for Windows x64 and Linux x64 built with .NET 10, Avalonia and SQLite.
 
-The updated **1.2.2** packages integrate window controls into the vault header and compact the entry editor. The release also includes the compact unlock window and a visible folder drop target. If you already use 1.2.2, download the updated package manually. [Latest stable downloads](https://github.com/FuryGamingASD/SQLitePass/releases/latest) · [Release verification](docs/releases/RELEASE_OUTCOME_1.2.2.md)
+**SQLitePass 1.3.0** adds KeePass KDBX 4 import, optional machine policy and authenticated updates. Install 1.3.0 manually to establish trust in the publisher key for future updates. [Latest stable downloads](https://github.com/FuryGamingASD/SQLitePass/releases/latest) · [First installation and updates](docs/UPDATE_SIGNING.md#transition-for-existing-installations) · [Release notes](RELEASE_NOTES.md#sqlitepass-130)
 
 - **Windows x64.** Use `SQLitePass-win-Setup.exe` to install or upgrade SQLitePass. The installer is unsigned and Windows may display a publisher or reputation prompt. `SQLitePass-win-Portable.zip` is available for portable use.
 - **Linux x64.** Download `SQLitePass.AppImage`, make it executable with `chmod u+x SQLitePass.AppImage` and launch it with `./SQLitePass.AppImage`. Launch and in-place updates were verified with FUSE. Keep the AppImage in a user-writable directory to apply in-place updates.
 - **Upgrading or moving a vault.** Keep an independent backup, close the app before copying the vault and use the existing password and key file. Both platforms use the same Vault Format 2. Keep the vault on a local filesystem with SQLite locking support.
+- **Migrating from KeePass.** Import a KDBX 4.0 or 4.1 database into a new SQLitePass vault. Review the report for fields and features to transfer separately. [Migration and verification](docs/audit/KEEPASS_GAP_ROADMAP.md)
 
 Build `SQLitePass.slnx` with the SDK pinned in `global.json`, or run `scripts/Invoke-Ci.ps1` for the shared build, test and dependency checks. Launch from source with `dotnet run --project SQLitePass.Desktop`. See the [documentation index](docs/README.md) and [cross-platform guide](docs/CROSS_PLATFORM.md) for desktop capabilities and verification. The historical WPF application is retained in `SQLitePass.LegacyWpf.slnx`.
 
@@ -116,6 +117,8 @@ SQLitePass:
 
 Clipboard contents remain accessible to the operating system and other software while present.
 
+SQLitePass blocks credential copying on Windows build 26300 or when clipboard roaming is enabled. On X11 it blocks copies when it detects incompatible clipboard managers or cannot query a configured D-Bus session. [Desktop clipboard behavior](docs/CROSS_PLATFORM.md#desktop-clipboard)
+
 ---
 
 ## Auto-Type Safety Limits
@@ -162,6 +165,8 @@ SQLitePass attempts to minimize retention of sensitive data by:
 
 Because SQLitePass runs on .NET, complete erasure of immutable managed strings cannot be guaranteed.
 
+The entry grid avoids retaining passwords during ordinary navigation. The editor loads attachments and history on demand. Credential copying reads the selected field. [Memory handling](docs/MEMORY_HANDLING.md)
+
 ---
 
 ## Threat Model
@@ -186,7 +191,7 @@ SQLitePass is not designed to protect against:
 
 ---
 
-SQLitePass 1.1 uses Vault Format 2.
+SQLitePass has used Vault Format 2 since version 1.1.0.
 
 Changes introduced in Format 2 include:
 

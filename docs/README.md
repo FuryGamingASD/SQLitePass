@@ -17,9 +17,12 @@ The root [README](../README.md), [security policy](../SECURITY.md), [changelog](
 - [Performance measurements and limits](PERFORMANCE_2026-11-16.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)
 - [Windows and Linux desktop guide](CROSS_PLATFORM.md)
+- [Machine-managed policy](MACHINE_POLICY.md)
+- [Update package authentication and transition](UPDATE_SIGNING.md)
 
 ## Audit evidence and findings
 
+- [SQLitePass hardening and KeePass migration roadmap](audit/KEEPASS_GAP_ROADMAP.md).
 - [Feature parity from 1.0.0 through 1.2.0](audit/FEATURE_PARITY_1.2.0.md).
 - [Initial technical audit](audit/AUDIT_2026-11-16.md) — findings against the identified 1.0.2 commit.
 - [Remediation status](audit/REMEDIATION_2026-11-16.md) — historical findings and fixes through 1.1.3, with a 1.2.0 follow-up.
@@ -28,6 +31,9 @@ The root [README](../README.md), [security policy](../SECURITY.md), [changelog](
 
 ## Releases
 
+- [SQLitePass 1.3.0 release verification and downloads](releases/RELEASE_OUTCOME_1.3.0.md).
+- [SQLitePass 1.3.0 release notes](../RELEASE_NOTES.md#sqlitepass-130).
+- [SQLitePass 1.3.0 first installation and authenticated upgrades](UPDATE_SIGNING.md#transition-for-existing-installations).
 - [SQLitePass 1.2.2 release outcome and downloads](releases/RELEASE_OUTCOME_1.2.2.md).
 - [SQLitePass 1.2.2 release notes](../RELEASE_NOTES.md#sqlitepass-122).
 - [SQLitePass 1.2.1 release outcome](releases/RELEASE_OUTCOME_1.2.1.md).

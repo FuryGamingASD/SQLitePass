@@ -13,5 +13,10 @@ namespace SQLitePass.Core.Models
         public string Notes { get; set; } = string.Empty;
         public string SnapshotJson { get; set; } = string.Empty;
         public DateTime SavedAt { get; set; } = DateTime.UtcNow;
+
+        public void ClearSensitiveValues()
+        {
+            Title = UserName = Password = Url = Notes = SnapshotJson = string.Empty;
+        }
     }
 }

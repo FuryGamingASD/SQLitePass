@@ -5,6 +5,7 @@ using System.Text.Json.Nodes;
 using Microsoft.Data.Sqlite;
 using SQLitePass.Core.Crypto;
 using SQLitePass.Core.Models;
+using SQLitePass.Desktop;
 
 namespace SQLitePass.Tests;
 
@@ -44,6 +45,40 @@ public partial class VaultSecurityTests
         var full = await vault.Storage.LoadEntryAsync(overview.Id, vault.Crypto, overview.Revision);
         Assert.True(full.HasLoadedDetails); Assert.Single(full.CustomFields); Assert.Single(full.History);
         Assert.Equal(original.Attachments[0].Data, Assert.Single(full.Attachments).Data);
+    }
+
+    [Fact]
+    public async Task CredentialReadsSelectOneFieldAndRejectStaleRevisions()
+    {
+        using var vault = await TestVault.Create();
+        var entry = await DetailedEntry(vault);
+        entry.UserName = "Account 🚀";
+        entry.Password = "Synthetic!\"\\🏔";
+        entry.Notes = "Fixture note";
+        await vault.Storage.SaveEntryAsync(entry, vault.Crypto);
+        long revision = entry.Revision;
+
+        Assert.Equal(entry.UserName, await vault.Storage.LoadEntryUserNameAsync(entry.Id, vault.Crypto, revision));
+        Assert.Equal(entry.Password, await vault.Storage.LoadEntryPasswordAsync(entry.Id, vault.Crypto, revision));
+        var json = EntrySerialization.Serialize(entry);
+        var userNameOnly = JsonSerializer.Deserialize<PwEntry>(json, EntrySerialization.UserNameOptions)!;
+        var passwordOnly = JsonSerializer.Deserialize<PwEntry>(json, EntrySerialization.PasswordOptions)!;
+        Assert.Equal(entry.UserName, userNameOnly.UserName);
+        Assert.Empty(userNameOnly.Password);
+        Assert.Equal(entry.Password, passwordOnly.Password);
+        Assert.Empty(passwordOnly.UserName);
+        Assert.Empty(userNameOnly.Notes);
+        Assert.Empty(passwordOnly.Notes);
+        Assert.Empty(passwordOnly.Attachments);
+
+        entry.Password = string.Empty;
+        await vault.Storage.SaveEntryAsync(entry, vault.Crypto);
+        await Assert.ThrowsAsync<VaultConflictException>(() => vault.Storage.LoadEntryUserNameAsync(entry.Id, vault.Crypto, revision));
+        await Assert.ThrowsAsync<VaultConflictException>(() => vault.Storage.LoadEntryPasswordAsync(entry.Id, vault.Crypto, revision));
+        Assert.Empty(await vault.Storage.LoadEntryPasswordAsync(entry.Id, vault.Crypto, entry.Revision));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            vault.Storage.LoadEntryPasswordAsync(entry.Id, vault.Crypto, entry.Revision, new CancellationToken(canceled: true)));
+        Assert.False(vault.Storage.IsReadOnly);
     }
 
     [Fact]
@@ -98,6 +133,95 @@ public partial class VaultSecurityTests
     }
 
     [Fact]
+    public async Task StoredDraftDoesNotWriteHistoryOrOverwriteAConcurrentEdit()
+    {
+        using var vault = await TestVault.Create();
+        var original = await vault.Add();
+        long revision = original.Revision;
+        var editable = await vault.Storage.LoadEntryAsync(original.Id, vault.Crypto, revision);
+        using var draft = EntryEditDraft.TakeStoredEntry(editable,
+            token => vault.Storage.LoadEntryAsync(original.Id, vault.Crypto, revision, token));
+        draft.Current.Password = "stale draft value";
+        original.Password = "concurrent edit";
+        await vault.Storage.SaveEntryAsync(original, vault.Crypto);
+
+        await Assert.ThrowsAsync<VaultConflictException>(() => draft.PrepareForSaveAsync());
+        Assert.Empty(draft.Current.History);
+        var saved = await vault.Storage.LoadEntryAsync(original.Id, vault.Crypto);
+        Assert.Equal("concurrent edit", saved.Password);
+        Assert.Empty(saved.History);
+    }
+
+    [Fact]
+    public async Task DeferredDraftLoadsEachDetailIndependentlyAndPreservesUnvisitedCollections()
+    {
+        using var vault = await TestVault.Create();
+        var original = await DetailedEntry(vault);
+        using var draft = await vault.Storage.OpenEntryDraftAsync(original.Id, vault.Crypto, original.Revision);
+        Assert.False(draft.Current.HasLoadedDetails);
+        Assert.Single(draft.Current.CustomFields);
+        Assert.Empty(draft.Current.Attachments);
+        Assert.Empty(draft.Current.History);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => vault.Storage.SaveEntryAsync(draft.Current, vault.Crypto));
+        using (var preview = await vault.Storage.OpenEntryDraftAsync(original.Id, vault.Crypto, original.Revision))
+        {
+            await preview.LoadAttachmentsAsync();
+            Assert.Single(preview.Current.Attachments);
+            Assert.Empty(preview.Current.History);
+        }
+
+        await draft.LoadHistoryAsync();
+        Assert.Single(draft.Current.History);
+        Assert.Empty(draft.Current.Attachments);
+        draft.Current.Notes = "Saved without visiting attachments";
+        Assert.True(await draft.PrepareForSaveAsync());
+        Assert.True(draft.Current.HasLoadedDetails);
+        await vault.Storage.SaveEntryAsync(draft.Current, vault.Crypto);
+        var saved = await vault.Storage.LoadEntryAsync(original.Id, vault.Crypto);
+        try
+        {
+            Assert.Equal(original.Attachments[0].Data, Assert.Single(saved.Attachments).Data);
+            Assert.Equal(2, saved.History.Count);
+            Assert.Contains(saved.History, revision => revision.Id == original.History[0].Id);
+        }
+        finally { saved.ClearSecrets(); }
+    }
+
+    [Fact]
+    public async Task DeferredDraftKeepsRestoredAttachmentsAndRejectsStaleDetailLoads()
+    {
+        using var vault = await TestVault.Create();
+        var original = await DetailedEntry(vault);
+        var replacement = new PwEntry();
+        replacement.Attachments.Add(new PwAttachment { EntryId = original.Id, FileName = "restored.bin", FileSize = 1, Data = [9] });
+        using var draft = await vault.Storage.OpenEntryDraftAsync(original.Id, vault.Crypto, original.Revision);
+        using var stale = await vault.Storage.OpenEntryDraftAsync(original.Id, vault.Crypto, original.Revision);
+        draft.ReplaceAttachmentsFrom(replacement);
+        await draft.LoadAttachmentsAsync();
+        Assert.True(await draft.PrepareForSaveAsync());
+        Assert.Equal("restored.bin", Assert.Single(draft.Current.Attachments).FileName);
+        Assert.Equal(2, draft.Current.History.Count);
+        await vault.Storage.SaveEntryAsync(draft.Current, vault.Crypto);
+
+        await Assert.ThrowsAsync<VaultConflictException>(() => stale.LoadAttachmentsAsync());
+        await Assert.ThrowsAsync<VaultConflictException>(() => stale.LoadHistoryAsync());
+        Assert.False(stale.Current.HasLoadedDetails);
+        Assert.Empty(stale.Current.Attachments);
+        Assert.Empty(stale.Current.History);
+    }
+
+    [Fact]
+    public async Task UnchangedDeferredDraftWithoutVisitedTabsRemainsUnchanged()
+    {
+        using var vault = await TestVault.Create();
+        var original = await DetailedEntry(vault);
+        using var draft = await vault.Storage.OpenEntryDraftAsync(original.Id, vault.Crypto, original.Revision);
+        Assert.False(await draft.PrepareForSaveAsync());
+        Assert.Equal(original.History[0].Id, Assert.Single(draft.Current.History).Id);
+        Assert.Equal(original.Attachments[0].Id, Assert.Single(draft.Current.Attachments).Id);
+    }
+
+    [Fact]
     public async Task StreamedKeyRotationPreservesEveryEntryAndItsChildren()
     {
         using var vault = await TestVault.Create(); var first = await DetailedEntry(vault); var second = await DetailedEntry(vault);
@@ -125,12 +249,16 @@ public partial class VaultSecurityTests
         Assert.Single((await vault.Storage.LoadSnapshotAsync(vault.Crypto, false)).Entries);
     }
 
-    [Fact]
-    public async Task LoadingOneEntryStillAuthenticatesTheOtherRecords()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LoadingOneEntryStillAuthenticatesTheOtherRecords(bool passwordOnly)
     {
         using var vault = await TestVault.Create(); var valid = await DetailedEntry(vault); var damaged = await DetailedEntry(vault);
         vault.Sql($"UPDATE sp_entries SET payload=zeroblob(length(payload)) WHERE id='{damaged.Id}'");
-        await Assert.ThrowsAsync<InvalidDataException>(() => vault.Storage.LoadEntryAsync(valid.Id, vault.Crypto));
+        await Assert.ThrowsAsync<InvalidDataException>(() => passwordOnly
+            ? vault.Storage.LoadEntryPasswordAsync(valid.Id, vault.Crypto, valid.Revision)
+            : (Task)vault.Storage.LoadEntryAsync(valid.Id, vault.Crypto));
     }
 
     // Reference of the original format-2 canonicalization, kept separate from the streaming implementation.
@@ -209,6 +337,19 @@ public partial class VaultSecurityTests
         var history = new PwEntryHistory { Title = "private old title", SnapshotJson = "private snapshot" };
         entry.History.Add(history); entry.ClearSecrets();
         Assert.Empty(entry.AutoTypeSequence); Assert.Empty(history.Title); Assert.Empty(history.SnapshotJson);
+    }
+
+    [Fact]
+    public void EntryRowClearsDisplayedCredentialStringsAndRevealedPassword()
+    {
+        var row = new EntryRow(Guid.NewGuid(), 1, "private title", "private user", true,
+            "https://private.example", "private note", "updated");
+        row.SetRevealedPassword("private password");
+
+        row.ClearSensitiveValues();
+
+        Assert.Empty(row.Title); Assert.Empty(row.UserName); Assert.Empty(row.Url); Assert.Empty(row.Notes);
+        Assert.Equal(row.PasswordMask, row.DisplayPassword);
     }
 
     [Fact]

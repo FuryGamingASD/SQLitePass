@@ -22,6 +22,11 @@
           "SQLitePCLRaw.core": "3.0.5"
         }
       },
+      "BouncyCastle.Cryptography": {
+        "type": "Transitive",
+        "resolved": "2.6.2",
+        "contentHash": "7oWOcvnntmMKNzDLsdxAYqApt+AjpRpP2CShjMfIa3umZ42UQMvH0tl1qAliYPNYO6vTdcGMqnRrCPmsfzTI1w=="
+      },
       "Konscious.Security.Cryptography.Blake2": {
         "type": "Transitive",
         "resolved": "1.1.1",
@@ -68,6 +73,12 @@
         "contentHash": "um8YSWduhhuskTG2bHfZrBqMNQOydfU8pcseT+cu5RivOGyoUbCrGXxgoRNTmRYw2VbMWnEZVVFcneZT/5dsBg==",
         "dependencies": {
           "SQLitePCLRaw.core": "3.0.5"
+        }
+      },
+      "sqlitepass.kdbx": {
+        "type": "Project",
+        "dependencies": {
+          "BouncyCastle.Cryptography": "[2.6.2, )"
         }
       }
     },

@@ -15,13 +15,16 @@ public sealed record EntryPageQuery(
     string Tag = "",
     DateOnly? ExpiryReferenceDate = null);
 
-// Cursors belong to one authenticated snapshot and one query. They are never persisted.
-public sealed record EntryPageCursor(string SortValue, Guid EntryId, string SnapshotStamp,
+// Cursors identify a boundary in one authenticated snapshot and query without retaining its sort value.
+public sealed record EntryPageCursor(Guid EntryId, string SnapshotStamp,
     string QueryStamp, bool IncludeBoundary = false, bool Backward = false);
 
 public sealed record VaultEntryPage(VaultMetadata Metadata, List<PwGroup> Groups, List<PwEntry> Entries,
     int MatchedCount, int TotalCount, int FirstIndex, EntryPageCursor? CurrentCursor, EntryPageCursor? NextCursor,
-    EntryPageCursor? PreviousCursor = null);
+    EntryPageCursor? PreviousCursor = null)
+{
+    public string SnapshotStamp { get; init; } = string.Empty;
+}
 
 public class VaultConflictException(string message) : InvalidOperationException(message);
 

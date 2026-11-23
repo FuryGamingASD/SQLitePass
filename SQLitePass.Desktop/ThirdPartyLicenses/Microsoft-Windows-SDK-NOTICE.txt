@@ -1,0 +1,7 @@
+Microsoft.Windows.SDK.NET.Ref
+Copyright Microsoft Corporation. All rights reserved.
+
+SQLitePass includes the Windows SDK .NET projection and WinRT runtime from this package to call Windows Runtime APIs.
+
+Microsoft Windows SDK license terms: https://aka.ms/WinSDKLicenseURL
+Microsoft Windows SDK redistributable files list: https://learn.microsoft.com/en-us/legal/windows-sdk/redist#microsoftwindowssdknetref

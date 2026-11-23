@@ -28,11 +28,12 @@ $start = [Diagnostics.ProcessStartInfo]::new($application)
 $start.UseShellExecute = $false
 $start.ArgumentList.Add('--verify-win-session-lock')
 $start.ArgumentList.Add($reportPath)
-Write-Host 'The app will open a synthetic vault in a temporary profile.'
-Write-Host 'When prompted in its status bar, press Win+L, then sign in to Windows yourself.'
+Write-Host 'The app will open a synthetic vault and Settings dialog in a temporary profile.'
+Write-Host 'While Settings is open, press Win+L and sign in to Windows yourself.'
+Write-Host 'The app will then start a cancellable operation. Press Win+L again and sign in again.'
 $process = [Diagnostics.Process]::Start($start)
 try {
-    $deadline = [DateTime]::UtcNow.AddMinutes(5)
+    $deadline = [DateTime]::UtcNow.AddMinutes(8)
     while (-not (Test-Path -LiteralPath $reportPath)) {
         if ($process.HasExited) { throw 'The verification app exited without a result.' }
         if ([DateTime]::UtcNow -ge $deadline) { throw 'No session-lock result was received within five minutes.' }
@@ -44,13 +45,15 @@ try {
         try { $result = Get-Content -LiteralPath $reportPath -Raw | ConvertFrom-Json }
         catch [IO.IOException] { Start-Sleep -Milliseconds 100 }
     }
-    if ($null -eq $result -or -not $result.Passed -or -not $result.SessionLockObserved -or -not $result.SessionUnlockObserved) {
+    if ($null -eq $result -or -not $result.Passed -or -not $result.SessionLockObserved -or -not $result.SessionUnlockObserved -or
+        -not $result.DialogLockObserved -or -not $result.DialogClosedAfterLock -or -not $result.DialogUnlockObserved -or
+        -not $result.OperationLockObserved -or -not $result.OperationCancelled -or -not $result.OperationUnlockObserved) {
         throw "Windows session lock verification did not pass. Inspect $reportPath"
     }
     if ((Get-FileHash -LiteralPath $application -Algorithm SHA256).Hash -ne $receipt.ExecutableSHA256 -or
         (Get-FileHash -LiteralPath $assemblyPath -Algorithm SHA256).Hash -ne $receipt.ApplicationAssemblySHA256) {
         throw 'The candidate changed during verification; repeat with an unchanged build.'
     }
-    Write-Host "Verified Win+L and a vault that stays locked after Windows unlock. Evidence: $reportPath"
+    Write-Host "Verified Win+L closed the open dialog, cancelled an active operation and kept the synthetic vault locked after both Windows unlocks. Evidence: $reportPath"
     Write-Host 'Close the verification window when finished.'
 } finally { $process.Dispose() }

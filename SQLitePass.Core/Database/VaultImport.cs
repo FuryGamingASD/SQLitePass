@@ -34,8 +34,9 @@ public sealed partial class SqliteStorageProvider
                 cancellationToken.ThrowIfCancellationRequested();
                 if (entry.Revision != 0) throw new InvalidDataException("L'importazione accetta solo nuove voci.");
                 Guid parent = target.Id;
-                var names = (entry.SourceGroupPath ?? "").Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries);
-                if (target.Id == metadata.RootGroupId && names.Length > 0 && names[0].Equals(target.Name, StringComparison.OrdinalIgnoreCase))
+                var explicitSegments = entry.SourceGroupSegments;
+                var names = explicitSegments?.ToArray() ?? (entry.SourceGroupPath ?? "").Replace('\\', '/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+                if (explicitSegments == null && target.Id == metadata.RootGroupId && names.Length > 0 && names[0].Equals(target.Name, StringComparison.OrdinalIgnoreCase))
                     names = names[1..];
                 if (names.Length > 63) throw new InvalidDataException("Percorso delle cartelle troppo profondo.");
                 foreach (string name in names)

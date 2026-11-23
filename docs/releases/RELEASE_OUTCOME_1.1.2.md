@@ -7,7 +7,7 @@ Verified: 18 November 2026.
 - [Public release v1.1.2](https://github.com/FuryGamingASD/SQLitePass/releases/tag/v1.1.2), published at 2026-11-18 00:47:12 UTC.
 - Tag `v1.1.2` points to merge commit `f8c378386a43ba4886b17d6b5341bd28881c367d` (PR #7).
 - [Workflow 44209854259](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44209854259) completed successfully. Both `windows` and `release` jobs passed; the release job published assets and verified the anonymous Velopack update feed and package.
-- Application and installer are `NotSigned`, as explicitly agreed. This release did not change the vault format.
+- Application and installer are `NotSigned`. This release uses the existing vault format.
 
 ## Verification
 
@@ -35,6 +35,6 @@ SHA-256 values reported by GitHub for the eight release assets:
 - Auto-Type remains mitigated rather than fully closed: window/process/title checks cannot make global `SendInput` atomic with target validation.
 - Native Windows checks for Auto-Type, lock transitions, clipboard history/cloud behavior, screen capture, DPI and assistive technology remain separate from CI and must be recorded as manual test results.
 - Software fault injection does not prove survival of physical media, controller, filesystem or power failures.
-- The application remains unsigned by the user's prior decision. The release is not independently audited or penetration-tested.
+- Authenticode signing was outside the scope of this release. Independent security review and penetration testing remain open.
 
 The pre-publication snapshot is retained in [RELEASE_READINESS_1.1.2.md](RELEASE_READINESS_1.1.2.md). Its statements that publication had not happened describe the state at that time; this outcome records the final publication.

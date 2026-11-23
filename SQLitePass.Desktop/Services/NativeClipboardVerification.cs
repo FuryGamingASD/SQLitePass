@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using Avalonia.Controls;
 using Avalonia.Input.Platform;
 
 namespace SQLitePass.Desktop.Services;
@@ -7,14 +8,16 @@ namespace SQLitePass.Desktop.Services;
 // Runs exclusively in a verification desktop, using synthetic clipboard data.
 internal static class NativeClipboardVerification
 {
-    private const string InitialText = "SQLitePass clipboard fixture Ω 🎛";
+    private const string InitialText = "SQLitePass WinRT protected clipboard fixture Ω";
     private const string ReplacementText = "Synthetic clipboard from another application";
+    private static bool InspectWindowsHistory => OperatingSystem.IsWindows() &&
+        Environment.GetEnvironmentVariable("SQLITEPASS_VERIFY_WINDOWS_CLIPBOARD_HISTORY") == "1";
     private static bool UseWaylandPeer => OperatingSystem.IsLinux() &&
         Environment.GetEnvironmentVariable("SQLITEPASS_VERIFY_WAYLAND_CLIPBOARD") == "1";
 
     internal static async Task VerifyAsync(VaultWindow window)
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(32));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(InspectWindowsHistory ? 120 : 32));
         var token = timeout.Token;
         var clipboard = window.NativeClipboard ?? throw new InvalidOperationException("Native clipboard backend unavailable.");
         var read = window.Clipboard ?? throw new InvalidOperationException("Native clipboard reader unavailable.");
@@ -23,7 +26,7 @@ internal static class NativeClipboardVerification
         clipboard.Expired += OnExpired;
         try
         {
-            if (!await clipboard.CopyAsync(InitialText, TimeSpan.FromSeconds(18), token))
+            if (!await clipboard.CopyAsync(InitialText, TimeSpan.FromSeconds(InspectWindowsHistory ? 100 : 18), token))
                 throw new InvalidOperationException("The native clipboard rejected a synthetic copy.");
             string copied = await ReadFromPeerAsync(token);
             while (UseWaylandPeer && copied.Length == 0)
@@ -34,6 +37,13 @@ internal static class NativeClipboardVerification
             if (copied != InitialText)
                 throw new InvalidOperationException("An external process did not receive the copied text intact.");
             await VerifyPrivacyFormatsAsync(window, token);
+            if (InspectWindowsHistory)
+            {
+                window.FindControl<TextBlock>("LoginSubtitle")!.Text =
+                    "Clipboard fixture active for 75 seconds. Press Win+V on both Windows PCs and look for: " + InitialText;
+                Console.WriteLine("Windows history probe active for 75 seconds. Check Win+V on both signed-in test PCs for the synthetic fixture.");
+                await Task.Delay(TimeSpan.FromSeconds(75), token);
+            }
             clipboard.ShortenTimeout(TimeSpan.FromSeconds(6));
             var result = await expired.Task.WaitAsync(TimeSpan.FromSeconds(8), token);
             if (result != ClipboardClearResult.Cleared)
@@ -62,8 +72,50 @@ internal static class NativeClipboardVerification
         if (!string.IsNullOrEmpty(await read.TryGetTextAsync()))
             throw new InvalidOperationException("Locking the vault did not clear its clipboard item.");
         await VerifyWaylandPeerClearedAsync(token);
-        Console.WriteLine("Verified native clipboard round-trip, privacy formats, shortened expiry, replacement and vault lock.");
+        Console.WriteLine("Verified native clipboard round-trip, privacy controls, shortened expiry, replacement and vault lock.");
         if (UseWaylandPeer) Console.WriteLine("Verified clipboard round-trip and clearing between XWayland and a Wayland-native peer.");
+    }
+
+#if WINDOWS
+    [System.Runtime.Versioning.SupportedOSPlatform("windows10.0.17763")]
+    internal static async Task<bool> VerifyWindowsClipboardSyncGuardAsync(VaultWindow window)
+    {
+        bool roamingEnabled = WindowsSensitiveClipboard.IsClipboardRoamingEnabledForCurrentUser();
+        var expectedReason = roamingEnabled
+            ? ClipboardCopyBlockedReason.WindowsClipboardSyncEnabled
+            : WindowsSensitiveClipboard.IsClipboardPrivacyUnreliableOnCurrentBuild()
+                ? ClipboardCopyBlockedReason.SecureWindowsClipboardUnavailable
+                : ClipboardCopyBlockedReason.None;
+        if (expectedReason == ClipboardCopyBlockedReason.None)
+            throw new InvalidOperationException("The clipboard guard probe requires enabled roaming or a known unreliable Windows build.");
+        var clipboard = window.NativeClipboard ?? throw new InvalidOperationException("Native clipboard backend unavailable.");
+        uint sequenceBefore = WindowsSensitiveClipboard.GetClipboardSequenceNumberForVerification();
+        bool copied = await clipboard.CopyAsync("SQLitePass clipboard sync guard fixture", TimeSpan.FromSeconds(30));
+        uint sequenceAfter = WindowsSensitiveClipboard.GetClipboardSequenceNumberForVerification();
+        if (copied || clipboard.CopyBlockedReason != expectedReason || sequenceBefore != sequenceAfter)
+            throw new InvalidOperationException("The Windows clipboard sync guard did not block the copy without changing the clipboard.");
+        Console.WriteLine($"Verified Windows clipboard guard blocks copy (roaming enabled: {roamingEnabled}; reason: {expectedReason}) without modifying the clipboard.");
+        return true;
+    }
+#else
+    internal static Task<bool> VerifyWindowsClipboardSyncGuardAsync(VaultWindow window) =>
+        Task.FromException<bool>(new PlatformNotSupportedException("The Windows clipboard sync guard requires the Windows target framework."));
+#endif
+
+    [System.Runtime.Versioning.SupportedOSPlatform("linux")]
+    internal static async Task<bool> VerifyLinuxClipboardManagerGuardAsync(VaultWindow window)
+    {
+        if (!OperatingSystem.IsLinux()) throw new PlatformNotSupportedException("The clipboard-manager guard requires Linux.");
+        var clipboard = window.NativeClipboard ?? throw new InvalidOperationException("Native clipboard backend unavailable.");
+        if (!await clipboard.HasX11ClipboardManagerAsync())
+            throw new InvalidOperationException("The clipboard-manager guard probe requires an X11 clipboard manager.");
+        nuint ownerBefore = clipboard.CurrentX11ClipboardOwner;
+        bool copied = await clipboard.CopyAsync("SQLitePass Linux clipboard-manager guard fixture", TimeSpan.FromSeconds(30));
+        nuint ownerAfter = clipboard.CurrentX11ClipboardOwner;
+        if (copied || clipboard.CopyBlockedReason != ClipboardCopyBlockedReason.LinuxClipboardManagerActive || ownerBefore != ownerAfter)
+            throw new InvalidOperationException("The X11 clipboard-manager guard did not block the copy without changing the selection owner.");
+        Console.WriteLine("Verified the X11 clipboard-manager guard blocks a credential copy without changing the clipboard owner.");
+        return true;
     }
 
     private static async Task VerifyWaylandPeerClearedAsync(CancellationToken token)
@@ -78,8 +130,12 @@ internal static class NativeClipboardVerification
     {
         if (OperatingSystem.IsWindows())
         {
+#if WINDOWS
+            // TryCopyAsync fails closed unless Windows accepted both opt-outs via SetContentWithOptions.
+#else
             using var backend = WindowsSensitiveClipboard.Create(window.TryGetPlatformHandle()!.Handle);
             if (!backend.UsesPrivacyFormats()) throw new InvalidOperationException("Windows clipboard privacy formats were missing.");
+#endif
         }
         else
         {

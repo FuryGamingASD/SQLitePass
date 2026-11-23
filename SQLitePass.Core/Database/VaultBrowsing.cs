@@ -11,6 +11,9 @@ namespace SQLitePass.Core.Database;
 
 public sealed partial class SqliteStorageProvider
 {
+    private const int MaximumEntryPageSize = 500;
+    private const int MaximumPasswordPreviewLength = 512;
+
     private readonly record struct EntryOrderKey(string Value, Guid Id);
 
     private static EntryOrderKey OrderKey(PwEntry entry, EntrySortField field) => new(field switch
@@ -41,8 +44,9 @@ public sealed partial class SqliteStorageProvider
         Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(query)));
 
     private static long EstimatedEntryBytes(PwEntry entry) => 1024L + 2L *
-        ((long)(entry.Title?.Length ?? 0) + (entry.UserName?.Length ?? 0) + (entry.Password?.Length ?? 0) +
-        (entry.Url?.Length ?? 0) + (entry.Notes?.Length ?? 0) + (entry.Tags?.Length ?? 0) + (entry.AutoTypeSequence?.Length ?? 0));
+        ((long)(entry.Title?.Length ?? 0) + (entry.UserName?.Length ?? 0) + (entry.GridPasswordLength ?? entry.Password?.Length ?? 0) +
+        (entry.Url?.Length ?? 0) + (entry.Notes?.Length ?? 0) + (entry.Tags?.Length ?? 0) +
+        (entry.GridAutoTypeSequenceLength ?? entry.AutoTypeSequence?.Length ?? 0));
 
     private static bool Matches(PwEntry entry, EntryPageQuery query, VaultMetadata metadata)
     {
@@ -70,16 +74,27 @@ public sealed partial class SqliteStorageProvider
 
     public Task<VaultEntryPage> LoadEntryPageAsync(CryptoEngine crypto, EntryPageQuery query,
         EntryPageCursor? cursor = null, Guid? focusEntryId = null, CancellationToken cancellationToken = default,
-        IProgress<VaultReadProgress>? progress = null)
+        IProgress<VaultReadProgress>? progress = null) =>
+        LoadEntryPageAsync(crypto, query, cursor, focusEntryId, cancellationToken, progress, forGrid: false);
+
+    public Task<VaultEntryPage> LoadEntryGridPageAsync(CryptoEngine crypto, EntryPageQuery query,
+        EntryPageCursor? cursor = null, CancellationToken cancellationToken = default) =>
+        LoadEntryPageAsync(crypto, query, cursor, focusEntryId: null, cancellationToken, progress: null, forGrid: true);
+
+    private Task<VaultEntryPage> LoadEntryPageAsync(CryptoEngine crypto, EntryPageQuery query, EntryPageCursor? cursor,
+        Guid? focusEntryId, CancellationToken cancellationToken, IProgress<VaultReadProgress>? progress, bool forGrid)
     {
         ArgumentNullException.ThrowIfNull(query);
-        if (query.PageSize is < 1 or > 500 || query.MaximumPageBytes is < 1024 or > 64L * 1024 * 1024 ||
+        if (query.PageSize is < 1 or > MaximumEntryPageSize || query.MaximumPageBytes is < 1024 or > 64L * 1024 * 1024 ||
             query.SearchText == null || query.SearchText.Length > 4096 || !Enum.IsDefined(query.SortBy) ||
             !Enum.IsDefined(query.Expiry) || query.Tag == null || query.Tag.Length > 256 ||
             query.ExpiryReferenceDate > DateOnly.MaxValue.AddDays(-30))
             throw new ArgumentException("Unsupported entry query.", nameof(query));
         if (query.Expiry != EntryExpiryFilter.All && query.ExpiryReferenceDate == null)
             query = query with { ExpiryReferenceDate = DateOnly.FromDateTime(DateTime.Today) };
+        JsonSerializerOptions? projection = null;
+        if (forGrid)
+            projection = query.SortBy == EntrySortField.Password ? EntrySerialization.PasswordSortedGridOptions : EntrySerialization.GridOptions;
         CheckCrypto(crypto);
         return ReadAsync((connection, transaction, key, metadata) =>
         {
@@ -96,16 +111,23 @@ public sealed partial class SqliteStorageProvider
             var heap = new PriorityQueue<PwEntry, EntryOrderKey>(query.PageSize + 2,
                 Comparer<EntryOrderKey>.Create((a, b) => selectionOrder.Compare(b, a)));
             EntryPageCursor? start = cursor;
-            if (cursor == null && focusEntryId.HasValue)
+            EntryOrderKey? startKey = null;
+            if ((cursor?.EntryId ?? focusEntryId) is Guid anchorId)
             {
-                var anchor = ReadEntries(connection, transaction, key, metadata, includeDetails: false, entryId: focusEntryId,
-                    cancellationToken: cancellationToken).SingleOrDefault();
-                if (anchor != null)
+                var anchor = ReadEntries(connection, transaction, key, metadata, includeDetails: false, entryId: anchorId,
+                    cancellationToken: cancellationToken, projection: projection).SingleOrDefault();
+                try
                 {
-                    try { if (Matches(anchor, query, metadata)) start = new(OrderKey(anchor, query.SortBy).Value, anchor.Id, stamp, queryStamp, IncludeBoundary: true); }
-                    finally { anchor.ClearSecrets(); }
+                    if (anchor != null && Matches(anchor, query, metadata))
+                    {
+                        startKey = OrderKey(anchor, query.SortBy);
+                        start ??= new(anchor.Id, stamp, queryStamp, IncludeBoundary: true);
+                    }
+                    else if (cursor != null) throw new VaultPageChangedException();
                 }
+                finally { anchor?.ClearSecrets(); }
             }
+            bool includeBoundary = start?.IncludeBoundary == true;
             int matched = 0, total = 0, before = 0;
             long retainedBytes = 0;
             EntryOrderKey? excludedBoundary = null;
@@ -113,7 +135,7 @@ public sealed partial class SqliteStorageProvider
             try
             {
                 foreach (var entry in EnumerateEntries(connection, transaction, key, metadata, includeDetails: false,
-                    cancellationToken: cancellationToken, progress: progress))
+                    cancellationToken: cancellationToken, progress: progress, projection: projection))
                 {
                     bool retained = false;
                     try
@@ -123,10 +145,10 @@ public sealed partial class SqliteStorageProvider
                         if (!Matches(entry, query, metadata)) continue;
                         matched++;
                         var entryKey = OrderKey(entry, query.SortBy);
-                        if (start != null)
+                        if (startKey is { } boundaryKey)
                         {
-                            int comparison = selectionOrder.Compare(entryKey, new(start.SortValue, start.EntryId));
-                            if (comparison < 0 || comparison == 0 && !start.IncludeBoundary) { before++; continue; }
+                            int comparison = selectionOrder.Compare(entryKey, boundaryKey);
+                            if (comparison < 0 || comparison == 0 && !includeBoundary) { before++; continue; }
                         }
                         if (excludedBoundary is { } boundary && selectionOrder.Compare(entryKey, boundary) >= 0) continue;
                         heap.Enqueue(entry, entryKey); retained = true; retainedBytes += EstimatedEntryBytes(entry);
@@ -146,16 +168,19 @@ public sealed partial class SqliteStorageProvider
                 int firstIndex = selected.Count == 0 ? 0 : backward ? matched - before - selected.Count + 1 : before + 1;
                 EntryPageCursor? next = null, previous = null;
                 if (selected.Count > 0 && firstIndex + selected.Count - 1 < matched)
-                {
-                    var last = OrderKey(selected[^1], query.SortBy);
-                    next = new(last.Value, last.Id, stamp, queryStamp);
-                }
+                    next = new(selected[^1].Id, stamp, queryStamp);
                 if (firstIndex > 1)
+                    previous = new(selected[0].Id, stamp, queryStamp, Backward: true);
+                if (forGrid)
                 {
-                    var first = OrderKey(selected[0], query.SortBy);
-                    previous = new(first.Value, first.Id, stamp, queryStamp, Backward: true);
+                    foreach (var entry in selected)
+                    {
+                        entry.GridPasswordLength ??= entry.Password?.Length ?? 0;
+                        entry.Password = entry.AutoTypeSequence = string.Empty;
+                        entry.GridAutoTypeSequenceLength = null;
+                    }
                 }
-                return new VaultEntryPage(metadata, groups, selected, matched, total, firstIndex, start, next, previous);
+                return new VaultEntryPage(metadata, groups, selected, matched, total, firstIndex, start, next, previous) { SnapshotStamp = stamp };
             }
             catch
             {
@@ -166,31 +191,63 @@ public sealed partial class SqliteStorageProvider
         }, cancellationToken, progress);
     }
 
-    public Task<List<PwEntry>> FindAutoTypeCandidatesAsync(CryptoEngine crypto, string windowTitle,
+    public Task<IReadOnlyDictionary<Guid, string>> LoadPasswordColumnAsync(CryptoEngine crypto, string snapshotStamp,
+        IReadOnlyDictionary<Guid, long> expectedRevisions, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(snapshotStamp);
+        ArgumentNullException.ThrowIfNull(expectedRevisions);
+        if (expectedRevisions.Count > MaximumEntryPageSize) throw new ArgumentOutOfRangeException(nameof(expectedRevisions));
+        var revisions = new Dictionary<Guid, long>(expectedRevisions);
+        var ids = revisions.Keys.ToArray();
+        CheckCrypto(crypto);
+        return ReadAsync<IReadOnlyDictionary<Guid, string>>((connection, transaction, key, metadata) =>
+        {
+            if (SnapshotStamp(connection, transaction) != snapshotStamp) throw new VaultPageChangedException();
+            var passwords = new Dictionary<Guid, string>(ids.Length);
+            if (ids.Length == 0) return passwords;
+
+            foreach (var entry in EnumerateEntries(connection, transaction, key, metadata, cancellationToken: cancellationToken,
+                projection: EntrySerialization.PasswordOptions, entryIds: ids))
+            {
+                try
+                {
+                    if (entry.Revision != revisions[entry.Id] || entry.GroupId == metadata.RecycleBinGroupId)
+                        throw new VaultPageChangedException();
+                    string password = entry.Password ?? string.Empty;
+                    passwords.Add(entry.Id, password.Length <= MaximumPasswordPreviewLength ? password : password[..MaximumPasswordPreviewLength]);
+                }
+                finally { entry.ClearSecrets(); }
+            }
+            if (passwords.Count != ids.Length) throw new VaultPageChangedException();
+            return passwords;
+        }, cancellationToken);
+    }
+
+    public Task<List<AutoTypeCandidate>> FindAutoTypeCandidatesAsync(CryptoEngine crypto, string windowTitle,
         Guid? selectedEntryId = null, long? expectedRevision = null, CancellationToken cancellationToken = default)
     {
         CheckCrypto(crypto);
         return ReadAsync((connection, transaction, key, metadata) =>
         {
-            var result = new List<PwEntry>();
-            try
+            var result = new List<AutoTypeCandidate>();
+            foreach (var entry in EnumerateEntries(connection, transaction, key, metadata, entryId: selectedEntryId,
+                cancellationToken: cancellationToken, projection: EntrySerialization.AutoTypeMatchOptions))
             {
-                foreach (var entry in EnumerateEntries(connection, transaction, key, metadata, includeDetails: false,
-                    entryId: selectedEntryId, cancellationToken: cancellationToken))
+                try
                 {
+                    if (selectedEntryId.HasValue && expectedRevision.HasValue && entry.Revision != expectedRevision)
+                        throw new VaultConflictException("Entry changed before Auto-Type.");
                     bool matches = entry.AutoTypeEnabled && entry.GroupId != metadata.RecycleBinGroupId &&
                         (selectedEntryId.HasValue ||
                         !string.IsNullOrWhiteSpace(entry.Title) && windowTitle.Contains(entry.Title, StringComparison.OrdinalIgnoreCase) ||
                         Uri.TryCreate(entry.Url, UriKind.Absolute, out var uri) && !string.IsNullOrWhiteSpace(uri.Host) && windowTitle.Contains(uri.Host, StringComparison.OrdinalIgnoreCase));
-                    if (selectedEntryId.HasValue && expectedRevision.HasValue && entry.Revision != expectedRevision)
-                    { entry.ClearSecrets(); throw new VaultConflictException("Entry changed before Auto-Type."); }
-                    if (matches) result.Add(entry); else entry.ClearSecrets();
+                    if (matches) result.Add(new(entry.Id, entry.Revision, entry.Title));
                     // Two candidates are sufficient to reject an ambiguous match.
                     if (result.Count == 2) break;
                 }
-                cancellationToken.ThrowIfCancellationRequested(); return result;
+                finally { entry.ClearSecrets(); }
             }
-            catch { foreach (var entry in result) entry.ClearSecrets(); throw; }
+            cancellationToken.ThrowIfCancellationRequested(); return result;
         }, cancellationToken);
     }
 
@@ -201,7 +258,7 @@ public sealed partial class SqliteStorageProvider
         return ReadAsync((connection, transaction, key, metadata) =>
         {
             var entry = ReadEntries(connection, transaction, key, metadata, entryId: entryId,
-                cancellationToken: cancellationToken).SingleOrDefault()
+                cancellationToken: cancellationToken, projection: EntrySerialization.AutoTypeExecutionOptions).SingleOrDefault()
                 ?? throw new VaultConflictException("The Auto-Type entry no longer exists.");
             if (entry.Revision != expectedRevision || !entry.AutoTypeEnabled || entry.GroupId == metadata.RecycleBinGroupId)
             { entry.ClearSecrets(); throw new VaultConflictException("The confirmed Auto-Type entry changed or is unavailable."); }

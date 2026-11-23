@@ -79,7 +79,7 @@ public partial class EntryEditDialog
         try
         {
             if (_entry.AutoTypeEnabled)
-                await Task.Run(() => { _lifetime.Token.ThrowIfCancellationRequested(); AutoTypeService.Parse(validation); }, _lifetime.Token);
+                await Task.Run(() => { _lifetime.Token.ThrowIfCancellationRequested(); AutoTypeService.ValidateSequence(validation); }, _lifetime.Token);
             if (!_closed) await _draft.PrepareForSaveAsync(_lifetime.Token);
             return !_closed;
         }

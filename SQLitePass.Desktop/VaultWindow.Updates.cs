@@ -1,6 +1,7 @@
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using SQLitePass.Core.Services;
+using SQLitePass.Desktop.Services;
 using Velopack;
 using Velopack.Sources;
 
@@ -15,14 +16,16 @@ public sealed partial class VaultWindow
 
     internal async Task<bool> CheckUpdatesAsync(IUpdateSource source, string[]? restartArgs = null)
     {
-        UpdateManager? manager = null;
+        AuthenticatedUpdateManager? manager = null;
         VelopackAsset? prepared = null;
         await RunOperationAsync(async token =>
         {
             try
             {
                 string channel = OperatingSystem.IsWindows() ? "win" : "linux";
-                manager = new UpdateManager(source, new UpdateOptions { ExplicitChannel = channel });
+                var authenticatedSource = source as AuthenticatedUpdateSource ?? AuthenticatedUpdateSource.ForOfficialReleases(source);
+                manager = new AuthenticatedUpdateManager(authenticatedSource,
+                    new UpdateOptions { ExplicitChannel = channel, MaximumDeltasBeforeFallback = 0 });
                 if (!manager.IsInstalled)
                 {
                     StatusText.Text = Text("UpdateUnavailable");

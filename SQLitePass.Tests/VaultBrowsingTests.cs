@@ -1,3 +1,4 @@
+using System.Text.Json;
 using SQLitePass.Core.Models;
 using SQLitePass.Core.Services;
 
@@ -72,6 +73,130 @@ public partial class VaultSecurityTests
         Assert.True(focused.CurrentCursor!.IncludeBoundary);
         var next = await vault.Storage.LoadEntryPageAsync(vault.Crypto, query, focused.NextCursor);
         Assert.Equal(new[] { "01", "00" }, next.Entries.Select(entry => entry.Title));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PasswordSortPagesKeepOnlyTheBoundaryIdentityInCursors(bool descending)
+    {
+        using var vault = await TestVault.Create();
+        var entries = new[] { "Zulu-synthetic", "Alpha-synthetic", "ALPHA-SYNTHETIC", "Mike-synthetic", "" }
+            .Select(value => new PwEntry { GroupId = vault.Root.Id, Title = "test", Password = value }).ToArray();
+        await vault.Storage.SaveEntriesBatchAsync(entries, vault.Crypto);
+        var comparer = StringComparer.OrdinalIgnoreCase;
+        var expected = (descending ? entries.OrderByDescending(entry => entry.Password, comparer) :
+            entries.OrderBy(entry => entry.Password, comparer)).ThenBy(entry => entry.Id).Select(entry => entry.Id).ToArray();
+
+        var query = new EntryPageQuery(SortBy: EntrySortField.Password, Descending: descending, PageSize: 2);
+        var first = await vault.Storage.LoadEntryPageAsync(vault.Crypto, query);
+        var second = await vault.Storage.LoadEntryPageAsync(vault.Crypto, query, first.NextCursor);
+        var last = await vault.Storage.LoadEntryPageAsync(vault.Crypto, query, second.NextCursor);
+        Assert.Equal(expected, first.Entries.Concat(second.Entries).Concat(last.Entries).Select(entry => entry.Id));
+        Assert.Null(last.NextCursor);
+        var back = await vault.Storage.LoadEntryPageAsync(vault.Crypto, query, last.PreviousCursor);
+        Assert.Equal(expected[2..4], back.Entries.Select(entry => entry.Id));
+        var focused = await vault.Storage.LoadEntryPageAsync(vault.Crypto, query, focusEntryId: expected[2]);
+        var reopened = await vault.Storage.LoadEntryPageAsync(vault.Crypto, query, focused.CurrentCursor);
+        Assert.Equal(expected[2..4], reopened.Entries.Select(entry => entry.Id));
+
+        var cursor = Assert.IsType<EntryPageCursor>(second.NextCursor);
+        Assert.Equal(expected[3], cursor.EntryId);
+        Assert.DoesNotContain("synthetic", JsonSerializer.Serialize(new[]
+            { first.NextCursor, second.NextCursor, last.PreviousCursor, focused.CurrentCursor }), StringComparison.OrdinalIgnoreCase);
+        await Assert.ThrowsAsync<VaultPageChangedException>(() =>
+            vault.Storage.LoadEntryPageAsync(vault.Crypto, query, cursor with { EntryId = Guid.Empty }));
+        Assert.False(vault.Storage.IsReadOnly);
+    }
+
+    [Theory]
+    [InlineData(EntrySortField.Title)]
+    [InlineData(EntrySortField.Password)]
+    public async Task GridPagesKeepTheSameBoundariesAsAnExplicitPasswordRead(EntrySortField sort)
+    {
+        using var vault = await TestVault.Create();
+        string escapedPassword = string.Concat(Enumerable.Repeat("À😀\"\\", 250));
+        string sequence = string.Concat(Enumerable.Repeat("è\\{TAB}", 200));
+        var entries = new[]
+        {
+            new PwEntry { GroupId = vault.Root.Id, Title = "A", Notes = "match" },
+            new PwEntry { GroupId = vault.Root.Id, Title = "B", Notes = "match", Password = escapedPassword, AutoTypeSequence = sequence },
+            new PwEntry { GroupId = vault.Root.Id, Title = "C", Notes = "match", Password = "z" },
+            new PwEntry { GroupId = vault.Root.Id, Title = "D", Notes = "unrelated", Password = "x" }
+        };
+        await vault.Storage.SaveEntriesBatchAsync(entries, vault.Crypto);
+        long budget = 2_048 + 2L * (entries[0].Title.Length + entries[0].Notes.Length + entries[0].AutoTypeSequence.Length +
+            entries[1].Title.Length + entries[1].Notes.Length + escapedPassword.Length + sequence.Length);
+        var query = new EntryPageQuery(SearchText: "match", SortBy: sort, MaximumPageBytes: budget);
+        EntryPageCursor? cursor = null;
+        var titles = new List<string>();
+        do
+        {
+            var grid = await vault.Storage.LoadEntryGridPageAsync(vault.Crypto, query, cursor);
+            var reveal = await vault.Storage.LoadEntryPageAsync(vault.Crypto, query, cursor);
+            if (cursor == null) Assert.Equal(2, grid.Entries.Count);
+            Assert.Equal(reveal.FirstIndex, grid.FirstIndex);
+            Assert.Equal(reveal.NextCursor, grid.NextCursor);
+            Assert.Equal(reveal.PreviousCursor, grid.PreviousCursor);
+            Assert.Equal(reveal.Entries.Select(entry => entry.Id), grid.Entries.Select(entry => entry.Id));
+            Assert.All(grid.Entries, entry =>
+            {
+                Assert.Empty(entry.Password);
+                Assert.Empty(entry.AutoTypeSequence);
+                Assert.False(entry.HasLoadedDetails);
+                Assert.Equal(entry.Title != "A", entry.HasPassword);
+            });
+            if (reveal.Entries.Any(entry => entry.Title == "B"))
+                Assert.Equal(escapedPassword, Assert.Single(reveal.Entries, entry => entry.Title == "B").Password);
+            titles.AddRange(grid.Entries.Select(entry => entry.Title));
+            cursor = grid.NextCursor;
+        } while (cursor != null);
+        Assert.Equal(sort == EntrySortField.Title ? new[] { "A", "B", "C" } : new[] { "A", "C", "B" }, titles);
+    }
+
+    [Fact]
+    public async Task PasswordColumnReadsOnlyRequestedRowsAndLimitsThePreview()
+    {
+        using var vault = await TestVault.Create();
+        string longPassword = new string('é', 512) + " omitted suffix";
+        var first = new PwEntry { GroupId = vault.Root.Id, Title = "A", Password = longPassword };
+        var second = new PwEntry { GroupId = vault.Root.Id, Title = "B", Password = "second synthetic value" };
+        var offPage = new PwEntry { GroupId = vault.Root.Id, Title = "C", Password = "off-page synthetic value" };
+        await vault.Storage.SaveEntriesBatchAsync([first, second, offPage], vault.Crypto);
+        var page = await vault.Storage.LoadEntryGridPageAsync(vault.Crypto, new(PageSize: 2));
+        var requested = page.Entries.ToDictionary(entry => entry.Id, entry => entry.Revision);
+        var passwords = await vault.Storage.LoadPasswordColumnAsync(vault.Crypto, page.SnapshotStamp, requested);
+
+        Assert.Equal(2, passwords.Count);
+        Assert.Equal(longPassword[..512], passwords[first.Id]);
+        Assert.Equal(second.Password, passwords[second.Id]);
+        Assert.DoesNotContain(offPage.Id, passwords.Keys);
+    }
+
+    [Fact]
+    public async Task PasswordColumnRejectsStaleSnapshotsRevisionsAndMissingRows()
+    {
+        using var vault = await TestVault.Create();
+        var entry = new PwEntry { GroupId = vault.Root.Id, Title = "A", Password = "first synthetic value" };
+        var offPage = new PwEntry { GroupId = vault.Root.Id, Title = "B", Password = "off-page synthetic value" };
+        await vault.Storage.SaveEntriesBatchAsync([entry, offPage], vault.Crypto);
+        var query = new EntryPageQuery(PageSize: 1);
+        var firstPage = await vault.Storage.LoadEntryGridPageAsync(vault.Crypto, query);
+        Assert.Null(firstPage.CurrentCursor);
+        var requested = new Dictionary<Guid, long> { [entry.Id] = entry.Revision };
+
+        offPage.Password = "unrelated edit";
+        await vault.Storage.SaveEntryAsync(offPage, vault.Crypto);
+        await Assert.ThrowsAsync<VaultPageChangedException>(() =>
+            vault.Storage.LoadPasswordColumnAsync(vault.Crypto, firstPage.SnapshotStamp, requested));
+        var current = await vault.Storage.LoadEntryGridPageAsync(vault.Crypto, query);
+        await Assert.ThrowsAsync<VaultPageChangedException>(() => vault.Storage.LoadPasswordColumnAsync(vault.Crypto,
+            current.SnapshotStamp, new Dictionary<Guid, long> { [entry.Id] = entry.Revision - 1 }));
+        await Assert.ThrowsAsync<VaultPageChangedException>(() => vault.Storage.LoadPasswordColumnAsync(vault.Crypto,
+            current.SnapshotStamp, new Dictionary<Guid, long> { [Guid.Empty] = entry.Revision }));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => vault.Storage.LoadPasswordColumnAsync(vault.Crypto,
+            current.SnapshotStamp, requested, new CancellationToken(canceled: true)));
+        Assert.False(vault.Storage.IsReadOnly);
     }
 
     [Fact]
@@ -196,12 +321,15 @@ public partial class VaultSecurityTests
     {
         using var vault = await TestVault.Create();
         await vault.Storage.SaveEntryAsync(new PwEntry { GroupId = vault.Root.Id, Title = "A visible entry" }, vault.Crypto);
-        var target = new PwEntry { GroupId = vault.Root.Id, Title = "Z controlled target", Password = "synthetic" };
+        var target = new PwEntry { GroupId = vault.Root.Id, Title = "Z controlled target", Password = "synthetic", Url = "https://example.test/login" };
         await vault.Storage.SaveEntryAsync(target, vault.Crypto);
         var page = await vault.Storage.LoadEntryPageAsync(vault.Crypto, new(PageSize: 1));
         Assert.DoesNotContain(page.Entries, entry => entry.Id == target.Id);
         var candidates = await vault.Storage.FindAutoTypeCandidatesAsync(vault.Crypto, "Z controlled target - synthetic application");
-        Assert.Equal(target.Id, Assert.Single(candidates).Id);
+        var candidate = new AutoTypeCandidate(target.Id, target.Revision, target.Title);
+        Assert.Equal(candidate, Assert.Single(candidates));
+        Assert.Equal(candidate, Assert.Single(await vault.Storage.FindAutoTypeCandidatesAsync(vault.Crypto, "example.test")));
+        Assert.DoesNotContain("synthetic", JsonSerializer.Serialize(candidate));
         long previous = target.Revision; target.Password = "changed"; await vault.Storage.SaveEntryAsync(target, vault.Crypto);
         await Assert.ThrowsAsync<VaultConflictException>(() => vault.Storage.FindAutoTypeCandidatesAsync(vault.Crypto, "controlled target", target.Id, previous));
     }
@@ -229,9 +357,14 @@ public partial class VaultSecurityTests
         using var vault = await TestVault.Create(); var entry = await vault.Add();
         entry.AutoTypeSequence = "{S:token}";
         entry.CustomFields.Add(new PwCustomField { Key = "token", Value = "synthetic token", IsProtected = true });
+        entry.Attachments.Add(new PwAttachment { EntryId = entry.Id, FileName = "fixture.bin", FileSize = 1, Data = [1] });
+        entry.History.Add(entry.CreateHistorySnapshot());
         await vault.Storage.SaveEntryAsync(entry, vault.Crypto);
         var confirmed = await vault.Storage.LoadAutoTypeEntryAsync(entry.Id, entry.Revision, vault.Crypto);
         Assert.Equal("synthetic token", Assert.Single(AutoTypeService.Parse(confirmed)).Text);
+        Assert.False(confirmed.HasLoadedDetails);
+        Assert.Empty(confirmed.History);
+        Assert.Empty(confirmed.Attachments);
         confirmed.ClearSecrets();
         entry.AutoTypeEnabled = false; await vault.Storage.SaveEntryAsync(entry, vault.Crypto);
         await Assert.ThrowsAsync<VaultConflictException>(() => vault.Storage.LoadAutoTypeEntryAsync(entry.Id, entry.Revision, vault.Crypto));

@@ -72,11 +72,18 @@ public sealed partial class AvaloniaVaultTests
                     var copyEvent = new RoutedEventArgs(TextBox.CopyingToClipboardEvent);
                     passwordField.RaiseEvent(copyEvent);
                     Assert.True(copyEvent.Handled);
-                    editor.FindControl<TabControl>("Sections")!.SelectedIndex = 2;
+                    var sections = editor.FindControl<TabControl>("Sections")!;
+                    var attachments = editor.FindControl<ListBox>("Attachments")!;
+                    var history = editor.FindControl<ListBox>("History")!;
+                    Assert.Empty(attachments.Items);
+                    Assert.Empty(history.Items);
+                    sections.SelectedItem = editor.FindControl<TabItem>("AttachmentsTab");
+                    await editor.WaitForOperationsAsync();
                     Assert.False(passwordField.RevealPassword);
+                    Assert.Single(attachments.Items);
+                    Assert.Empty(history.Items);
 
                     await editor.AddAttachmentAsync(_ => Task.FromResult<string?>(attachmentPath));
-                    var attachments = editor.FindControl<ListBox>("Attachments")!;
                     var draftAttachment = attachments.Items.OfType<PwAttachment>().Single(item => item.FileName == "fixture.txt");
                     await editor.ExportAttachmentAsync(draftAttachment, (_, _) => Task.FromResult<string?>(path));
                     Assert.Contains("failed", editor.FindControl<TextBlock>("ValidationMessage")!.Text, StringComparison.OrdinalIgnoreCase);
@@ -85,7 +92,10 @@ public sealed partial class AvaloniaVaultTests
                     editor.RemoveSelectedAttachment();
                     Assert.All(draftAttachment.Data, value => Assert.Equal(0, value));
 
-                    editor.FindControl<ListBox>("History")!.SelectedIndex = 0;
+                    sections.SelectedItem = editor.FindControl<TabItem>("HistoryTab");
+                    await editor.WaitForOperationsAsync();
+                    Assert.Single(history.Items);
+                    history.SelectedIndex = 0;
                     await ConfirmAsync(editor, editor.RestoreSelectedHistoryAsync(), true, timeout.Token);
                     Assert.Equal("Earlier entry", editor.FindControl<TextBox>("EntryTitle")!.Text);
                     Assert.Equal(expiry, editor.FindControl<DatePicker>("Expiry")!.SelectedDate!.Value.Date);
@@ -99,6 +109,15 @@ public sealed partial class AvaloniaVaultTests
                     sequence.Text = "{S:New field}{TAB}{PASSWORD}";
                     editor.Save_Click(null, new RoutedEventArgs());
                     await editing;
+                    Assert.Empty(editor.FindControl<TextBox>("EntryTitle")!.Text!);
+                    Assert.Empty(editor.FindControl<TextBox>("UserName")!.Text!);
+                    Assert.Empty(passwordField.Text!);
+                    Assert.Empty(editor.FindControl<TextBox>("Url")!.Text!);
+                    Assert.Empty(editor.FindControl<TextBox>("Tags")!.Text!);
+                    Assert.Empty(editor.FindControl<TextBox>("Notes")!.Text!);
+                    Assert.Empty(editor.FindControl<TextBox>("Sequence")!.Text!);
+                    Assert.Empty(editor.FindControl<TextBox>("FieldName")!.Text!);
+                    Assert.Empty(editor.FindControl<TextBox>("FieldValue")!.Text!);
                 }
                 finally
                 {
@@ -121,6 +140,16 @@ public sealed partial class AvaloniaVaultTests
                 Assert.Equal("saved-inline", saved.CustomFields.Single(field => field.Key == "New field").Value);
                 Assert.Equal(new byte[] { 4, 5, 6 }, Assert.Single(saved.Attachments).Data);
                 Assert.Equal(2, saved.History.Count);
+                var former = Assert.Single(saved.History, revision => revision.Title == "Current entry");
+                var previous = EntrySerialization.Deserialize(former.SnapshotJson);
+                try
+                {
+                    Assert.Equal("earlier-secret", previous.Password);
+                    Assert.Null(previous.ExpiryDate);
+                    Assert.Equal(new byte[] { 4, 5, 6 }, Assert.Single(previous.Attachments).Data);
+                    Assert.Empty(previous.History);
+                }
+                finally { previous.ClearSecrets(); }
             }
             finally { saved.ClearSecrets(); }
         }

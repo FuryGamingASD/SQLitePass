@@ -1,6 +1,6 @@
 # Esito pubblicazione SQLitePass 1.1.1
 
-Verifica del 17 novembre 2026. La release 1.1.1 corregge l’attivazione della finestra Windows dopo il caso segnalato in cui SQLitePass restava nell’area notifiche/minimizzato senza una finestra accessibile. La firma Authenticode resta esclusa come concordato.
+Verifica del 17 novembre 2026. La release 1.1.1 corregge l’attivazione della finestra Windows quando SQLitePass rimane nell’area notifiche o minimizzato senza una finestra accessibile. La firma Authenticode era fuori dal perimetro della release.
 
 ## Pubblicazione
 
@@ -23,11 +23,11 @@ Verifica del 17 novembre 2026. La release 1.1.1 corregge l’attivazione della f
 - 152 test CI superati; 5 progetti NuGet analizzati, nessuna vulnerabilità nota rilevata.
 - Installazione pulita, aggiornamento locale 1.0.2 → 1.1.1 e disinstallazione silenziosi superati; il report indica che le preferenze sono rimaste invariate.
 - I test d’installazione **non avviano l’applicazione** e non aprono vault reali.
-- La provenienza indica `NativeInteractiveQaVerified: false`; non è quindi dimostrato da una prova desktop reale che la finestra si apra sul computer dell’utente. La release contiene il fix e supera i controlli automatici, ma la verifica finale sul desktop resta necessaria.
-- Firma app e installer: `NotSigned`, esclusione precedentemente concordata. Revisione di sicurezza indipendente e verifiche native DPI/Narrator restano aperte.
+- Alla pubblicazione, il rapporto di provenienza riportava `NativeInteractiveQaVerified: false`. Il collaudo desktop dell’avvio è stato completato dopo la pubblicazione ed è documentato sotto.
+- Applicazione e installer sono `NotSigned`. La revisione di sicurezza indipendente e le verifiche native con DPI e Narrator restano aperte.
 
 Per riprovare, installare il nuovo [SQLitePass-win-Setup.exe](https://github.com/FuryGamingASD/SQLitePass/releases/download/v1.1.1/SQLitePass-win-Setup.exe) e avviare SQLitePass dal menu Start. Alla prima apertura deve comparire la schermata di sblocco. Se rimane soltanto l’icona nell’area notifiche, la correzione non è confermata sul sistema interessato e serve raccogliere nuovi dettagli diagnostici prima di dichiarare il problema risolto.
 
-## Aggiornamento dell’utente
+## Verifica desktop dopo la pubblicazione
 
-Successivamente alla pubblicazione, l’utente ha confermato che SQLitePass 1.1.1 si apre e funziona correttamente. Ritiene probabile che anche la 1.1.0 funzionasse: durante la diagnosi non era davanti al PC e non riusciva a vedere la finestra nella sessione remota. La mancata visibilità remota non è quindi una regressione applicativa confermata. Questa conferma chiude il dubbio sull’apertura della finestra; non certifica i restanti flussi nativi elencati nell’audit.
+Il collaudo desktop dopo la pubblicazione ha confermato che SQLitePass 1.1.1 si apre e funziona. La finestra della 1.1.0 risultava invisibile durante una sessione remota. Per quella versione il corretto funzionamento sul desktop locale resta plausibile e la regressione di avvio resta da confermare. La verifica successiva ha riguardato l’apertura della finestra. Gli altri flussi nativi dell’audit richiedevano prove dedicate.

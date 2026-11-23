@@ -2,18 +2,16 @@
 
 ## Supported Versions
 
-The current supported release line is:
-
 | Version | Status |
 |----------|----------|
-| 1.2.x | Supported on Windows x64 and Linux x64 |
-| 1.1.x | Supported Windows-only legacy line |
-| 1.0.x | Unsupported |
-| Earlier versions | Unsupported |
+| 1.3.x | Current release line for Windows x64 and Linux x64 |
+| 1.2.x | Previous Windows x64 and Linux x64 release line. Upgrade manually to install the publisher key. |
+| 1.1.x | Legacy Windows-only release line |
+| 1.0.x and earlier | Unsupported |
 
 SQLitePass 1.1 introduces Vault Format 2, authenticated vault integrity verification, validated recovery workflows, record revisions and authenticated encrypted storage.
 
-The current stable release is [SQLitePass 1.2.0](https://github.com/FuryGamingASD/SQLitePass/releases/tag/v1.2.0). The Windows and Linux packages share Vault Format 2.
+The Windows and Linux packages share Vault Format 2. Install the new release manually to establish trust in its publisher key. [Latest stable release](https://github.com/FuryGamingASD/SQLitePass/releases/latest) · [Installation and update trust](docs/UPDATE_SIGNING.md#transition-for-existing-installations)
 
 Earlier 1.0 releases contain known architectural limitations and recovery defects documented in the project audit and remediation reports.
 
@@ -277,7 +275,7 @@ Clipboard protection cannot prevent:
 - Clipboard History or Cloud Clipboard behavior that is not excluded by the current Windows configuration
 - A recipient application retaining data after a paste
 
-The 1.2.0 checks verified expiry, clearing on vault lock and preservation of newer content on both platforms. Windows CI checked the exclusion formats. Interactive Clipboard History and cloud synchronization remain unverified. Linux clipboard managers can retain copied content if they ignore the password-manager hint.
+Native checks verify expiry, clearing on vault lock and preservation of newer content on both platforms. Windows blocks credential copies on build 26300 and when clipboard roaming is enabled. On X11, SQLitePass blocks copies when it detects an incompatible clipboard manager or cannot query a configured D-Bus session. Other clipboard consumers can still retain the data. [Desktop clipboard behavior](docs/CROSS_PLATFORM.md#desktop-clipboard)
 
 SQLitePass is not designed to protect against:
 
@@ -294,7 +292,7 @@ These threats require endpoint and operational controls beyond the vault applica
 
 - Auto-Type validates the foreground window, process and title before and after injected events, but Windows `SendInput` uses the global keyboard stream. The target can change between validation and an input event; this remains a P1 risk.
 - The 1.2.0 desktop probes verify Auto-Type into separate Windows and X11/XWayland targets and cancellation when focus changes. Linux Auto-Type requires a trusted local X display. Verify the destination yourself before confirming. [Desktop capabilities](docs/CROSS_PLATFORM.md#auto-type-in-the-shared-app)
-- The application and installer are unsigned. Windows may show reputation or publisher warnings.
+- Windows may show publisher or reputation warnings because the installer has no Authenticode signature. The application verifies subsequent updates with the pinned SQLitePass signing key. The signed freshness checkpoint bounds replay of an earlier valid release to its remaining validity period of up to 30 days. [Update authentication](docs/UPDATE_SIGNING.md)
 - There has been no independent cryptographic audit or penetration test. Hardware-level power-loss and storage-failure behavior is not certified.
 
-The current release evidence and outstanding checks are recorded in the [1.2.0 outcome](docs/releases/RELEASE_OUTCOME_1.2.0.md) and the [audit status](docs/AUDIT_STATUS.md).
+The current release evidence and outstanding checks are recorded in the [audit status](docs/AUDIT_STATUS.md).

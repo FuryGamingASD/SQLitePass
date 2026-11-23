@@ -114,6 +114,54 @@ public sealed partial class AvaloniaVaultTests
                     var entries = window.FindControl<ListBox>("Entries")!;
                     var row = Assert.IsType<EntryRow>(Assert.Single(entries.Items));
                     Assert.Equal("••••••••", row.DisplayPassword);
+                    entries.SelectedItem = row;
+                    var quality = window.FindControl<ProgressBar>("PreviewQuality")!;
+                    var estimate = window.FindControl<Button>("PreviewEstimateQuality")!;
+                    Assert.False(quality.IsVisible);
+                    Assert.True(estimate.IsEffectivelyEnabled);
+                    estimate.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    await WaitAsync(() => quality.IsVisible && entries.IsEnabled, timeout.Token);
+                    Assert.Equal(PasswordGenerator.CalculateEntropy(entrySecret), quality.Value);
+                    var preview = window.FindControl<TextBlock>("PreviewSecret")!;
+                    var reveal = window.FindControl<Button>("PreviewReveal")!;
+                    Assert.Equal(row.PasswordMask, preview.Text);
+                    Assert.Null(backend.Text);
+                    reveal.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    await WaitAsync(() => preview.Text == entrySecret && entries.IsEnabled, timeout.Token);
+                    reveal.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    Assert.Equal(row.PasswordMask, preview.Text);
+                    Assert.Null(backend.Text);
+                    entries.SelectedItem = null;
+                    Assert.False(quality.IsVisible);
+                    Assert.False(estimate.IsEnabled);
+
+                    var columnCommand = window.FindControl<MenuItem>("PasswordColumnCommand")!;
+                    columnCommand.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                    await WaitAsync(() => row.DisplayPassword == entrySecret && entries.IsEnabled, timeout.Token);
+                    columnCommand.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                    Assert.Equal(row.PasswordMask, row.DisplayPassword);
+
+                    await using (var writer = Assert.IsType<VaultSession>(await VaultSession.OpenAsync(path, master, store.Load(),
+                        () => Task.FromResult(false), timeout.Token)))
+                    {
+                        var updated = await writer.Storage.LoadEntryAsync(row.Id, writer.Crypto, row.Revision);
+                        try
+                        {
+                            updated.Notes = "Edited in another session";
+                            await writer.Storage.SaveEntryAsync(updated, writer.Crypto);
+                        }
+                        finally { updated.ClearSecrets(); }
+                    }
+                    columnCommand.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                    var status = window.FindControl<TextBlock>("StatusText")!;
+                    await WaitAsync(() => entries.IsEnabled && status.Text?.StartsWith("The state changed", StringComparison.Ordinal) == true, timeout.Token);
+                    Assert.Equal(row.PasswordMask, row.DisplayPassword);
+                    await window.SearchAsync();
+                    row = Assert.IsType<EntryRow>(Assert.Single(entries.Items));
+                    columnCommand.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                    await WaitAsync(() => row.DisplayPassword == entrySecret && entries.IsEnabled, timeout.Token);
+                    columnCommand.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                    Assert.Equal(row.PasswordMask, row.DisplayPassword);
 
                     DoubleClick("EntryUserCell");
                     await WaitAsync(() => backend.Text == "demo-user", timeout.Token);

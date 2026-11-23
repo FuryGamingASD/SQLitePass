@@ -40,14 +40,14 @@ public sealed partial class VaultWindow
 
     private void RegisterGlobalAutoType()
     {
-        if (_desktopSession == null || !OperatingSystem.IsWindows()) return;
+        if (_machinePolicy.DisableAutoType || _desktopSession == null || !OperatingSystem.IsWindows()) return;
         _autoTypeHotkey = WindowsAutoTypeHotkey.TryRegister(this, GlobalAutoTypePressed);
         if (_autoTypeHotkey == null) StatusText.Text = Text("HotkeyUnavailableStatus");
     }
 
     private void GlobalAutoTypePressed()
     {
-        if (!OperatingSystem.IsWindows() || _session is not { } session || _systemLocked || _closing || _operation != null) return;
+        if (_machinePolicy.DisableAutoType || !OperatingSystem.IsWindows() || _session is not { } session || _systemLocked || _closing || _operation != null) return;
         var input = new WindowsAutoTypeInput(allowActivation: false);
         if (ReadAutoTypeTarget(input) is not { } target) return;
         Dispatcher.UIThread.Post(async () =>
@@ -57,8 +57,15 @@ public sealed partial class VaultWindow
         });
     }
 
-    private async Task AutoTypeEntryAsync(EntryRow? row, CancellationToken token, AutoTypeTarget? capturedTarget = null)
+    internal Task AutoTypeEntryAsync(EntryRow? row, CancellationToken token) => AutoTypeEntryAsync(row, token, capturedTarget: null);
+
+    private async Task AutoTypeEntryAsync(EntryRow? row, CancellationToken token, AutoTypeTarget? capturedTarget)
     {
+        if (_machinePolicy.DisableAutoType)
+        {
+            StatusText.Text = Text("MachinePolicyAutoTypeDisabled");
+            return;
+        }
         if (_session is not { } session || (row != null && _query.OnlyRecycleBin)) return;
         using var linuxInput = OperatingSystem.IsLinux() ? X11AutoTypeInput.TryCreate() : null;
         IAutoTypeInput? input = OperatingSystem.IsWindows() ? new WindowsAutoTypeInput(allowActivation: false) : linuxInput;
@@ -74,41 +81,37 @@ public sealed partial class VaultWindow
         {
             var target = capturedTarget ?? await WaitForAutoTypeTargetAsync(input, expected: null, token);
             var matches = await session.Storage.FindAutoTypeCandidatesAsync(session.Crypto, target.Title, row?.Id, row?.Revision, token);
+            if (matches.Count != 1)
+            {
+                if (capturedTarget != null) ShowFromTray();
+                StatusText.Text = Text(row == null ? "AutoTypeGlobalNoUniqueMatch" : "AutoTypeEntryUnavailable");
+                return;
+            }
+
+            token.ThrowIfCancellationRequested();
+            if (ReadAutoTypeTarget(input) != target) throw new OperationCanceledException();
+            var entry = matches[0];
+            string process = $"{AutoTypeService.GetWindowProcessName(target.ProcessId)} ({target.ProcessId})";
+            ShowFromTray();
+            bool accepted = await ConfirmAsync(Text("AutoTypeConfirmTitle"),
+                Text("AutoTypeConfirmText", VisibleAutoTypeTitle(entry.Title), VisibleAutoTypeTitle(target.Title), process)
+                + "\n\n" + Text("AutoTypeReturnToDestination"), acceptLabel: Text("AutoTypeConfirmAction"));
+            if (!accepted)
+            {
+                StatusText.Text = Text("AutoTypeStopped");
+                return;
+            }
+            token.ThrowIfCancellationRequested();
+            StatusText.Text = Text("AutoTypeReturnToDestination");
+            await WaitForAutoTypeTargetAsync(input, target, token);
+
+            var confirmed = await session.Storage.LoadAutoTypeEntryAsync(entry.Id, entry.Revision, session.Crypto, token);
             try
             {
-                if (matches.Count != 1)
-                {
-                    if (capturedTarget != null) ShowFromTray();
-                    StatusText.Text = Text(row == null ? "AutoTypeGlobalNoUniqueMatch" : "AutoTypeEntryUnavailable");
-                    return;
-                }
-
-                token.ThrowIfCancellationRequested();
-                if (ReadAutoTypeTarget(input) != target) throw new OperationCanceledException();
-                var entry = matches[0];
-                string process = $"{AutoTypeService.GetWindowProcessName(target.ProcessId)} ({target.ProcessId})";
-                ShowFromTray();
-                bool accepted = await ConfirmAsync(Text("AutoTypeConfirmTitle"),
-                    Text("AutoTypeConfirmText", VisibleAutoTypeTitle(entry.Title), VisibleAutoTypeTitle(target.Title), process)
-                    + "\n\n" + Text("AutoTypeReturnToDestination"), acceptLabel: Text("AutoTypeConfirmAction"));
-                if (!accepted)
-                {
-                    StatusText.Text = Text("AutoTypeStopped");
-                    return;
-                }
-                token.ThrowIfCancellationRequested();
-                StatusText.Text = Text("AutoTypeReturnToDestination");
-                await WaitForAutoTypeTargetAsync(input, target, token);
-
-                var confirmed = await session.Storage.LoadAutoTypeEntryAsync(entry.Id, entry.Revision, session.Crypto, token);
-                try
-                {
-                    await AutoTypeService.ExecuteAutoTypeAsync(confirmed, target.Handle, 250, token, input, target.Title, target.ProcessId);
-                    StatusText.Text = "";
-                }
-                finally { confirmed.ClearSecrets(); }
+                await AutoTypeService.ExecuteAutoTypeAsync(confirmed, target.Handle, 250, token, input, target.Title, target.ProcessId);
+                StatusText.Text = "";
             }
-            finally { foreach (var match in matches) match.ClearSecrets(); }
+            finally { confirmed.ClearSecrets(); }
         }
         catch (Exception ex) when ((ex is OperationCanceledException && !token.IsCancellationRequested) ||
             ex is Win32Exception or ArgumentException or TimeoutException or AutoTypeLayoutException)

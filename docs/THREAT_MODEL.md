@@ -314,12 +314,13 @@ Reduce clipboard persistence.
 - Clipboard ownership tracking
 - Clipboard history exclusion
 - Cloud clipboard exclusion
+- On Linux X11, reject copies when a clipboard-manager selection owner or the detected Xfce Clipman D-Bus service is active
 
 ---
 
 ### Residual Risk
 
-Clipboard data remains exposed while present.
+Clipboard data remains exposed while present. Windows privacy flags are not reliable on every tested Windows build, so SQLitePass blocks copies on the affected build and whenever sync is enabled. On Linux X11, third-party manager detection covers the standard manager selection and Xfce Clipman; a configured session bus that cannot be queried also blocks copying. An unknown manager or one that starts after the check may still retain a copy.
 
 ---
 
@@ -356,6 +357,10 @@ Prevent accidental credential delivery.
 ### Residual Risk
 
 Windows `SendInput` uses a global keyboard stream and the target can change between a check and an event. This remains a P1 risk. Linux Auto-Type uses the shared X11 display and requires a trusted local session. SQLitePass cancels on detected focus changes, session lock and vault minimization. The user must confirm the destination. Process identity and window title provide context for this decision. [Platform behavior](CROSS_PLATFORM.md#auto-type-in-the-shared-app) · [KeePass Auto-Type](https://keepass.info/help/base/autotype.html)
+
+### Browser form filling (not implemented)
+
+The desktop flow can type into a browser, but its process and window title checks do not authenticate the active page's web origin. A browser integration should be a separate, explicit extension flow: user-invoked temporary `activeTab` access, exact canonical-origin matching, confirmation in SQLitePass, and rechecking the same tab and origin immediately before filling. Use native messaging with an exact extension allowlist; do not add a local HTTP/WebSocket listener or auto-submit a form. Even with those checks, the approved page receives the credentials and can read them. Browser support therefore adds a new trust boundary and needs separate packaging and threat review. See the official [Chrome `activeTab`](https://developer.chrome.com/docs/extensions/develop/concepts/activeTab) and [native messaging](https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging) documentation and [Edge native messaging](https://learn.microsoft.com/en-us/microsoft-edge/extensions/developer-guide/native-messaging).
 
 ---
 
@@ -649,6 +654,26 @@ Components not trusted:
 
 ---
 
+# A13 – Update Feed Tampering
+
+### Capabilities
+
+The attacker can replace an update feed and its package on the configured release host, for example after compromise of the repository or release-upload credentials. This does not assume ordinary HTTPS transport interception.
+
+### Security Goal
+
+Ensure that an update package was authorized by the SQLitePass publisher independently of the host that serves it.
+
+### Current Checks
+
+The Avalonia updater verifies a detached RSA/SHA-256 signature against a public key pinned in the client. The signed manifest binds the package identity, channel, version, source commit, filename, byte length and SHA-256 digest. The client verifies downloaded packages and cached packages before Velopack can extract or apply them, uses fixed HTTPS GitHub release URLs, rejects redirects outside approved hosts, disables delta packages and requires user confirmation. A release with a missing or mismatched signing key fails closed. Synthetic tests cover package tampering, invalid signatures, cache substitution and replay/rollback behavior.
+
+### Residual Risk
+
+The signature prevents a party with release-feed or asset-upload access from substituting an unsigned update for a client with an installed pin. The private key stays with the signing operator outside GitHub. The operator must independently verify the source and candidate before signing. An administrator who controls the repository or builds can still submit misleading provenance or tamper with an initial download, so the first manual installation requires independently verified hashes and a pin. The offline-signed latest-release checkpoint limits replay to its validity period of up to 30 days. GitHub can withhold the latest checkpoint or replay an older one while it is valid. [Signing and transition](UPDATE_SIGNING.md) · [Velopack feed hash discussion](https://github.com/velopack/velopack/issues/105)
+
+---
+
 # Security Features by Threat
 
 | Threat | Primary Mitigation |
@@ -660,6 +685,7 @@ Components not trusted:
 | Clipboard Exposure | Timed Clipboard Cleanup |
 | Window Capture | Screen Capture Protection |
 | Auto-Type Hijack | Per-event Validation; Residual Global-Input Race |
+| Update Feed Tampering | Pinned publisher signature, signed freshness checkpoint and package hash verification |
 | User Error | Recovery Snapshots |
 | Failed Rekey | Pre-Rekey Backup |
 | Failed Migration | Migration Backup |

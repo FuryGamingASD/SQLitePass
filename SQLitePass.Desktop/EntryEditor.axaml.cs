@@ -7,11 +7,13 @@ namespace SQLitePass.Desktop;
 
 public sealed partial class EntryEditor : Window
 {
-    private readonly PwEntry _draft;
+    private readonly EntryEditDraft _editDraft;
+    private PwEntry _draft => _editDraft.Current;
     private readonly Func<string, object[], string> _text;
     private readonly CancellationTokenSource _lifetime = new();
     private readonly string? _vaultPath;
     private readonly Func<PasswordGeneratorDialog>? _createGenerator;
+    private readonly MachinePolicyState _machinePolicy;
     private Window? _confirmation;
     private Task _operation = Task.CompletedTask;
     private readonly bool _readOnly;
@@ -20,18 +22,19 @@ public sealed partial class EntryEditor : Window
     private bool _edited;
     private bool _permitClose;
 
-    public EntryEditor() : this(new PwEntry(), (key, _) => key) { }
+    public EntryEditor() : this(EntryEditDraft.Create(new PwEntry()), (key, _) => key) { }
 
-    internal EntryEditor(PwEntry draft, Func<string, object[], string> text, string? vaultPath = null,
-        Func<PasswordGeneratorDialog>? createGenerator = null, bool readOnly = false)
+    internal EntryEditor(EntryEditDraft draft, Func<string, object[], string> text, string? vaultPath = null,
+        Func<PasswordGeneratorDialog>? createGenerator = null, bool readOnly = false, MachinePolicyState? machinePolicy = null)
     {
-        _draft = draft;
+        _editDraft = draft;
+        _machinePolicy = machinePolicy ?? MachinePolicyState.Unmanaged;
         _text = text;
         _vaultPath = vaultPath;
         _createGenerator = createGenerator;
         _readOnly = readOnly;
         InitializeComponent();
-        Title = text(readOnly ? "EntryViewTitle" : draft.Revision > 0 ? "EntryEditTitle" : "EntryNewTitle", []);
+        Title = text(readOnly ? "EntryViewTitle" : _draft.Revision > 0 ? "EntryEditTitle" : "EntryNewTitle", []);
         TitleLabel.Text = text("LblTitle", []);
         UserLabel.Text = text("LblUserName", []);
         PasswordLabel.Text = text("LblPassword", []);
@@ -51,11 +54,12 @@ public sealed partial class EntryEditor : Window
         Cancel.Content = text("Cancel", []);
         Save.Content = text("Save", []);
 
-        SetCredentialFields(draft);
+        SetCredentialFields(_draft);
         InitializeCustomFields();
         InitializeAttachments();
         InitializeHistory();
         InitializeSensitiveReveals();
+        Sections.SelectionChanged += LoadSelectedDetails;
         if (readOnly)
         {
             foreach (var field in new[] { EntryTitle, UserName, Password, Url, Tags, Notes, FieldName, FieldValue, Sequence })
@@ -201,8 +205,8 @@ public sealed partial class EntryEditor : Window
         _draft.AutoTypeSequence = Sequence.Text ?? "";
         if (_draft.AutoTypeEnabled)
         {
-            try { AutoTypeService.Parse(_draft); }
-            catch (Exception error) when (error is InvalidDataException or InvalidOperationException or OverflowException or System.Text.RegularExpressions.RegexMatchTimeoutException)
+            try { AutoTypeService.ValidateSequence(_draft); }
+            catch (Exception error) when (error is InvalidDataException or InvalidOperationException or OverflowException)
             {
                 ShowValidation("EntryAutoTypeInvalid");
                 Sections.SelectedItem = AutoTypeTab;
@@ -220,6 +224,22 @@ public sealed partial class EntryEditor : Window
     }
 
     internal Task WaitForOperationsAsync() => _operation;
+
+    private async void LoadSelectedDetails(object? sender, SelectionChangedEventArgs e)
+    {
+        if (!ReferenceEquals(e.Source, Sections)) return;
+        if (ReferenceEquals(Sections.SelectedItem, AttachmentsTab) && !_editDraft.AttachmentsLoaded)
+            await RunEditorOperationAsync(_editDraft.LoadAttachmentsAsync, "LoadFailed");
+        else if (ReferenceEquals(Sections.SelectedItem, HistoryTab) && !_editDraft.HistoryLoaded)
+            await RunEditorOperationAsync(LoadHistoryAsync, "LoadFailed");
+    }
+
+    private async Task LoadHistoryAsync(CancellationToken token)
+    {
+        await _editDraft.LoadHistoryAsync(token);
+        token.ThrowIfCancellationRequested();
+        RefreshHistory();
+    }
 
     private Task RunEditorOperationAsync(Func<CancellationToken, Task> action, string failureKey)
     {
@@ -239,7 +259,7 @@ public sealed partial class EntryEditor : Window
                 if (!_closed)
                 {
                     AppLogger.LogError("Entry editor operation failed", ex);
-                    ShowValidation(failureKey);
+                    ShowValidation(ex is VaultConflictException ? "ErrorConflict" : failureKey);
                 }
             }
             finally

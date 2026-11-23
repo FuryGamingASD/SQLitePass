@@ -23,6 +23,7 @@ public sealed partial class App : Application
                 return;
             }
             var settings = AppSettingsManager.Load();
+            var machinePolicy = MachinePolicyManager.LoadSystemPolicy();
             if (AppContext.GetData("SQLitePass.TrayProbe") is true && NativeTrayVerification.UsesXWaylandCloseProbe)
                 settings.CloseToTray = true;
             bool sessionLockProbe = AppContext.GetData("SQLitePass.InteractiveSessionLockProbe") is true;
@@ -32,8 +33,10 @@ public sealed partial class App : Application
                 settings.EnableDualFileBackup = false;
             }
             AppLogger.Configure(settings.EnableDiagnosticLogging);
+            if (!machinePolicy.IsValid)
+                AppLogger.LogWarning("The machine policy is invalid; vault access and restricted actions are disabled.");
             RequestedThemeVariant = settings.DarkMode ? ThemeVariant.Dark : ThemeVariant.Light;
-            var window = new VaultWindow(settings, useNativeSession: true);
+            var window = new VaultWindow(settings, useNativeSession: true, clipboard: null, machinePolicy: machinePolicy);
             desktop.MainWindow = window;
             RegisterUnexpectedErrorHandlers(desktop, window);
             if (OperatingSystem.IsWindows() && Program.WindowsInstance is { } instance)
@@ -65,6 +68,18 @@ public sealed partial class App : Application
                             {
                                 bool passed = await NativeDesktopSessionVerification.VerifySessionLockInteractivelyAsync(window);
                                 if (OperatingSystem.IsLinux()) desktop.Shutdown(passed ? 0 : 1);
+                                return;
+                            }
+                            if (AppContext.GetData("SQLitePass.WindowsClipboardSyncGuardProbe") is true)
+                            {
+                                bool passed = await NativeClipboardVerification.VerifyWindowsClipboardSyncGuardAsync(window);
+                                desktop.Shutdown(passed ? 0 : 1);
+                                return;
+                            }
+                            if (AppContext.GetData("SQLitePass.LinuxClipboardManagerGuardProbe") is true)
+                            {
+                                bool passed = await NativeClipboardVerification.VerifyLinuxClipboardManagerGuardAsync(window);
+                                desktop.Shutdown(passed ? 0 : 1);
                                 return;
                             }
                             if (AppContext.GetData("SQLitePass.ClipboardProbe") is true) await NativeClipboardVerification.VerifyAsync(window);

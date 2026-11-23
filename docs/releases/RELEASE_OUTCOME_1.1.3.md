@@ -7,14 +7,14 @@ Published on 21 November 2026 at 00:07:15 CET. [GitHub release](https://github.c
 - Tag `v1.1.3` points to `72c43c5e3262d081d5dd217013889e0812134a25` on `main`. The published files came from BuildId `1.1.3-bcb674b45f3d486593be2ee42de60f0a` in [Verify run #140](https://github.com/FuryGamingASD/SQLitePass/actions/runs/44487220560).
 - CI passed 162 automated tests, 1,080 WPF layout cases and four Windows package scenarios. The package checks covered install, startup, tray activation, update from an open 1.1.2 unlock window and uninstall. The transitive NuGet scan reported zero known advisories. Both the application and installer were unsigned.
 - Windows CI verified that synthetic clipboard content expired, newer content was preserved and the Windows exclusion formats were present. Interactive history and sync checks remain open.
-- The repository publisher uploaded the verified CI artifact and checked the size and SHA-256 of every GitHub asset before publication. After publication, the Velopack library used by the app read the public feed anonymously and downloaded the full package. Its SHA-256 matched the feed and the CI artifact.
+- Publication used the verified CI artifact. The size and SHA-256 of every GitHub asset matched before publication. After publication, the Velopack library used by the app read the public feed anonymously and downloaded the full package. Its SHA-256 matched the feed and the CI artifact.
 
 ## Verification on the Windows VM
 
-- The tester confirmed that the correct password opened the vault, the wrong password was rejected and creation could not overwrite an existing vault in V1. The file integrity check after the rejected attempts remains open.
-- V2 passed with password and key file and with a key file alone. V3 passed on local storage for credential changes, legacy migration and backup recovery. A restore on a VirtualBox share returned an I/O error. The same fixture files restored on local storage. The tester confirmed that the reported difficulty typing symbols came from the guest keyboard layout.
+- In V1, the correct password opened the vault, the wrong password was rejected, and the app blocked attempts to create a vault over an existing file. The file integrity check after the rejected attempts remains open.
+- V2 passed with password and key file and with a key file alone. V3 passed on local storage for credential changes, legacy migration and backup recovery. A restore on a VirtualBox share returned an I/O error. The same fixture files restored on local storage. The VM keyboard layout accounted for the difficulties entering symbols.
 - V4 passed for locking, tray behavior, reopening a second instance and opening the local vault after uninstall and reinstall. An earlier copy on the Desktop failed to open and the cause remains unknown. The problem did not recur on `Documents/SQLite`.
-- The maintainer approved publication with V5–V8 deferred. Those checks cover Windows session locking and sensitive UI, clipboard history and sync, screen capture, native Auto-Type scenarios, and accessibility with Narrator, high contrast and display scaling. The original crash remains unreproduced. The documented Auto-Type P1 limitation and the lack of independent security review remain open.
+- Publication proceeded with V5–V8 deferred. Those checks cover Windows session locking and sensitive UI, clipboard history and sync, screen capture, native Auto-Type scenarios, and accessibility with Narrator, high contrast and display scaling. The original crash remains unreproduced. The documented Auto-Type P1 limitation and independent security review remain open.
 
 ## Published asset digests
 

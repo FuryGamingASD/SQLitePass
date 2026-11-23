@@ -19,7 +19,14 @@ public class AutoTypeTests
         public int ActivationCount { get; private set; }
         public List<char> Characters { get; } = [];
         public List<ushort> Keys { get; } = [];
+        public IReadOnlyList<AutoTypeStep>? PreparedSteps { get; private set; }
+        public AutoTypeStep[] PreparedSnapshot { get; private set; } = [];
         public uint ProcessId(IntPtr window) => CurrentProcessId;
+        public void Prepare(IReadOnlyList<AutoTypeStep> steps)
+        {
+            PreparedSteps = steps;
+            PreparedSnapshot = steps.ToArray();
+        }
         public bool Activate(IntPtr window)
         {
             ActivationCount++;
@@ -55,6 +62,7 @@ public class AutoTypeTests
         var input = new FakeInput { LoseFocusAfterCharacter = true };
         await Assert.ThrowsAsync<OperationCanceledException>(() => AutoTypeService.ExecuteAutoTypeAsync(new PwEntry { UserName = "alice", Password = "synthetic" }, new(123), 0, input: input));
         Assert.Equal(new[] { 'a' }, input.Characters); Assert.Empty(input.Keys);
+        AssertAutoTypeStepsCleared(input);
     }
     [Fact]
     public async Task ProcessChangeAfterInputStopsImmediately()
@@ -110,6 +118,35 @@ public class AutoTypeTests
         var input = new FakeInput();
         await AutoTypeService.ExecuteAutoTypeAsync(new PwEntry { Password = "{TAB}", AutoTypeSequence = "{PASSWORD}" }, new(123), 0, input: input);
         Assert.Equal("{TAB}", new string(input.Characters.ToArray())); Assert.Empty(input.Keys);
+        AssertAutoTypeStepsCleared(input);
+    }
+
+    [Fact]
+    public async Task AutoTypeParserPreservesCaseInsensitiveCustomFieldsAndDelayTokens()
+    {
+        var input = new FakeInput();
+        var entry = new PwEntry
+        {
+            AutoTypeEnabled = true,
+            UserName = "alice",
+            Password = "synthetic-password",
+            AutoTypeSequence = "head{uSeRnAmE}{TAB}{S:token}{DELAY 1}{PASSWORD}tail"
+        };
+        entry.CustomFields.Add(new PwCustomField { Key = "Token", Value = "synthetic-token" });
+
+        await AutoTypeService.ExecuteAutoTypeAsync(entry, new(123), 0, input: input);
+
+        Assert.Equal("headalicesynthetic-tokensynthetic-passwordtail", new string(input.Characters.ToArray()));
+        Assert.Equal(new ushort[] { 9 }, input.Keys);
+        AssertAutoTypeStepsCleared(input);
+    }
+
+    [Fact]
+    public void AutoTypeValidationDoesNotEchoAnUnsupportedSequenceIntoErrors()
+    {
+        var entry = new PwEntry { AutoTypeEnabled = true, AutoTypeSequence = "synthetic-prefix{unsupported-secret}" };
+        var error = Assert.Throws<InvalidDataException>(() => AutoTypeService.ValidateSequence(entry));
+        Assert.DoesNotContain("unsupported-secret", error.Message, StringComparison.Ordinal);
     }
     [Fact]
     public async Task ChangedTitleIsRejectedBeforeTyping()
@@ -124,5 +161,12 @@ public class AutoTypeTests
         var input = new FakeInput(); using var cancellation = new CancellationTokenSource(); cancellation.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => AutoTypeService.ExecuteAutoTypeAsync(new PwEntry(), new(123), 0, cancellation.Token, input));
         Assert.Empty(input.Characters);
+    }
+
+    private static void AssertAutoTypeStepsCleared(FakeInput input)
+    {
+        Assert.NotNull(input.PreparedSteps);
+        Assert.Empty(input.PreparedSteps);
+        Assert.All(input.PreparedSnapshot, step => Assert.Empty(step.Text));
     }
 }

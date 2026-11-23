@@ -26,9 +26,7 @@ jobs:
     outputs:
       commit: ${{ steps.plan.outputs.commit }}
       version: ${{ steps.plan.outputs.version }}
-      tag: ${{ steps.plan.outputs.tag }}
       package_identity: ${{ steps.plan.outputs.package_identity }}
-      publish: ${{ steps.plan.outputs.publish }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -50,6 +48,7 @@ jobs:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
       DOTNET_NOLOGO: '1'
       PACKAGE_IDENTITY: ${{ needs.release-plan.outputs.package_identity }}
+      UPDATE_SIGNING_PUBLIC_KEY: ${{ vars.UPDATE_SIGNING_PUBLIC_KEY }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -111,6 +110,7 @@ jobs:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
       DOTNET_NOLOGO: '1'
       PACKAGE_IDENTITY: ${{ needs.release-plan.outputs.package_identity }}
+      UPDATE_SIGNING_PUBLIC_KEY: ${{ vars.UPDATE_SIGNING_PUBLIC_KEY }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -197,38 +197,3 @@ jobs:
           path: artifacts/avalonia-candidate/
           if-no-files-found: error
           retention-days: 7
-  release:
-    needs: [release-plan, avalonia-candidate]
-    if: needs.release-plan.outputs.publish == 'true'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    permissions:
-      contents: write
-    defaults:
-      run:
-        shell: pwsh
-    env:
-      SOURCE_COMMIT: ${{ needs.release-plan.outputs.commit }}
-      RELEASE_TAG: ${{ needs.release-plan.outputs.tag }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          ref: ${{ needs.release-plan.outputs.commit }}
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: Avalonia-release-win-x64-linux-x64
-          path: artifacts/release
-      - name: Publish verified assets
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: ./scripts/Publish-GitHubRelease.ps1 -ArtifactDirectory artifacts/release -SourceCommit $env:SOURCE_COMMIT -ExistingTag $env:RELEASE_TAG
-      - name: Verify both public update feeds
-        run: ./scripts/Verify-PublicAvaloniaFeeds.ps1 -Tag $env:RELEASE_TAG -ArtifactDirectory artifacts/release -OutputDirectory artifacts/feed-verification
-      - name: Preserve public feed evidence
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: public-feed-verification
-          path: artifacts/feed-verification/
-          if-no-files-found: warn

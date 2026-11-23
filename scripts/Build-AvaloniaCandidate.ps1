@@ -29,7 +29,33 @@ try {
     $candidateId = "$version-$([Guid]::NewGuid().ToString('N'))"
     $publish = Join-Path $root "artifacts/avalonia/$candidateId/publish"
     $release = Join-Path $root "artifacts/avalonia/$candidateId/packages"
-    dotnet publish $project -c Release -r $Runtime --self-contained -o $publish -p:RestoreLockedMode=true -warnaserror
+    $framework = if ($Runtime -eq 'win-x64') { 'net10.0-windows10.0.17763.0' } else { 'net10.0' }
+    $packageId = if ($PackageIdentity -eq 'release') { 'SQLitePass' } else { 'SQLitePassAvaloniaPreview' }
+    $packageTitle = if ($PackageIdentity -eq 'release') { 'SQLitePass' } else { 'SQLitePass Avalonia (verification)' }
+    $updateSigningPublicKey = $env:UPDATE_SIGNING_PUBLIC_KEY
+    if ($PackageIdentity -eq 'release') {
+        if ([string]::IsNullOrWhiteSpace($updateSigningPublicKey)) {
+            throw 'Release candidates require the UPDATE_SIGNING_PUBLIC_KEY repository variable.'
+        }
+        $key = $null
+        try {
+            $key = [System.Security.Cryptography.RSA]::Create()
+            $keyBytes = [Convert]::FromBase64String($updateSigningPublicKey)
+            $bytesRead = 0
+            $key.ImportSubjectPublicKeyInfo($keyBytes, [ref]$bytesRead)
+            if ($bytesRead -ne $keyBytes.Length -or $key.KeySize -lt 3072 -or $key.KeySize -gt 8192) {
+                throw 'The RSA public key is not in the supported format.'
+            }
+        } catch {
+            throw 'UPDATE_SIGNING_PUBLIC_KEY must contain a valid RSA 3072-bit or larger SubjectPublicKeyInfo key.'
+        } finally {
+            if ($key) { $key.Dispose() }
+        }
+    } else {
+        $updateSigningPublicKey = ''
+    }
+    dotnet publish $project -c Release -f $framework -r $Runtime --self-contained -o $publish `
+        -p:RestoreLockedMode=true -p:UpdateSigningPublicKeyBase64=$updateSigningPublicKey -warnaserror
     if ($LASTEXITCODE -ne 0) { throw 'Avalonia publish failed.' }
     $nugetRoot = & dotnet msbuild $project -nologo -getProperty:NuGetPackageRoot
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $nugetRoot -PathType Container)) { throw 'Cannot resolve the NuGet package cache.' }
@@ -39,8 +65,6 @@ try {
     $executable = if ($IsWindows) { 'SQLitePass.Desktop.exe' } else { 'SQLitePass.Desktop' }
     $icon = if ($IsWindows) { 'app.ico' } else { 'app_icon.png' }
     $distributionPattern = if ($IsWindows) { '*-Setup.exe' } else { '*.AppImage' }
-    $packageId = if ($PackageIdentity -eq 'release') { 'SQLitePass' } else { 'SQLitePassAvaloniaPreview' }
-    $packageTitle = if ($PackageIdentity -eq 'release') { 'SQLitePass' } else { 'SQLitePass Avalonia (verification)' }
     if ($IsWindows -and $PackageIdentity -eq 'release') {
         # Keep the old apphost name so existing Velopack shortcuts and Run entries launch the replacement.
         Rename-Item -LiteralPath (Join-Path $publish $executable) -NewName 'SQLitePass.exe'
@@ -92,6 +116,15 @@ try {
             }
         }
     } finally { $archive.Dispose() }
+
+    if ($PackageIdentity -eq 'release' -and $VerifyDesktopIntegrations) {
+        $parts = [version]$version
+        $probeVersion = "$($parts.Major).$($parts.Minor).$($parts.Build + 1)"
+        $probePackages = Join-Path (Split-Path -Parent $release) 'signed-upgrade'
+        dotnet tool run vpk -- pack --skip-updates -u $packageId -v $probeVersion -p $publish -e $executable -o $probePackages `
+            -r $Runtime -c $channel -i (Join-Path $root "SQLitePass.UI/Resources/$icon") --packTitle $packageTitle
+        if ($LASTEXITCODE -ne 0) { throw 'The isolated signed upgrade fixture could not be packaged.' }
+    }
 
     if ($VerifyNativeLaunch) {
         $probe = [Diagnostics.ProcessStartInfo]::new()

@@ -1,6 +1,6 @@
 # Audit Status
 
-Updated on 23 November 2026 for SQLitePass 1.2.2. This document summarizes the project's internal evidence. [Release outcome](releases/RELEASE_OUTCOME_1.2.2.md)
+Updated on 23 November 2026 for SQLitePass 1.3.0. This document summarizes the project's internal evidence. [Release verification](releases/RELEASE_OUTCOME_1.3.0.md)
 
 ## Purpose
 
@@ -22,17 +22,19 @@ It reflects the current state of publicly available evidence.
 
 # Current Assessment
 
+The 1.3.0 review covers KDBX 4 import, machine policy, clipboard guards and update signatures. The results apply to the commits and test environments recorded in the roadmap. An independent cryptographic audit and penetration test remain open. [KeePass migration and hardening roadmap](audit/KEEPASS_GAP_ROADMAP.md)
+
 | Area | Status |
 |---------|---------|
 | Source Code Review | Internal review of the audit baseline and subsequent fixes. Independent review remains open. |
 | Architecture Review | Internal review completed; rework recommendations remain |
 | Cryptography Review | Internal Review Completed |
 | Backup & Recovery Review | Internal review and software fault tests; hardware durability unverified |
-| Session Security Review | Manual Windows Win+L, Linux logind, Xfce lock-screen and VM suspend passed. Avalonia's dispatcher-error lock has a synthetic regression probe. Win+L during dialogs and operations remains open. |
-| Clipboard Security Review | Windows and Linux CI verified expiry and replacement handling. Windows CI checked privacy formats. Interactive history and sync checks remain open. |
+| Session Security Review | Manual Windows Win+L, Linux logind, Xfce lock-screen and VM suspend passed. Synthetic tests cover dispatcher errors and lock during dialogs and a cancellable operation. |
+| Clipboard Security Review | Native checks cover expiry and clipboard replacement. Interactive Windows 26300 and Xfce Clipman tests reproduced retention and verified that the new guards reject the copy. |
 | Auto-Type Review | Native two-process checks passed on Windows, X11 and XWayland. The Windows P1 race and X11 display trust assumptions remain. |
 | Dependency Review | Completed |
-| Release checklist | Package lifecycle was verified on both platforms. The 1.1.3 WPF-specific V1–V8 evidence remains in its historical checklist. |
+| Release checklist | Staged 1.3.0 build, offline signing and verification gates cover both platforms. The 1.1.3 WPF-specific V1–V8 evidence remains in its historical checklist. |
 | Third-Party Audit | Not Performed |
 | Penetration Test | Not Performed |
 | Bug Bounty Program | Not Available |
@@ -383,7 +385,7 @@ Current reviewed dependencies:
 - Velopack
 - Tmds.DBus.Protocol
 
-The release verification scans transitive NuGet dependencies for the four shared solution projects. The signedness and native dependency scope are documented in the [release outcome](releases/RELEASE_OUTCOME_1.2.0.md) and [third-party notices](THIRD_PARTY_NOTICES.md).
+Release verification scans the shared solution's transitive NuGet dependencies. Packages include an inventory that covers the native dependencies. [Third-party notices](THIRD_PARTY_NOTICES.md) · [Update signing and transition](UPDATE_SIGNING.md)
 
 Dependency monitoring should continue through routine maintenance.
 
@@ -391,7 +393,7 @@ Dependency monitoring should continue through routine maintenance.
 
 # Release Assessment
 
-The updated 1.2.2 packages refine the window controls, the entry editor and folder drop feedback. The release verification covers native desktop integration, upgrades from older releases and reinstalling the revised Windows package over the original version. [Release evidence and package provenance](releases/RELEASE_OUTCOME_1.2.2.md) · [Feature-parity audit](audit/FEATURE_PARITY_1.2.0.md)
+Version 1.3.0 adds a read-only KeePass import, reduces plaintext retention and introduces signed updates with an expiring freshness checkpoint. The native gates exercise the 1.2.2 transition and an update between packages that contain the verification key. [Verification roadmap](audit/KEEPASS_GAP_ROADMAP.md) · [Update signing and transition](UPDATE_SIGNING.md)
 
 The evidence covers internal review and project verification. An independent audit and penetration test remain open. A07 remains a P1 Windows Auto-Type race. The project does not recommend SQLitePass as the sole store for high-value or privileged credentials.
 
@@ -426,8 +428,8 @@ Evidence scope by area (not a security score):
 | Cryptography | Internal source review; no independent protocol/implementation review |
 | Storage | Automated and synthetic integrity/recovery tests; no physical failure testing |
 | Recovery | Software fault tests; hardware durability not established |
-| Session Management | Avalonia session-lock and dispatcher-error checks, manual Windows Win+L, and Linux logind, Xfce and suspend evidence. Win+L during sensitive workflows remains open. |
-| Clipboard | Native expiry and replacement tests on both platforms and Windows exclusion formats. Interactive history and sync remain open. |
+| Session Management | Manual Windows Win+L, Linux logind, Xfce and suspend, plus lock during a dialog and a cancellable operation on both platforms. |
+| Clipboard | Native expiry and replacement tests on both platforms, plus interactive retention and guard verification for Windows 26300 and Xfce Clipman. |
 | Auto-Type | Automated regressions and native focus-loss checks. The P1 Windows check-to-input race remains. |
 | UI Hardening | Shared Avalonia workflow tests and Windows capture-affinity flags. Broader native DPI and assistive-technology checks remain open. |
 | Memory Handling | Managed-buffer cleanup reviewed; complete string/runtime zeroization is not guaranteed |
@@ -443,7 +445,7 @@ The source review and automated suite provide evidence for specific controls, es
 The principal outstanding assurance limits are:
 
 - A07 remains a P1 mitigated Auto-Type risk.
-- Windows checks for elevated Auto-Type targets, Clipboard History, cloud synchronization, actual capture, Win+L during sensitive workflows, DPI and assistive technology remain open. Linux coverage is limited to the environments recorded in the release report.
+- Windows checks for elevated Auto-Type targets, actual capture, broader DPI and assistive technology remain open. Clipboard and session-lock evidence applies to the recorded Windows and Linux configurations.
 - Hardware failure scenarios, independent cryptographic review and penetration testing are not covered.
 
-The earlier internal source review identified no critical cryptographic implementation flaw within its reviewed scope. See the [1.2.0 outcome](releases/RELEASE_OUTCOME_1.2.0.md) and [desktop verification guide](CROSS_PLATFORM.md) for current evidence.
+The earlier internal source review identified no critical cryptographic implementation flaw within its reviewed scope. [Verification roadmap](audit/KEEPASS_GAP_ROADMAP.md) · [Desktop verification guide](CROSS_PLATFORM.md)

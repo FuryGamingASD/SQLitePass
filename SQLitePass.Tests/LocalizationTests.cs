@@ -38,6 +38,27 @@ public sealed class LocalizationTests
         Assert.Throws<KeyNotFoundException>(() => TranslationCatalog.GetText("it", "MissingTestResource"));
 
     [Fact]
+    public void KdbxImportReportKeysAreTranslatedInEverySupportedLanguage()
+    {
+        string[] keys =
+        [
+            "KdbxPreservedActiveFolderHierarchy", "KdbxPreservedStandardEntryFields", "KdbxPreservedCustomFields",
+            "KdbxPreservedTagsIconsAndDates", "KdbxPreservedAttachments", "KdbxPreservedHistory",
+            "KdbxPreservedAutoType", "KdbxPreservedDestinationEncryption", "KdbxUnsupportedGroupNotes",
+            "KdbxUnsupportedGroupRules", "KdbxUnsupportedCustomIcons", "KdbxUnsupportedGroupDates",
+            "KdbxUnsupportedDefaultFolderIcons", "KdbxUnsupportedAutoTypeSequences", "KdbxUnsupportedAlternateColorsAndUrls",
+            "KdbxUnsupportedAutoTypeAssociations", "KdbxUnsupportedAdvancedAutoType", "KdbxUnsupportedAttachmentProtectionFlags",
+            "KdbxUnsupportedAttachmentDates", "KdbxUnsupportedStandardFieldProtectionFlags", "KdbxUnsupportedKeePassReferences",
+            "KdbxUnsupportedHistoryBeyondLimit", "KdbxUnsupportedUsageAndMoveDates", "KdbxUnsupportedEmptyGroups",
+            "KdbxUnsupportedRecycleBinEntries", "KdbxUnsupportedDatabaseMetadata", "KdbxUnsupportedFolderTags",
+            "KdbxUnsupportedKeePassUuids"
+        ];
+        foreach (string language in TranslationCatalog.Languages)
+            foreach (string key in keys)
+                Assert.False(string.IsNullOrWhiteSpace(TranslationCatalog.GetText(language, key)), language + ": " + key);
+    }
+
+    [Fact]
     public void FormattedTranslationsKeepAllArgumentsAndFormatSpecifiers()
     {
         static string[] Tokens(string text) => Regex.Matches(text, @"(?<!\{)\{\d+(?:,-?\d+)?(?::[^}]+)?\}(?!\})").Select(match => match.Value).Order().ToArray();

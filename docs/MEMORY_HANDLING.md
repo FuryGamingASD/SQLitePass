@@ -171,6 +171,26 @@ Sensitive entry fields include:
 
 These values are decrypted for use and are cleared from active models when those models are released or the session is locked. Managed strings and copies held by the runtime may persist until garbage collection; this does not guarantee that plaintext exists only while actively required.
 
+In the Avalonia desktop app, the shield in the entry preview estimates the selected entry's password quality on request. The preview retains the score until selection changes or the page reloads. Ordinary grid reads compute password presence and the lengths used by the page budget without creating password or Auto-Type sequence strings. The authenticated record is still decrypted temporarily. Escaped and Unicode values can require a temporary character buffer, which is cleared. Explicit password sorting uses plaintext strings in the Core while sorting. The Core drops those values before returning grid rows. Copying or revealing a password loads the required data on demand. [Hardening roadmap](audit/KEEPASS_GAP_ROADMAP.md)
+
+Page cursors carry the boundary entry ID, snapshot and query stamps, and navigation flags. The Core reads the boundary sort value inside the authenticated transaction for the next page. Sorting by password or another sensitive field can expose its value in memory during that operation.
+
+Copying the username reads that field from the selected revision. Copying the password, revealing the selected password and estimating its quality each read the password from the selected revision. These reads authenticate the vault and zero the decrypted record buffer. The requested string may remain in managed memory until garbage collection.
+
+Revealing the password column reads only the passwords of entries displayed on the current page in one authenticated transaction. An outdated snapshot or entry revision leaves the entire column masked, including on the first page. The preview remains capped at 512 UTF-16 code units per entry. Each requested password can exist as a temporary managed string before that cap is applied.
+
+When the Avalonia page is replaced or the vault locks, old grid rows clear their title, username, URL, note-preview and revealed-password references. This drops SQLitePass-owned references; immutable strings already observed by the runtime are not zeroed in place.
+
+The Avalonia editor and read-only viewer initially materialize credentials and custom fields. Opening the Attachments or History tab materializes that collection from the same authenticated revision. The decoded collection stays in the draft until close or lock. The vault format encrypts an entry as one record, so each projection still decrypts that record into a temporary buffer and clears it after parsing.
+
+KDBX 4 import is read-only with respect to its source file. The importer decrypts the KDBX payload and parses its XML into managed entry, group, history and attachment objects before creating a new SQLitePass vault. The import plan owns these objects until it is disposed; its cleanup clears owned attachment/key buffers and releases secret-bearing model fields on cancellation, rejection or completion. .NET strings created by XML parsing, KDBX library internals, and Argon2/cipher provider state without a public clear API cannot be reliably zeroed in place. Import writes to a temporary staging vault and publishes the destination only after the new database is complete; cancellation or a failed write removes the staging data and leaves no partial destination.
+
+The source master password is an immutable managed string passed through the credential dialog and asynchronous KDBX reader to key derivation. The UI releases its references in `finally`, and the KDBX key owners clear their byte buffers, but the source password string and any copies made by the runtime or crypto library cannot be overwritten by SQLitePass.
+
+When the editor closes, its text controls clear credentials, custom fields and the Auto-Type sequence, and the owning operation disposes the draft. A headless integration test checks these controls after a successful save closes the editor. Editable values necessarily remain present while the editor is open.
+
+Saving an existing entry rereads its authenticated revision to compare changes, fill unvisited collections and, when needed, append a complete history snapshot. The draft keeps no second serialized original while the editor is open. The save path can temporarily materialize both versions and their details. Closing or locking before Save disposes the draft without a save-time read. Cancellation during save preparation clears any original model already reloaded.
+
 ---
 
 ## Entry Cleanup
@@ -354,7 +374,13 @@ Where supported by Windows, SQLitePass requests exclusion from:
 - Clipboard History
 - Cloud Clipboard Synchronization
 
-Linux X11 copies carry a password-manager hint. Clipboard history tools decide whether to honor these requests.
+On Windows build 26300, copies fail closed even when the roaming API reports disabled; they also fail closed whenever roaming is reported enabled. This follows synthetic paired-device tests where privacy-marked fixtures still reached the other PC. Linux X11 copies carry a password-manager hint, but clipboard history tools decide whether to honor it. Copying is blocked when the X11 `CLIPBOARD_MANAGER` owner or the tested Xfce Clipman D-Bus service is active, and when a configured session bus cannot be queried. Unknown managers and a manager starting after the check remain outside this detection.
+
+Clipboard calls pass an immutable managed string through the asynchronous operation. Windows transfers a separate buffer to OS ownership; the X11 adapter retains a `DataTransfer` during its clipboard lease. SQLitePass can clear only the copy it still owns. The runtime, clipboard manager, history service and other consumers may retain additional copies.
+
+The vault-copy caller and clipboard coordinator now drop their local string references in `finally` after processing. The Windows adapter zeroes its temporary native-format byte array after transfer; X11 must keep its `DataTransfer` available while SQLitePass owns the selection. These steps reduce application-held references but do not erase immutable strings or copies already held by the OS.
+
+Clipboard lifetime review covers selected-username and selected-password copies, revealed-password column values, generated passwords, clipboard coordinator callbacks, Windows native formats and the X11 `DataTransfer` lease. SQLitePass can release its references after the clipboard call and clear its own clipboard entry while it still owns the selection. The managed source strings cannot be overwritten. Windows clipboard internals, clipboard history/sync, X11 managers, observing applications and later paste targets can retain copies; SQLitePass cannot inspect or erase those external copies. The application therefore blocks credential copies on Windows builds where privacy/history behavior proved unreliable and while roaming is enabled, and blocks on X11 when the tested clipboard manager is detected. Unknown managers and the time-of-check race remain residual limits.
 
 ---
 
@@ -366,7 +392,9 @@ Auto-Type requires temporary access to:
 - Passwords
 - Custom fields
 
-These values exist in memory before simulated keyboard entry.
+Candidate matching authenticates the vault and reads the title, URL, eligibility and identity from each inspected record. It returns the title, ID and revision for confirmation. The confirmed read checks that revision and loads the fields supported by the Auto-Type sequence, including custom fields. Attachments and entry history are outside that read. Decryption still produces a temporary record buffer, which is zeroed after reading.
+
+Parsed Auto-Type steps release their text references after validation or execution, including cancellation and failure. Parsing avoids duplicating literal text fragments, and validation does not retain the parsed steps. These are reference releases, not in-place zeroization of immutable .NET strings.
 
 SQLitePass attempts to:
 
