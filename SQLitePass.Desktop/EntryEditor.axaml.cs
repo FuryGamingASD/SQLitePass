@@ -13,6 +13,7 @@ public sealed partial class EntryEditor : Window
     private readonly CancellationTokenSource _lifetime = new();
     private readonly string? _vaultPath;
     private readonly Func<PasswordGeneratorDialog>? _createGenerator;
+    private readonly MachinePolicyState _machinePolicy;
     private Window? _confirmation;
     private Task _operation = Task.CompletedTask;
     private readonly bool _readOnly;
@@ -24,9 +25,10 @@ public sealed partial class EntryEditor : Window
     public EntryEditor() : this(EntryEditDraft.Create(new PwEntry()), (key, _) => key) { }
 
     internal EntryEditor(EntryEditDraft draft, Func<string, object[], string> text, string? vaultPath = null,
-        Func<PasswordGeneratorDialog>? createGenerator = null, bool readOnly = false)
+        Func<PasswordGeneratorDialog>? createGenerator = null, bool readOnly = false, MachinePolicyState? machinePolicy = null)
     {
         _editDraft = draft;
+        _machinePolicy = machinePolicy ?? MachinePolicyState.Unmanaged;
         _text = text;
         _vaultPath = vaultPath;
         _createGenerator = createGenerator;

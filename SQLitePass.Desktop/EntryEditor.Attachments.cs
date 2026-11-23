@@ -17,8 +17,11 @@ public sealed partial class EntryEditor
         Attachments.ItemsSource = _draft.Attachments;
     }
 
-    private void Attachments_SelectionChanged(object? sender, SelectionChangedEventArgs e) =>
-        SaveAttachment.IsEnabled = RemoveAttachment.IsEnabled = Attachments.SelectedItem is PwAttachment;
+    private void Attachments_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        SaveAttachment.IsEnabled = Attachments.SelectedItem is PwAttachment && !_machinePolicy.DisableExport;
+        RemoveAttachment.IsEnabled = Attachments.SelectedItem is PwAttachment;
+    }
 
     private async void AddAttachment_Click(object? sender, RoutedEventArgs e) => await AddAttachmentAsync(PickAttachmentAsync);
 
@@ -56,6 +59,11 @@ public sealed partial class EntryEditor
     internal Task ExportAttachmentAsync(PwAttachment attachment, Func<PwAttachment, CancellationToken, Task<string?>> chooseDestination) =>
         RunEditorOperationAsync(async token =>
         {
+            if (_machinePolicy.DisableExport)
+            {
+                ShowValidation(_machinePolicy.IsValid ? "MachinePolicyExportDisabled" : "MachinePolicyInvalid");
+                return;
+            }
             string? path = await chooseDestination(attachment, token);
             token.ThrowIfCancellationRequested();
             if (path == null) return;

@@ -42,6 +42,7 @@
                                  AutomationProperties.LabeledBy="{Binding #IdleLabel}" />
                         <CheckBox x:Name="LockOnMinimize" />
                         <CheckBox x:Name="LockOnSession" />
+                        <TextBlock x:Name="MachinePolicyStatus" TextWrapping="Wrap" IsVisible="False" />
                         <CheckBox x:Name="ProtectCapture" />
                     </StackPanel>
                 </Border>

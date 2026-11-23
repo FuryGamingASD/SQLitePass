@@ -106,15 +106,18 @@ public sealed partial class VaultWindow : Window
     private bool _minimized;
     private bool _systemLocked;
     private bool _canCancelOperation;
+    private readonly MachinePolicyState _machinePolicy;
     private long _lastInput = Stopwatch.GetTimestamp();
 
     public VaultWindow() : this(new AppSettings()) { }
 
-    public VaultWindow(AppSettings settings, bool useNativeSession = false) : this(settings, useNativeSession, null) { }
+    public VaultWindow(AppSettings settings, bool useNativeSession = false) : this(settings, useNativeSession, null, null) { }
 
-    internal VaultWindow(AppSettings settings, bool useNativeSession, SessionClipboard? clipboard)
+    internal VaultWindow(AppSettings settings, bool useNativeSession, SessionClipboard? clipboard,
+        MachinePolicyState? machinePolicy = null)
     {
         _clipboard = clipboard;
+        _machinePolicy = machinePolicy ?? MachinePolicyState.Unmanaged;
         _settings = settings;
         _language = TranslationCatalog.ResolveLanguage(settings.Language, CultureInfo.CurrentUICulture);
         InitializeComponent();
@@ -153,6 +156,11 @@ public sealed partial class VaultWindow : Window
             InitializeTray();
             InitializeAutoType();
         };
+        if (!_machinePolicy.IsValid)
+        {
+            StatusText.Text = Text("MachinePolicyInvalid");
+            Unlock.IsEnabled = NewVault.IsEnabled = RestoreBackup.IsEnabled = false;
+        }
         Closed += (_, _) =>
         {
             _idleTimer.Stop();
@@ -179,22 +187,26 @@ public sealed partial class VaultWindow : Window
         if (_closing || _systemLocked) return;
         bool minimized = WindowState == WindowState.Minimized;
         bool justMinimized = minimized && !_minimized;
-        bool lockOnMinimize = justMinimized && _settings.AutoLockOnMinimize;
+        bool lockOnMinimize = justMinimized && _machinePolicy.LockOnMinimize(_settings.AutoLockOnMinimize);
         _minimized = minimized;
-        bool idle = _settings.AutoLockMinutes > 0 && elapsed >= TimeSpan.FromMinutes(_settings.AutoLockMinutes);
+        int effectiveMinutes = _machinePolicy.EffectiveAutoLockMinutes(_settings.AutoLockMinutes);
+        bool idle = effectiveMinutes > 0 && elapsed >= TimeSpan.FromMinutes(effectiveMinutes);
         if ((idle || lockOnMinimize) && (_session != null || _operation != null)) await LockVaultAsync();
         if (justMinimized && _settings.MinimizeToTray && WindowState == WindowState.Minimized) HideInTray();
     }
 
     private void OnSystemLockStateChanged(bool locked) => Dispatcher.UIThread.Post(async () =>
+        await ApplySystemLockStateAsync(locked));
+
+    internal async Task ApplySystemLockStateAsync(bool locked)
     {
         if (_closing) return;
         _systemLocked = locked;
         if (locked) StopAutoType();
-        if (locked && (_session == null || _settings.AutoLockOnWindowsLock)) await LockVaultAsync();
+        if (locked && (_session == null || _machinePolicy.LockOnSessionLock(_settings.AutoLockOnWindowsLock))) await LockVaultAsync();
         if (!locked) ResetIdleTime();
         UpdateControls();
-    });
+    }
 
     private string Text(string key, params object[] args) => TranslationCatalog.Format(_language, key, CultureInfo.CurrentCulture, args);
 
@@ -215,6 +227,11 @@ public sealed partial class VaultWindow : Window
 
     internal Task OpenVaultAsync() => RunOperationAsync(async token =>
     {
+        if (!_machinePolicy.CanOpenVault)
+        {
+            StatusText.Text = Text("MachinePolicyInvalid");
+            return;
+        }
         string path = VaultPath.Text?.Trim() ?? "";
         if (!File.Exists(path))
         {
@@ -230,6 +247,11 @@ public sealed partial class VaultWindow : Window
 
     private async void NewVault_Click(object? sender, RoutedEventArgs e) => await RunOperationAsync(async token =>
     {
+        if (!_machinePolicy.CanOpenVault)
+        {
+            StatusText.Text = Text("MachinePolicyInvalid");
+            return;
+        }
         string password = MasterPassword.Text ?? "";
         if (password.Length != 0 && !await ConfirmAsync(Text("ConfirmNewVaultTitle"), Text("ConfirmMasterPassword"), password)) return;
         token.ThrowIfCancellationRequested();
@@ -396,7 +418,7 @@ public sealed partial class VaultWindow : Window
         {
             token.ThrowIfCancellationRequested();
             var editor = new EntryEditor(draft, Text, session.Storage.FilePath,
-                () => CreatePasswordGenerator(token, allowUse: true));
+                () => CreatePasswordGenerator(token, allowUse: true), machinePolicy: _machinePolicy);
             var saved = await ShowOwnedAsync(editor);
             await editor.WaitForOperationsAsync();
             token.ThrowIfCancellationRequested();
@@ -469,7 +491,7 @@ public sealed partial class VaultWindow : Window
         if (e.CloseReason == WindowCloseReason.WindowClosing && !_exitRequested && _settings.CloseToTray && _tray?.CanHide == true)
         {
             e.Cancel = true;
-            if (_settings.AutoLockOnMinimize) await LockVaultAsync();
+            if (_machinePolicy.LockOnMinimize(_settings.AutoLockOnMinimize)) await LockVaultAsync();
             if (HideInTray()) return;
             // The tray host may have disappeared while the vault was locking.
             _exitRequested = true;
@@ -540,6 +562,7 @@ public sealed partial class VaultWindow : Window
     {
         bool idle = _operation == null && !_closing && !_systemLocked;
         UnlockPanel.IsEnabled = GroupPanel.IsEnabled = VaultMenu.IsEnabled = VaultToolbar.IsEnabled = Entries.IsEnabled = idle;
+        Unlock.IsEnabled = NewVault.IsEnabled = RestoreBackup.IsEnabled = idle && _machinePolicy.CanOpenVault;
         QueryPanel.IsEnabled = idle || _liveSearch && !_closing && !_systemLocked;
         EntryPreview.IsEnabled = idle;
         CancelOperation.IsVisible = _canCancelOperation && !_closing && !_systemLocked;

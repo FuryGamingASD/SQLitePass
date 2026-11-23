@@ -11,6 +11,11 @@ public sealed partial class VaultWindow
 
     internal Task RecoverBackupAsync(Func<string, Task<string?>> chooseDestination) => RunOperationAsync(async token =>
     {
+        if (!_machinePolicy.CanOpenVault)
+        {
+            StatusText.Text = Text("MachinePolicyInvalid");
+            return;
+        }
         if (_session != null) return;
         string path = VaultPath.Text?.Trim() ?? "";
         string backup = path + ".backup";
