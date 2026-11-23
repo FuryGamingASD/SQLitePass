@@ -166,6 +166,7 @@
                         <Button x:Name="NewVault" Classes="secondary-action" Grid.Column="1" MinHeight="40" Click="NewVault_Click" />
                     </Grid>
                     <WrapPanel>
+                        <Button x:Name="ImportKdbx" Classes="secondary-action" Margin="0,0,6,4" Click="ImportKdbx_Click" />
                         <Button x:Name="RestoreBackup" Classes="secondary-action" Margin="0,0,6,4" Click="RestoreBackup_Click" />
                         <Button x:Name="LoginGenerator" Classes="secondary-action" Margin="0,0,6,4" Click="PasswordGenerator_Click" />
                         <Button x:Name="LoginCheckUpdates" Classes="secondary-action" Margin="0,0,6,4" Click="CheckUpdates_Click" />

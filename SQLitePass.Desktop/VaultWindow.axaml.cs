@@ -127,6 +127,7 @@ public sealed partial class VaultWindow : Window
         KeyFileLabel.Text = Text("LoginUseKeyFile");
         Unlock.Content = Text("LoginUnlock");
         NewVault.Content = Text("LoginNewVault");
+        ImportKdbx.Content = Text("KdbxImportTitle");
         RestoreBackup.Content = Text("LoginRestoreBackup");
         LoginGenerator.Content = Text("GeneratorTitle");
         LoginCheckUpdates.Content = Text("MenuCheckUpdates").Replace("_", "", StringComparison.Ordinal);

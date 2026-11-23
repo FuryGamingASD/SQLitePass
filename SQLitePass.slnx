@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="SQLitePass.Core/SQLitePass.Core.csproj" />
+  <Project Path="SQLitePass.Kdbx/SQLitePass.Kdbx.csproj" />
   <Project Path="SQLitePass.Desktop/SQLitePass.Desktop.csproj" />
   <Project Path="SQLitePass.Tests/SQLitePass.Tests.csproj" />
   <Project Path="SQLitePass.TestHost/SQLitePass.TestHost.csproj" />

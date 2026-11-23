@@ -100,6 +100,19 @@ public static class EntrySerialization
         return JsonSerializer.Serialize(entry, includeHistory ? Options : SnapshotOptions);
     }
 
+    internal static bool SnapshotEquals(PwEntry entry, string snapshotJson)
+    {
+        if (!entry.HasLoadedDetails) throw new InvalidOperationException("Caricare i dettagli completi prima di confrontare una voce.");
+        byte[] current = JsonSerializer.SerializeToUtf8Bytes(entry, SnapshotOptions);
+        byte[] original = Encoding.UTF8.GetBytes(snapshotJson);
+        try { return current.AsSpan().SequenceEqual(original); }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(current);
+            CryptographicOperations.ZeroMemory(original);
+        }
+    }
+
     public static PwEntry Deserialize(string json) => JsonSerializer.Deserialize<PwEntry>(json, Options)
         ?? throw new InvalidDataException("Record del vault vuoto.");
 }

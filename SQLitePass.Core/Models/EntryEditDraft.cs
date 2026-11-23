@@ -91,6 +91,7 @@ public sealed class EntryEditDraft : IDisposable
         cancellationToken.ThrowIfCancellationRequested();
         if (_prepared.HasValue) return _prepared.Value;
         PwEntry? storedOriginal = null;
+        PwEntryHistory? storedSnapshot = null;
         try
         {
             PwEntryHistory original;
@@ -100,7 +101,8 @@ public sealed class EntryEditDraft : IDisposable
                 storedOriginal = await _loadOriginal(cancellationToken);
                 if (storedOriginal.Id != Current.Id || storedOriginal.Revision != Current.Revision)
                     throw new VaultConflictException("The entry changed while it was being edited.");
-                original = await Task.Run(storedOriginal.CreateHistorySnapshot, cancellationToken);
+                storedSnapshot = await Task.Run(storedOriginal.CreateHistorySnapshot, cancellationToken);
+                original = storedSnapshot;
                 cancellationToken.ThrowIfCancellationRequested();
                 ObjectDisposedException.ThrowIf(_disposed, this);
                 if (_prepared.HasValue) return _prepared.Value;
@@ -110,7 +112,7 @@ public sealed class EntryEditDraft : IDisposable
             }
             else original = Original;
             var changes = await Task.Run(() => (
-                Content: EntrySerialization.Serialize(Current, includeHistory: false) != original.SnapshotJson,
+                Content: !EntrySerialization.SnapshotEquals(Current, original.SnapshotJson),
                 History: !originalHistory!.SequenceEqual(Current.History.Select(item => item.Id))), cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             ObjectDisposedException.ThrowIf(_disposed, this);
@@ -127,7 +129,11 @@ public sealed class EntryEditDraft : IDisposable
             Current.UpdatedAt = DateTime.UtcNow;
             return (_prepared = true).Value;
         }
-        finally { storedOriginal?.ClearSecrets(); }
+        finally
+        {
+            storedOriginal?.ClearSecrets();
+            storedSnapshot?.ClearSensitiveValues();
+        }
     }
 
     public void Dispose()
@@ -135,6 +141,6 @@ public sealed class EntryEditDraft : IDisposable
         _disposed = true;
         Current.ClearSecrets();
         if (_original is { } original)
-            original.Title = original.Password = original.UserName = original.Url = original.Notes = original.SnapshotJson = string.Empty;
+            original.ClearSensitiveValues();
     }
 }
