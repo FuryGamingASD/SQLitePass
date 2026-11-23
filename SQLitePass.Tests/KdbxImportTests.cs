@@ -129,6 +129,36 @@ public sealed class KdbxImportTests
     }
 
     [Fact]
+    public async Task ImportsEncryptedKeePass262ProducerFixture()
+    {
+        using var scratch = new Scratch();
+        string source = System.IO.Path.Combine(scratch.Path, "keepass-2.62.kdbx");
+        string resource = typeof(KdbxImportTests).Assembly.GetManifestResourceNames()
+            .Single(name => name.EndsWith(".real-keepass-2.62-fixture.kdbx", StringComparison.Ordinal));
+        using (var fixture = typeof(KdbxImportTests).Assembly.GetManifestResourceStream(resource)!)
+        using (var output = File.Create(source))
+            await fixture.CopyToAsync(output);
+
+        byte[] encryptedSource = File.ReadAllBytes(source);
+        Assert.DoesNotContain("synthetic-password-2.62", Encoding.Latin1.GetString(encryptedSource));
+
+        using var plan = await KdbxImportService.ReadAsync(source, "synthetic KeePass 2.62 fixture only");
+        Assert.Equal("4.0", plan.Report.FormatVersion);
+        Assert.Equal(1, plan.Report.EntriesImported);
+        Assert.Equal(1, plan.Report.GroupsImported);
+
+        using var destinationMaster = new MasterKey("new synthetic SQLitePass password");
+        var created = await KdbxImportService.CreateNewVaultAsync(plan, System.IO.Path.Combine(scratch.Path, "independent.kpd"),
+            destinationMaster, new AppSettings { EnableDualFileBackup = false }, "General", "Recycle Bin");
+        await using var session = created.Session;
+        var imported = Assert.Single((await session.Storage.LoadSnapshotAsync(session.Crypto)).Entries);
+        Assert.Equal("KeePass 2.62 Ω fixture", imported.Title);
+        Assert.Equal("synthetic-user", imported.UserName);
+        Assert.Equal("synthetic-password-2.62", imported.Password);
+        Assert.Equal("https://example.invalid/keepass-2.62", imported.Url);
+    }
+
+    [Fact]
     public async Task SupportsKeyFileOnlyAndDoesNotModifyTheSource()
     {
         using var scratch = new Scratch();

@@ -29,6 +29,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Fixtures/legacy-schema.sql" />
+    <EmbeddedResource Include="Fixtures/real-keepass-2.62-fixture.kdbx" LogicalName="SQLitePass.Tests.Fixtures.real-keepass-2.62-fixture.kdbx" />
     <EmbeddedResource Include="..\SQLitePass.UI\**\*.xaml" Exclude="..\SQLitePass.UI\obj\**;..\SQLitePass.UI\bin\**" LogicalName="SQLitePass.UiSource.%(Filename)%(Extension)" WithCulture="false" />
     <EmbeddedResource Include="..\SQLitePass.UI\**\*.cs" Exclude="..\SQLitePass.UI\obj\**;..\SQLitePass.UI\bin\**;..\SQLitePass.UI\Properties\AssemblyInfo.cs" LogicalName="SQLitePass.UiSource.%(Filename)%(Extension)" WithCulture="false" />
   </ItemGroup>
