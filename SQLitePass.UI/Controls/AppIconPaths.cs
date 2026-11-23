@@ -1,6 +1,6 @@
 namespace SQLitePass.UI.Controls;
 
-public enum AppIconKind { Add, Edit, Trash, User, Key, Globe, Keyboard, Generate, Theme, Sun, Settings, Lock, Eye, EyeOff, Folder, Search, Shield, Copy, ChevronDown, Mail, Card, Briefcase, Chat, Cart, Monitor, Code, Gamepad, Wifi }
+public enum AppIconKind { Add, Edit, Trash, User, Key, Globe, Keyboard, Generate, Theme, Sun, Settings, Lock, Eye, EyeOff, Folder, Search, Shield, Copy, ChevronDown, Mail, Card, Briefcase, Chat, Cart, Monitor, Code, Gamepad, Wifi, WindowMinimize, WindowMaximize, WindowRestore, WindowClose }
 
 internal static class AppIconPaths
 {
@@ -33,6 +33,10 @@ internal static class AppIconPaths
         [AppIconKind.Monitor] = "M3,3 L21,3 L21,17 L3,17 Z M12,17 L12,22 M7,22 L17,22",
         [AppIconKind.Code] = "M8,6 L2,12 L8,18 M16,6 L22,12 L16,18 M14,3 L10,21",
         [AppIconKind.Gamepad] = "M7,7 L17,7 C21,7 24,20 20,21 L15,17 L9,17 L4,21 C0,20 3,7 7,7 Z M6,10 L6,14 M4,12 L8,12 M16,11 L17,11 M19,14 L20,14",
-        [AppIconKind.Wifi] = "M2,8 C8,2 16,2 22,8 M5,12 C9,8 15,8 19,12 M8,16 C10,14 14,14 16,16 M12,20 L12,21"
+        [AppIconKind.Wifi] = "M2,8 C8,2 16,2 22,8 M5,12 C9,8 15,8 19,12 M8,16 C10,14 14,14 16,16 M12,20 L12,21",
+        [AppIconKind.WindowMinimize] = "M4,12 L20,12",
+        [AppIconKind.WindowMaximize] = "M5,5 L19,5 L19,19 L5,19 Z",
+        [AppIconKind.WindowRestore] = "M4,8 L16,8 L16,20 L4,20 Z M8,5 L8,4 L20,4 L20,16 L19,16",
+        [AppIconKind.WindowClose] = "M6,6 L18,18 M18,6 L6,18"
     };
 }

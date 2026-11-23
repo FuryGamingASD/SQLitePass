@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Input.Raw;
@@ -67,12 +68,14 @@ public sealed partial class AvaloniaVaultTests
                     Assert.True(passwordBox.RevealPassword);
                     await window.OpenVaultAsync();
                     Assert.False(passwordBox.RevealPassword);
-                    Assert.Equal(WindowDecorations.Full, window.WindowDecorations);
+                    Assert.Equal(WindowDecorations.BorderOnly, window.WindowDecorations);
                     Assert.True(window.CanResize);
                     Assert.Equal("SQLitePass", window.FindControl<TextBlock>("WorkspaceTitle")!.Text);
                     Assert.True(window.FindControl<Button>("VaultSettings")!.IsVisible);
                     Assert.True(window.FindControl<Button>("VaultTheme")!.IsVisible);
                     Assert.True(window.FindControl<WrapPanel>("VaultToolbar")!.IsVisible);
+                    foreach (string name in new[] { "WindowMinimize", "WindowMaximize", "WindowClose" })
+                        Assert.True(window.FindControl<Button>(name)!.IsEffectivelyVisible);
 
                     var tree = window.FindControl<TreeView>("Groups")!;
                     var emptyCreate = window.FindControl<Button>("EmptyNewEntry")!;
@@ -124,6 +127,22 @@ public sealed partial class AvaloniaVaultTests
                     await WaitAsync(() => window.OwnedWindows.OfType<EntryEditor>().Any(), timeout.Token);
                     var editor = window.OwnedWindows.OfType<EntryEditor>().Single();
                     Assert.Equal("Synthetic entry", editor.FindControl<TextBox>("EntryTitle")!.Text);
+                    var sections = editor.FindControl<TabControl>("Sections")!;
+                    var credentials = editor.FindControl<ScrollViewer>("CredentialsScroll")!;
+                    await WaitAsync(() => credentials.Viewport.Height > 0, timeout.Token);
+                    Assert.Single(sections.Items.OfType<TabItem>().Select(tab => tab.Bounds.Y).Distinct());
+                    Assert.True(credentials.Extent.Height <= credentials.Viewport.Height);
+
+                    editor.Width = editor.MinWidth;
+                    editor.Height = editor.MinHeight;
+                    await WaitAsync(() => credentials.Extent.Height > credentials.Viewport.Height, timeout.Token);
+                    Assert.Single(sections.Items.OfType<TabItem>().Select(tab => tab.Bounds.Y).Distinct());
+                    var bar = credentials.GetVisualDescendants().OfType<ScrollBar>().Single(control =>
+                        control.Name == "PART_VerticalScrollBar" && ReferenceEquals(control.TemplatedParent, credentials));
+                    var titleField = editor.FindControl<TextBox>("EntryTitle")!;
+                    double fieldRight = titleField.TranslatePoint(new Point(titleField.Bounds.Width, 0), editor)!.Value.X;
+                    Assert.True(bar.IsEffectivelyVisible);
+                    Assert.True(bar.TranslatePoint(default, editor)!.Value.X > fieldRight);
                     editor.FindControl<TextBox>("EntryTitle")!.Text = "Discard this synthetic change";
                     await WaitAsync(() => editor.FindControl<TextBlock>("EditedIndicator")!.IsVisible, timeout.Token);
                     editor.Close();

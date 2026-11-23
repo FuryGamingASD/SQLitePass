@@ -3,36 +3,70 @@
         xmlns:core="using:SQLitePass.Core.Models"
         x:Class="SQLitePass.Desktop.EntryEditor"
         Background="{DynamicResource WorkspaceCanvas}" Foreground="{DynamicResource WorkspaceText}"
-        Width="640" Height="660" MinWidth="500" MinHeight="430"
+        Width="640" Height="590" MinWidth="500" MinHeight="430"
         WindowStartupLocation="CenterOwner">
-    <Grid RowDefinitions="*,Auto,Auto" RowSpacing="12" Margin="20">
-        <TabControl x:Name="Sections">
-            <TabItem x:Name="CredentialsTab">
-                <ScrollViewer Padding="0,10,0,0">
-                    <StackPanel Spacing="8">
-                        <TextBlock x:Name="TitleLabel" />
-                        <TextBox x:Name="EntryTitle" IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #TitleLabel}" />
-                        <TextBlock x:Name="UserLabel" />
-                        <TextBox x:Name="UserName" IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #UserLabel}" />
-                        <TextBlock x:Name="PasswordLabel" />
-                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-                            <TextBox x:Name="Password" PasswordChar="●" IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #PasswordLabel}" />
-                            <Button x:Name="RevealPassword" Grid.Column="1" Click="RevealPassword_Click" />
-                            <Button x:Name="GeneratePassword" Grid.Column="2" Click="GeneratePassword_Click" />
-                        </Grid>
-                        <TextBlock x:Name="UrlLabel" />
-                        <TextBox x:Name="Url" IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #UrlLabel}" />
-                        <TextBlock x:Name="TagsLabel" />
-                        <TextBox x:Name="Tags" IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #TagsLabel}" />
-                        <TextBlock x:Name="NotesLabel" />
-                        <TextBox x:Name="Notes" MinHeight="75" AcceptsReturn="True" TextWrapping="Wrap"
-                                 IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #NotesLabel}" />
-                        <CheckBox x:Name="EnableExpiry" IsCheckedChanged="EnableExpiry_Changed" />
-                        <DatePicker x:Name="Expiry" AutomationProperties.LabeledBy="{Binding #EnableExpiry}" />
+    <Window.Styles>
+        <Style Selector="TabItem.editor-tab">
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="MinHeight" Value="34" />
+            <Setter Property="Padding" Value="6,1" />
+            <Setter Property="ToolTip.Tip" Value="{Binding Header, RelativeSource={RelativeSource Self}}" />
+            <Setter Property="HeaderTemplate">
+                <DataTemplate>
+                    <TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis" />
+                </DataTemplate>
+            </Setter>
+        </Style>
+    </Window.Styles>
+    <Grid RowDefinitions="*,Auto,Auto" RowSpacing="8" Margin="18">
+        <TabControl x:Name="Sections" Padding="0">
+            <TabControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <Grid ColumnDefinitions="1.1*,1.65*,1.05*,.8*,1.25*" />
+                </ItemsPanelTemplate>
+            </TabControl.ItemsPanel>
+            <TabItem x:Name="CredentialsTab" Classes="editor-tab">
+                <ScrollViewer x:Name="CredentialsScroll" AllowAutoHide="False" VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled" Padding="0,8,6,2">
+                    <StackPanel Spacing="7">
+                        <StackPanel Spacing="3">
+                            <TextBlock x:Name="TitleLabel" />
+                            <TextBox x:Name="EntryTitle" IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #TitleLabel}" />
+                        </StackPanel>
+                        <StackPanel Spacing="3">
+                            <TextBlock x:Name="UserLabel" />
+                            <TextBox x:Name="UserName" IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #UserLabel}" />
+                        </StackPanel>
+                        <StackPanel Spacing="3">
+                            <TextBlock x:Name="PasswordLabel" />
+                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                <TextBox x:Name="Password" PasswordChar="●" IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #PasswordLabel}" />
+                                <Button x:Name="RevealPassword" Grid.Column="1" Click="RevealPassword_Click" />
+                                <Button x:Name="GeneratePassword" Grid.Column="2" Click="GeneratePassword_Click" />
+                            </Grid>
+                        </StackPanel>
+                        <StackPanel Spacing="3">
+                            <TextBlock x:Name="UrlLabel" />
+                            <TextBox x:Name="Url" IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #UrlLabel}" />
+                        </StackPanel>
+                        <StackPanel Spacing="3">
+                            <TextBlock x:Name="TagsLabel" />
+                            <TextBox x:Name="Tags" IsUndoEnabled="False" AutomationProperties.LabeledBy="{Binding #TagsLabel}" />
+                        </StackPanel>
+                        <StackPanel Spacing="3">
+                            <TextBlock x:Name="NotesLabel" />
+                            <TextBox x:Name="Notes" Height="68" AcceptsReturn="True" TextWrapping="Wrap" IsUndoEnabled="False"
+                                     ScrollViewer.AllowAutoHide="False" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                     AutomationProperties.LabeledBy="{Binding #NotesLabel}" />
+                        </StackPanel>
+                        <WrapPanel>
+                            <CheckBox x:Name="EnableExpiry" Margin="0,0,10,0" IsCheckedChanged="EnableExpiry_Changed" />
+                            <DatePicker x:Name="Expiry" AutomationProperties.LabeledBy="{Binding #EnableExpiry}" />
+                        </WrapPanel>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
-            <TabItem x:Name="CustomFieldsTab">
+            <TabItem x:Name="CustomFieldsTab" Grid.Column="1" Classes="editor-tab">
                 <Grid RowDefinitions="*,Auto" RowSpacing="8" Margin="0,10,0,0">
                     <ListBox x:Name="CustomFields" SelectionChanged="CustomFields_SelectionChanged">
                         <ListBox.ItemTemplate>
@@ -58,7 +92,7 @@
                     </StackPanel>
                 </Grid>
             </TabItem>
-            <TabItem x:Name="AttachmentsTab">
+            <TabItem x:Name="AttachmentsTab" Grid.Column="2" Classes="editor-tab">
                 <Grid RowDefinitions="*,Auto" RowSpacing="8" Margin="0,10,0,0">
                     <ListBox x:Name="Attachments" SelectionChanged="Attachments_SelectionChanged">
                         <ListBox.ItemTemplate>
@@ -78,7 +112,7 @@
                     </StackPanel>
                 </Grid>
             </TabItem>
-            <TabItem x:Name="HistoryTab">
+            <TabItem x:Name="HistoryTab" Grid.Column="3" Classes="editor-tab">
                 <Grid RowDefinitions="*,Auto" RowSpacing="8" Margin="0,10,0,0">
                     <ListBox x:Name="History" SelectionChanged="History_SelectionChanged" />
                     <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
@@ -87,7 +121,7 @@
                     </StackPanel>
                 </Grid>
             </TabItem>
-            <TabItem x:Name="AutoTypeTab">
+            <TabItem x:Name="AutoTypeTab" Grid.Column="4" Classes="editor-tab">
                 <StackPanel Spacing="8" Margin="0,10,0,0">
                     <CheckBox x:Name="AutoTypeEnabled" />
                     <TextBlock x:Name="SequenceLabel" />

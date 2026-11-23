@@ -1,6 +1,8 @@
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using SQLitePass.Core.Services;
+using SQLitePass.UI.Controls;
 
 namespace SQLitePass.Desktop;
 
@@ -24,21 +26,48 @@ public sealed partial class VaultWindow
         Height = double.NaN;
     }
 
-    private void LoginHeader_PointerPressed(object? sender, PointerPressedEventArgs e)
+    private void InitializeWindowControls()
+    {
+        LabelAction(WindowMinimize, "WindowMinimize");
+        LabelAction(WindowClose, "Close");
+        UpdateWindowMaximize();
+        PropertyChanged += (_, change) =>
+        {
+            if (change.Property == WindowStateProperty) UpdateWindowMaximize();
+        };
+    }
+
+    private void UpdateWindowMaximize()
+    {
+        bool maximized = WindowState == WindowState.Maximized;
+        WindowMaximizeIcon.Kind = maximized ? AppIconKind.WindowRestore : AppIconKind.WindowMaximize;
+        LabelAction(WindowMaximize, maximized ? "WindowRestore" : "WindowMaximize");
+    }
+
+    private void WindowHeader_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
         {
-            BeginMoveDrag(e);
+            if (_vaultLayoutStarted && e.ClickCount == 2) ToggleWindowMaximized();
+            else BeginMoveDrag(e);
             e.Handled = true;
         }
     }
+
+    private void WindowMinimize_Click(object? sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+
+    private void WindowMaximize_Click(object? sender, RoutedEventArgs e) => ToggleWindowMaximized();
+
+    private void WindowClose_Click(object? sender, RoutedEventArgs e) => Close();
+
+    private void ToggleWindowMaximized() => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
 
     private void EnterVaultLayout()
     {
         if (_vaultLayoutStarted) return;
         _vaultLayoutStarted = true;
         SizeToContent = SizeToContent.Manual;
-        WindowDecorations = WindowDecorations.Full;
+        WindowDecorations = WindowDecorations.BorderOnly;
         CanResize = true;
         MaxWidth = MaxHeight = double.PositiveInfinity;
         MinWidth = 620;

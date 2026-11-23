@@ -25,6 +25,15 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="7" />
         </Style>
+        <Style Selector="Button.window-control">
+            <Setter Property="Width" Value="38" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
         <Style Selector="TextBox">
             <Setter Property="CornerRadius" Value="7" />
         </Style>
@@ -88,7 +97,7 @@
                     BorderBrush="{DynamicResource WorkspaceBorder}" BorderThickness="1">
                 <StackPanel Spacing="16">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Background="Transparent" PointerPressed="LoginHeader_PointerPressed">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Background="Transparent" PointerPressed="WindowHeader_PointerPressed">
                             <Border Width="46" Height="46" CornerRadius="12" Background="{DynamicResource WorkspaceBrandTint}">
                                 <Image Source="avares://SQLitePass.Desktop/Resources/app_icon.png" Width="33" Height="33" />
                             </Border>
@@ -170,14 +179,16 @@
         </ScrollViewer>
         <Grid x:Name="VaultPanel" RowDefinitions="Auto,Auto,*" IsVisible="False">
             <Border Background="{DynamicResource WorkspaceSurface}" BorderBrush="{DynamicResource WorkspaceBorder}"
-                    BorderThickness="0,0,0,1" Padding="16,8">
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-                    <Border Width="36" Height="36" CornerRadius="9" Background="{DynamicResource WorkspaceBrandTint}">
-                        <Image Source="avares://SQLitePass.Desktop/Resources/app_icon.png" Width="27" Height="27" />
-                    </Border>
-                    <TextBlock x:Name="WorkspaceTitle" Text="SQLitePass" Grid.Column="1" FontSize="18" FontWeight="SemiBold"
-                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                    <Menu x:Name="VaultMenu" Grid.Column="2" VerticalAlignment="Center" Background="Transparent">
+                    BorderThickness="0,0,0,1" Padding="12,6,6,6">
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" Background="Transparent" PointerPressed="WindowHeader_PointerPressed">
+                        <Border Width="36" Height="36" CornerRadius="9" Background="{DynamicResource WorkspaceBrandTint}">
+                            <Image Source="avares://SQLitePass.Desktop/Resources/app_icon.png" Width="27" Height="27" />
+                        </Border>
+                        <TextBlock x:Name="WorkspaceTitle" Text="SQLitePass" Grid.Column="1" FontSize="18" FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    </Grid>
+                    <Menu x:Name="VaultMenu" Grid.Column="1" VerticalAlignment="Center" Background="Transparent">
                         <MenuItem x:Name="FileMenu">
                             <MenuItem x:Name="NewEntryCommand" Click="AddEntry_Click" InputGesture="Ctrl+I" />
                             <MenuItem x:Name="NewFolderCommand" Click="CreateFolder_Click" InputGesture="Ctrl+G" />
@@ -228,6 +239,17 @@
                             <MenuItem x:Name="AboutCommand" Click="About_Click" />
                         </MenuItem>
                     </Menu>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="WindowMinimize" Classes="window-control" Click="WindowMinimize_Click">
+                            <desktop:DesktopIcon Kind="WindowMinimize" Width="16" Height="16" />
+                        </Button>
+                        <Button x:Name="WindowMaximize" Classes="window-control" Click="WindowMaximize_Click">
+                            <desktop:DesktopIcon x:Name="WindowMaximizeIcon" Kind="WindowMaximize" Width="16" Height="16" />
+                        </Button>
+                        <Button x:Name="WindowClose" Classes="window-control" Click="WindowClose_Click">
+                            <desktop:DesktopIcon Kind="WindowClose" Width="16" Height="16" />
+                        </Button>
+                    </StackPanel>
                 </Grid>
             </Border>
             <Border Grid.Row="1" Background="{DynamicResource WorkspaceSurface}" BorderBrush="{DynamicResource WorkspaceBorder}"

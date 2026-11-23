@@ -19,7 +19,7 @@ internal static class NativeWorkspaceVerification
     {
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(22));
         var token = deadline.Token;
-        VerifyCaption(window, expected: false);
+        VerifyNoSystemCaption(window);
         string directory = (string)AppContext.GetData("SQLitePass.SettingsDirectory")!;
         string path = Path.Combine(directory, "workspace-fixture.kpd");
         const string credential = "Synthetic-Windows-workspace-fixture!";
@@ -39,7 +39,7 @@ internal static class NativeWorkspaceVerification
         await window.OpenVaultAsync().WaitAsync(token);
         try
         {
-            VerifyCaption(window, expected: true);
+            VerifyNoSystemCaption(window);
             if (window.FindControl<TextBlock>("WorkspaceTitle")!.Text != "SQLitePass")
                 throw new InvalidOperationException("The workspace header must identify SQLitePass.");
             var groups = window.FindControl<TreeView>("Groups")!;
@@ -50,6 +50,25 @@ internal static class NativeWorkspaceVerification
 
             window.ShowFromTray();
             var windowHandle = window.TryGetPlatformHandle()!.Handle;
+            foreach (string name in new[] { "WindowMinimize", "WindowMaximize", "WindowClose" })
+            {
+                var button = window.FindControl<Button>(name)!;
+                if (!button.IsEffectivelyVisible || string.IsNullOrWhiteSpace(AutomationProperties.GetName(button)))
+                    throw new InvalidOperationException("A workspace window control is missing or unlabeled.");
+            }
+            var maximize = window.FindControl<Button>("WindowMaximize")!;
+            maximize.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            while (!IsZoomed(windowHandle)) await Task.Delay(40, token);
+            VerifyNoSystemCaption(window);
+            maximize.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            while (IsZoomed(windowHandle)) await Task.Delay(40, token);
+            var minimize = window.FindControl<Button>("WindowMinimize")!;
+            minimize.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            while (!IsIconic(windowHandle)) await Task.Delay(40, token);
+            window.ShowFromTray();
+            while (IsIconic(windowHandle)) await Task.Delay(40, token);
+            Console.WriteLine("Verified the integrated Windows controls and native maximize, restore and minimize.");
+
             var input = new WindowsAutoTypeInput();
             while (input.ForegroundWindow != windowHandle)
             {
@@ -114,7 +133,7 @@ internal static class NativeWorkspaceVerification
             }
         }
         finally { await window.LockVaultAsync(); }
-        VerifyCaption(window, expected: false);
+        VerifyNoSystemCaption(window);
 
         await using var reopened = await VaultSession.OpenAsync(path, master, settings, () => Task.FromResult(false))
             ?? throw new InvalidOperationException("The synthetic workspace vault could not be reopened.");
@@ -129,14 +148,14 @@ internal static class NativeWorkspaceVerification
         if (!SetCursorPos(point.X, point.Y)) throw new InvalidOperationException("The isolated desktop rejected cursor movement.");
     }
 
-    private static void VerifyCaption(VaultWindow window, bool expected)
+    private static void VerifyNoSystemCaption(VaultWindow window)
     {
         window.UpdateLayout();
         if (!GetWindowRect(window.TryGetPlatformHandle()!.Handle, out var bounds))
             throw new InvalidOperationException("The Windows workspace frame could not be measured.");
         double captionHeight = (window.PointToScreen(default).Y - bounds.Top) / window.RenderScaling;
-        if ((captionHeight >= 20) != expected)
-            throw new InvalidOperationException($"Unexpected Windows caption height ({captionHeight:F1} DIP, caption expected: {expected}).");
+        if (captionHeight >= 20)
+            throw new InvalidOperationException($"Unexpected Windows system caption ({captionHeight:F1} DIP).");
     }
 
     [DllImport("user32.dll")]
@@ -149,6 +168,14 @@ internal static class NativeWorkspaceVerification
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GetWindowRect(IntPtr handle, out WindowRect rect);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsZoomed(IntPtr handle);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsIconic(IntPtr handle);
 
     [DllImport("user32.dll")]
     private static extern void mouse_event(uint flags, uint x, uint y, uint data, IntPtr extraInfo);
