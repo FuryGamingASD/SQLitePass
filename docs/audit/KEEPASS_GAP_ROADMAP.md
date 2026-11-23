@@ -9,6 +9,8 @@
 | 2026-11-23 | Focused verification | The Avalonia workspace test passed on Windows. It verifies that the score starts hidden, appears only on request without revealing or copying the password, and clears when the selection is removed. Existing entry gestures remain covered by the same test. |
 | 2026-11-23 | Regression suite | The Release suite passed 169 tests on Windows. The five locale files parsed and contain the new label. Local targets for links in the three updated Markdown files were checked. |
 | 2026-11-23 | Scoring helper | Removed the lowercased plaintext copy and the distinct-character collection from the shared scoring helper. The case comparison agreed with the prior behavior for the characters in the weak-pattern list across the Basic Multilingual Plane on the Windows development machine. The Release suite passed all 169 tests after adding a mixed-case regression assertion. |
+| 2026-11-23 | Paging implementation | Page cursors store the boundary entry ID and the snapshot and query stamps. The Core resolves its sort key by ID inside the authenticated read transaction. This keeps passwords and other sort values out of the cursors retained between page loads. |
+| 2026-11-23 | Paging verification | The Windows Release suite passed 171 tests. The new cases exercise both password sort directions, case-insensitive ties, empty passwords, forward and backward navigation, focused reload, and rejection of a missing boundary. |
 
 ## Order of work
 
@@ -20,4 +22,4 @@
 - [ ] Prepare a scoped independent review of the format, credential rotation, backup, import and update packages. Record the reviewed commit and follow-up findings.
 - [ ] Evaluate machine-level configuration for locking, export and Auto-Type when deployment requirements are available.
 
-The next memory pass should review the Core browsing path. Password sorting is an existing desktop option, and its in-memory page cursors can hold plaintext sort values. Preserve ordering and cursor invalidation while reducing how long those values are retained.
+The browsing scan still decrypts each scalar overview. Password sorting temporarily uses the plaintext value. Review whether the normal grid and Auto-Type candidate lookup can materialize fewer fields while keeping the authenticated record and revision checks.

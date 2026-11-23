@@ -173,6 +173,8 @@ These values are decrypted for use and are cleared from active models when those
 
 In the Avalonia desktop app, the shield in the entry preview estimates the selected entry's password quality on request. The preview retains the score until selection changes or the page reloads. Browsing still materializes scalar secrets during page loading. [Hardening roadmap](audit/KEEPASS_GAP_ROADMAP.md)
 
+Page cursors carry the boundary entry ID, snapshot and query stamps, and navigation flags. The Core reads the boundary sort value inside the authenticated transaction for the next page. Sorting by password or another sensitive field can expose its value in memory during that operation.
+
 ---
 
 ## Entry Cleanup

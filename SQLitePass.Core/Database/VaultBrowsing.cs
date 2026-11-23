@@ -96,16 +96,23 @@ public sealed partial class SqliteStorageProvider
             var heap = new PriorityQueue<PwEntry, EntryOrderKey>(query.PageSize + 2,
                 Comparer<EntryOrderKey>.Create((a, b) => selectionOrder.Compare(b, a)));
             EntryPageCursor? start = cursor;
-            if (cursor == null && focusEntryId.HasValue)
+            EntryOrderKey? startKey = null;
+            if ((cursor?.EntryId ?? focusEntryId) is Guid anchorId)
             {
-                var anchor = ReadEntries(connection, transaction, key, metadata, includeDetails: false, entryId: focusEntryId,
+                var anchor = ReadEntries(connection, transaction, key, metadata, includeDetails: false, entryId: anchorId,
                     cancellationToken: cancellationToken).SingleOrDefault();
-                if (anchor != null)
+                try
                 {
-                    try { if (Matches(anchor, query, metadata)) start = new(OrderKey(anchor, query.SortBy).Value, anchor.Id, stamp, queryStamp, IncludeBoundary: true); }
-                    finally { anchor.ClearSecrets(); }
+                    if (anchor != null && Matches(anchor, query, metadata))
+                    {
+                        startKey = OrderKey(anchor, query.SortBy);
+                        start ??= new(anchor.Id, stamp, queryStamp, IncludeBoundary: true);
+                    }
+                    else if (cursor != null) throw new VaultPageChangedException();
                 }
+                finally { anchor?.ClearSecrets(); }
             }
+            bool includeBoundary = start?.IncludeBoundary == true;
             int matched = 0, total = 0, before = 0;
             long retainedBytes = 0;
             EntryOrderKey? excludedBoundary = null;
@@ -123,10 +130,10 @@ public sealed partial class SqliteStorageProvider
                         if (!Matches(entry, query, metadata)) continue;
                         matched++;
                         var entryKey = OrderKey(entry, query.SortBy);
-                        if (start != null)
+                        if (startKey is { } boundaryKey)
                         {
-                            int comparison = selectionOrder.Compare(entryKey, new(start.SortValue, start.EntryId));
-                            if (comparison < 0 || comparison == 0 && !start.IncludeBoundary) { before++; continue; }
+                            int comparison = selectionOrder.Compare(entryKey, boundaryKey);
+                            if (comparison < 0 || comparison == 0 && !includeBoundary) { before++; continue; }
                         }
                         if (excludedBoundary is { } boundary && selectionOrder.Compare(entryKey, boundary) >= 0) continue;
                         heap.Enqueue(entry, entryKey); retained = true; retainedBytes += EstimatedEntryBytes(entry);
@@ -146,15 +153,9 @@ public sealed partial class SqliteStorageProvider
                 int firstIndex = selected.Count == 0 ? 0 : backward ? matched - before - selected.Count + 1 : before + 1;
                 EntryPageCursor? next = null, previous = null;
                 if (selected.Count > 0 && firstIndex + selected.Count - 1 < matched)
-                {
-                    var last = OrderKey(selected[^1], query.SortBy);
-                    next = new(last.Value, last.Id, stamp, queryStamp);
-                }
+                    next = new(selected[^1].Id, stamp, queryStamp);
                 if (firstIndex > 1)
-                {
-                    var first = OrderKey(selected[0], query.SortBy);
-                    previous = new(first.Value, first.Id, stamp, queryStamp, Backward: true);
-                }
+                    previous = new(selected[0].Id, stamp, queryStamp, Backward: true);
                 return new VaultEntryPage(metadata, groups, selected, matched, total, firstIndex, start, next, previous);
             }
             catch

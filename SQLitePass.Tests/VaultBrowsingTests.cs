@@ -1,3 +1,4 @@
+using System.Text.Json;
 using SQLitePass.Core.Models;
 using SQLitePass.Core.Services;
 
@@ -72,6 +73,40 @@ public partial class VaultSecurityTests
         Assert.True(focused.CurrentCursor!.IncludeBoundary);
         var next = await vault.Storage.LoadEntryPageAsync(vault.Crypto, query, focused.NextCursor);
         Assert.Equal(new[] { "01", "00" }, next.Entries.Select(entry => entry.Title));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PasswordSortPagesKeepOnlyTheBoundaryIdentityInCursors(bool descending)
+    {
+        using var vault = await TestVault.Create();
+        var entries = new[] { "Zulu-synthetic", "Alpha-synthetic", "ALPHA-SYNTHETIC", "Mike-synthetic", "" }
+            .Select(value => new PwEntry { GroupId = vault.Root.Id, Title = "test", Password = value }).ToArray();
+        await vault.Storage.SaveEntriesBatchAsync(entries, vault.Crypto);
+        var comparer = StringComparer.OrdinalIgnoreCase;
+        var expected = (descending ? entries.OrderByDescending(entry => entry.Password, comparer) :
+            entries.OrderBy(entry => entry.Password, comparer)).ThenBy(entry => entry.Id).Select(entry => entry.Id).ToArray();
+
+        var query = new EntryPageQuery(SortBy: EntrySortField.Password, Descending: descending, PageSize: 2);
+        var first = await vault.Storage.LoadEntryPageAsync(vault.Crypto, query);
+        var second = await vault.Storage.LoadEntryPageAsync(vault.Crypto, query, first.NextCursor);
+        var last = await vault.Storage.LoadEntryPageAsync(vault.Crypto, query, second.NextCursor);
+        Assert.Equal(expected, first.Entries.Concat(second.Entries).Concat(last.Entries).Select(entry => entry.Id));
+        Assert.Null(last.NextCursor);
+        var back = await vault.Storage.LoadEntryPageAsync(vault.Crypto, query, last.PreviousCursor);
+        Assert.Equal(expected[2..4], back.Entries.Select(entry => entry.Id));
+        var focused = await vault.Storage.LoadEntryPageAsync(vault.Crypto, query, focusEntryId: expected[2]);
+        var reopened = await vault.Storage.LoadEntryPageAsync(vault.Crypto, query, focused.CurrentCursor);
+        Assert.Equal(expected[2..4], reopened.Entries.Select(entry => entry.Id));
+
+        var cursor = Assert.IsType<EntryPageCursor>(second.NextCursor);
+        Assert.Equal(expected[3], cursor.EntryId);
+        Assert.DoesNotContain("synthetic", JsonSerializer.Serialize(new[]
+            { first.NextCursor, second.NextCursor, last.PreviousCursor, focused.CurrentCursor }), StringComparison.OrdinalIgnoreCase);
+        await Assert.ThrowsAsync<VaultPageChangedException>(() =>
+            vault.Storage.LoadEntryPageAsync(vault.Crypto, query, cursor with { EntryId = Guid.Empty }));
+        Assert.False(vault.Storage.IsReadOnly);
     }
 
     [Fact]
