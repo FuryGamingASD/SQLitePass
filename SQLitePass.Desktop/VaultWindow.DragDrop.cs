@@ -18,6 +18,8 @@ public sealed partial class VaultWindow
 
     private WorkspaceDrag? _pendingWorkspaceDrag;
     private WorkspaceDrag? _activeWorkspaceDrag;
+    private Control? _highlightedDropRow;
+    private string? _dropIndicatorClass;
 
     private void InitializeWorkspaceDrag()
     {
@@ -73,7 +75,11 @@ public sealed partial class VaultWindow
             AppLogger.LogError("Could not start a workspace drag", error);
             if (_session != null) StatusText.Text = Text("ErrorUnexpected");
         }
-        finally { _activeWorkspaceDrag = null; }
+        finally
+        {
+            _activeWorkspaceDrag = null;
+            SetDropIndicator(null, null);
+        }
         await BrowsePressedFolderAsync(drag);
     }
 
@@ -124,29 +130,34 @@ public sealed partial class VaultWindow
     {
         var drop = DropForTarget(sender, e);
         e.DragEffects = drop != null ? DragDropEffects.Move : DragDropEffects.None;
-        if (sender is Control row && row != Groups)
-        {
-            ClearDropIndicator(row);
-            if (drop != null) row.Classes.Add("drop-" + drop.Placement.ToString().ToLowerInvariant());
-        }
+        SetDropIndicator(drop != null && sender != Groups ? sender as Control : null, drop?.Placement);
         e.Handled = true;
     }
 
     private void GroupRow_DragLeave(object? sender, DragEventArgs e)
     {
-        if (sender is Control row) ClearDropIndicator(row);
+        if (ReferenceEquals(sender, _highlightedDropRow)) SetDropIndicator(null, null);
     }
 
-    private static void ClearDropIndicator(Control row)
+    private void SetDropIndicator(Control? row, DropPlacement? placement)
     {
-        row.Classes.Remove("drop-inside");
-        row.Classes.Remove("drop-before");
-        row.Classes.Remove("drop-after");
+        string? indicator = row == null ? null : placement switch
+        {
+            DropPlacement.Inside => "drop-inside",
+            DropPlacement.Before => "drop-before",
+            DropPlacement.After => "drop-after",
+            _ => null
+        };
+        if (ReferenceEquals(_highlightedDropRow, row) && _dropIndicatorClass == indicator) return;
+        if (_dropIndicatorClass != null) _highlightedDropRow?.Classes.Remove(_dropIndicatorClass);
+        _highlightedDropRow = row;
+        _dropIndicatorClass = indicator;
+        if (indicator != null) row?.Classes.Add(indicator);
     }
 
     private async void GroupRow_Drop(object? sender, DragEventArgs e)
     {
-        if (sender is Control control) ClearDropIndicator(control);
+        SetDropIndicator(null, null);
         var drop = DropForTarget(sender, e);
         e.DragEffects = drop != null ? DragDropEffects.Move : DragDropEffects.None;
         e.Handled = true;

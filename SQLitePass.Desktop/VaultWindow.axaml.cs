@@ -250,16 +250,15 @@ public sealed partial class VaultWindow : Window
             token.ThrowIfCancellationRequested();
             _query = new EntryPageQuery();
             await LoadPageAsync(session, _query, null, token);
-            await EnterVaultLayoutAsync();
             token.ThrowIfCancellationRequested();
             _session = session;
             session.Storage.BackupStatusChanged += OnBackupStatusChanged;
             UpdateBackupStatus();
             ResetIdleTime();
-            VaultName.Text = session.Metadata.VaultName;
             RememberVaultPath();
             UnlockPanel.IsVisible = false;
             VaultPanel.IsVisible = true;
+            EnterVaultLayout();
             RegisterGlobalAutoType();
             SearchBox.Focus();
             if (_settings.ShowPasswordColumnDefault) await RevealPasswordColumnPageAsync(token);
@@ -404,6 +403,7 @@ public sealed partial class VaultWindow : Window
     internal async Task LockVaultAsync()
     {
         _pendingWorkspaceDrag = null;
+        SetDropIndicator(null, null);
         HidePasswordReveals();
         _searchTimer.Stop();
         _autoTypeHotkey?.Dispose();
@@ -416,7 +416,7 @@ public sealed partial class VaultWindow : Window
         _session = null;
         VaultPanel.IsVisible = false;
         ClipboardStatus.Text = "";
-        VaultName.Text = FolderPath.Text = EntryCount.Text = BackupStatus.Text = SearchBox.Text = MasterPassword.Text = KeyFilePath.Text = "";
+        FolderPath.Text = EntryCount.Text = BackupStatus.Text = SearchBox.Text = MasterPassword.Text = KeyFilePath.Text = "";
         UseKeyFile.IsChecked = false;
         Entries.ItemsSource = null;
         Groups.ItemsSource = null;
@@ -434,7 +434,11 @@ public sealed partial class VaultWindow : Window
         var clipboardResult = clipboardClear == null ? ClipboardClearResult.Replaced : await clipboardClear;
         UnlockPanel.IsVisible = true;
         StatusText.Text = clipboardResult == ClipboardClearResult.Busy ? Text("VaultLocked") + " · " + Text("ClipboardClearFailed") : Text("VaultLocked");
-        if (!_closing) MasterPassword.Focus();
+        if (!_closing)
+        {
+            await LeaveVaultLayoutAsync();
+            MasterPassword.Focus();
+        }
     }
 
     protected override async void OnClosing(WindowClosingEventArgs e)

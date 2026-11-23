@@ -50,6 +50,13 @@ public sealed partial class AvaloniaVaultTests
                 {
                     Assert.True(window.FindControl<Button>("LoginSettings")!.IsVisible);
                     Assert.True(window.FindControl<Button>("LoginTheme")!.IsVisible);
+                    VerifyCompactUnlock();
+                    var useKey = window.FindControl<CheckBox>("UseKeyFile")!;
+                    double compactHeight = window.Bounds.Height;
+                    useKey.IsChecked = true;
+                    await WaitAsync(() => window.Bounds.Height > compactHeight, timeout.Token);
+                    useKey.IsChecked = false;
+                    await WaitAsync(() => window.Bounds.Height == compactHeight, timeout.Token);
                     await window.ToggleThemeAsync(dark => store.Update(settings => settings.DarkMode = dark));
                     Assert.False(store.Load().DarkMode);
                     Assert.Equal(ThemeVariant.Light, Application.Current!.RequestedThemeVariant);
@@ -59,6 +66,9 @@ public sealed partial class AvaloniaVaultTests
                     Assert.True(passwordBox.RevealPassword);
                     await window.OpenVaultAsync();
                     Assert.False(passwordBox.RevealPassword);
+                    Assert.Equal(WindowDecorations.Full, window.WindowDecorations);
+                    Assert.True(window.CanResize);
+                    Assert.Equal("SQLitePass", window.FindControl<TextBlock>("WorkspaceTitle")!.Text);
                     Assert.True(window.FindControl<Button>("VaultSettings")!.IsVisible);
                     Assert.True(window.FindControl<Button>("VaultTheme")!.IsVisible);
                     Assert.True(window.FindControl<WrapPanel>("VaultToolbar")!.IsVisible);
@@ -123,6 +133,7 @@ public sealed partial class AvaloniaVaultTests
                     Assert.Empty(entries.Items);
                     Assert.Empty(tree.Items);
                     Assert.False(window.FindControl<Border>("EntryPreview")!.IsVisible);
+                    VerifyCompactUnlock();
 
                     void DoubleClick(string name)
                     {
@@ -139,6 +150,16 @@ public sealed partial class AvaloniaVaultTests
 
                     Point CenterOf(Control control) =>
                         control.TranslatePoint(new Point(control.Bounds.Width / 2, control.Bounds.Height / 2), window)!.Value;
+
+                    void VerifyCompactUnlock()
+                    {
+                        window.UpdateLayout();
+                        Assert.Equal(WindowDecorations.None, window.WindowDecorations);
+                        Assert.False(window.CanResize);
+                        var card = window.FindControl<Border>("UnlockCard")!;
+                        Assert.Equal(window.Bounds.Width, card.Bounds.Width, 0);
+                        Assert.InRange(window.Bounds.Height - card.Bounds.Height, 0, 40);
+                    }
                 }
                 finally
                 {

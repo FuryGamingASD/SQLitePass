@@ -4,7 +4,7 @@
         x:Class="SQLitePass.Desktop.VaultWindow"
         Title="SQLitePass" Icon="avares://SQLitePass.Desktop/Resources/app.ico"
         Background="{DynamicResource WorkspaceCanvas}" Foreground="{DynamicResource WorkspaceText}"
-        WindowStartupLocation="CenterScreen" Width="570" Height="595" MinWidth="540" MinHeight="420">
+        WindowStartupLocation="CenterScreen" WindowDecorations="None" CanResize="False" SizeToContent="Height" Width="510">
     <Window.Styles>
         <Style Selector="Button.icon-tool">
             <Setter Property="MinWidth" Value="36" />
@@ -65,11 +65,11 @@
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
-        <Style Selector="Grid.drop-inside">
-            <Setter Property="Background" Value="{DynamicResource WorkspaceBrandTint}" />
-        </Style>
         <Style Selector="Border.drop-indicator">
             <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="Grid.drop-inside > Border.drop-fill">
+            <Setter Property="IsVisible" Value="True" />
         </Style>
         <Style Selector="Grid.drop-before Border.drop-top">
             <Setter Property="IsVisible" Value="True" />
@@ -82,22 +82,23 @@
         </Style>
     </Window.Styles>
     <Grid RowDefinitions="*,Auto">
-        <ScrollViewer x:Name="UnlockPanel" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
-                      HorizontalScrollBarVisibility="Disabled">
-            <Border x:Name="UnlockCard" Width="500" MaxWidth="500" VerticalAlignment="Center" Margin="20" Padding="28,25" CornerRadius="16"
-                    Background="{DynamicResource WorkspaceSurface}" BorderBrush="{DynamicResource WorkspaceBorder}"
-                    BorderThickness="1" BoxShadow="0 12 40 0 #24000000">
+        <ScrollViewer x:Name="UnlockPanel" HorizontalContentAlignment="Stretch"
+                      HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+            <Border x:Name="UnlockCard" Padding="28,25" Background="{DynamicResource WorkspaceSurface}"
+                    BorderBrush="{DynamicResource WorkspaceBorder}" BorderThickness="1">
                 <StackPanel Spacing="16">
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                        <Border Width="46" Height="46" CornerRadius="12" Background="{DynamicResource WorkspaceBrandTint}">
-                            <Image Source="avares://SQLitePass.Desktop/Resources/app_icon.png" Width="33" Height="33" />
-                        </Border>
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
-                            <TextBlock Text="SQLitePass" FontSize="22" FontWeight="SemiBold" />
-                            <TextBlock x:Name="LoginSubtitle" FontSize="12" Foreground="{DynamicResource WorkspaceMuted}"
-                                       TextWrapping="Wrap" />
-                        </StackPanel>
-                        <Button x:Name="LoginTheme" Grid.Column="2" Classes="icon-tool" VerticalAlignment="Center" Click="ToggleTheme_Click">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Background="Transparent" PointerPressed="LoginHeader_PointerPressed">
+                            <Border Width="46" Height="46" CornerRadius="12" Background="{DynamicResource WorkspaceBrandTint}">
+                                <Image Source="avares://SQLitePass.Desktop/Resources/app_icon.png" Width="33" Height="33" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
+                                <TextBlock Text="SQLitePass" FontSize="22" FontWeight="SemiBold" />
+                                <TextBlock x:Name="LoginSubtitle" FontSize="12" Foreground="{DynamicResource WorkspaceMuted}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                        <Button x:Name="LoginTheme" Grid.Column="1" Classes="icon-tool" VerticalAlignment="Center" Click="ToggleTheme_Click">
                             <desktop:DesktopIcon x:Name="LoginThemeIcon" Kind="Sun" />
                         </Button>
                     </Grid>
@@ -174,7 +175,7 @@
                     <Border Width="36" Height="36" CornerRadius="9" Background="{DynamicResource WorkspaceBrandTint}">
                         <Image Source="avares://SQLitePass.Desktop/Resources/app_icon.png" Width="27" Height="27" />
                     </Border>
-                    <TextBlock x:Name="VaultName" Grid.Column="1" FontSize="18" FontWeight="SemiBold"
+                    <TextBlock x:Name="WorkspaceTitle" Text="SQLitePass" Grid.Column="1" FontSize="18" FontWeight="SemiBold"
                                TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                     <Menu x:Name="VaultMenu" Grid.Column="2" VerticalAlignment="Center" Background="Transparent">
                         <MenuItem x:Name="FileMenu">
@@ -297,6 +298,9 @@
                                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="7" MinHeight="27"
                                           Background="Transparent" DragDrop.AllowDrop="True" PointerPressed="GroupRow_PointerPressed"
                                           DragDrop.DragOver="GroupRow_DragOver" DragDrop.DragLeave="GroupRow_DragLeave" DragDrop.Drop="GroupRow_Drop">
+                                        <Border Grid.ColumnSpan="2" Classes="drop-indicator drop-fill" CornerRadius="4" BorderThickness="2"
+                                                BorderBrush="{DynamicResource WorkspaceLink}" Background="{DynamicResource WorkspaceBrandTint}"
+                                                IsHitTestVisible="False" />
                                         <Border Grid.ColumnSpan="2" Height="2" VerticalAlignment="Top" Classes="drop-indicator drop-top"
                                                 Background="{DynamicResource WorkspaceLink}" IsHitTestVisible="False" />
                                         <Border Grid.ColumnSpan="2" Height="2" VerticalAlignment="Bottom" Classes="drop-indicator drop-bottom"
@@ -429,6 +433,13 @@
         </Grid>
         <Border Grid.Row="1" Padding="14,6" Background="{DynamicResource WorkspaceSidebar}" MinHeight="32"
                 BorderBrush="{DynamicResource WorkspaceBorder}" BorderThickness="0,1,0,0">
+            <Border.IsVisible>
+                <MultiBinding Converter="{x:Static BoolConverters.Or}">
+                    <Binding Path="#VaultPanel.IsVisible" />
+                    <Binding Path="#CancelOperation.IsVisible" />
+                    <Binding Path="#StatusText.Text" Converter="{x:Static StringConverters.IsNotNullOrEmpty}" />
+                </MultiBinding>
+            </Border.IsVisible>
             <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                 <TextBlock x:Name="StatusText" TextWrapping="Wrap" VerticalAlignment="Center" FontSize="12"
                            AutomationProperties.LiveSetting="Polite" />

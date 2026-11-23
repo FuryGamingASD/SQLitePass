@@ -60,7 +60,7 @@ public sealed partial class VaultWindow
             platform.ColorValuesChanged += PlatformColorsChanged;
             Closed += (_, _) => platform.ColorValuesChanged -= PlatformColorsChanged;
         }
-        PrepareWindowSize(this);
+        ApplyLoginLayout();
         UpdateRecentVaults();
         SizeChanged += (_, _) => Classes.Set("wide", Bounds.Width >= 1000);
         Opened += (_, _) => Classes.Set("wide", Bounds.Width >= 1000);

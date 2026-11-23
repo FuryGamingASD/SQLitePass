@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Input;
 using SQLitePass.Core.Services;
 
 namespace SQLitePass.Desktop;
@@ -8,23 +9,60 @@ public sealed partial class VaultWindow
     private readonly Dictionary<Window, (string Name, WindowSizePreference? Size)> _windowPresentation = new();
     private readonly HashSet<Window> _observedWindowSizes = new();
     private bool _vaultLayoutStarted;
+    private bool _restoreVaultMaximized;
 
-    private async Task EnterVaultLayoutAsync()
+    private void ApplyLoginLayout()
+    {
+        var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary;
+        Width = screen != null ? Math.Min(510, screen.WorkingArea.Width / screen.Scaling) : 510;
+        MaxHeight = screen != null ? screen.WorkingArea.Height / screen.Scaling : double.PositiveInfinity;
+        MinWidth = MinHeight = 0;
+        Height = double.NaN;
+        CanResize = false;
+        WindowDecorations = WindowDecorations.None;
+        SizeToContent = SizeToContent.Height;
+    }
+
+    private void LoginHeader_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            BeginMoveDrag(e);
+            e.Handled = true;
+        }
+    }
+
+    private void EnterVaultLayout()
     {
         if (_vaultLayoutStarted) return;
         _vaultLayoutStarted = true;
-        await SaveWindowSizeAsync(this);
+        SizeToContent = SizeToContent.Manual;
+        WindowDecorations = WindowDecorations.Full;
+        CanResize = true;
+        MaxHeight = double.PositiveInfinity;
         MinWidth = 620;
         MinHeight = 460;
         Width = 1100;
         Height = 720;
         PrepareWindowSize(this);
+        if (_restoreVaultMaximized && WindowState == WindowState.Normal) WindowState = WindowState.Maximized;
+    }
+
+    private Task LeaveVaultLayoutAsync()
+    {
+        if (!_vaultLayoutStarted) return Task.CompletedTask;
+        _vaultLayoutStarted = false;
+        var save = SaveWindowSizeAsync(this);
+        _restoreVaultMaximized = WindowState == WindowState.Maximized;
+        if (_restoreVaultMaximized) WindowState = WindowState.Normal;
+        ApplyLoginLayout();
+        return save;
     }
 
     private void PrepareWindowSize(Window window)
     {
         if (!_saveWorkspacePreferences || !window.CanResize || window.SizeToContent != SizeToContent.Manual) return;
-        string name = window == this && !_vaultLayoutStarted ? "LoginWindow" : window.GetType().Name;
+        string name = window.GetType().Name;
         string legacy = window switch
         {
             VaultWindow when _vaultLayoutStarted => "MainWindow",
