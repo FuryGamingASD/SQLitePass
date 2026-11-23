@@ -13,6 +13,7 @@
 | 2026-11-23 | Paging verification | The Windows Release suite passed 171 tests. The new cases exercise both password sort directions, case-insensitive ties, empty passwords, forward and backward navigation, focused reload, and rejection of a missing boundary. |
 | 2026-11-23 | Auto-Type memory | Candidate lookup projects identity, title, URL and eligibility for matching. The confirmation retains only ID, revision and title. The confirmed read projects fields usable by Auto-Type and skips attachments and history. Both paths still decrypt and clear a temporary authenticated record buffer. |
 | 2026-11-23 | Auto-Type verification | The Windows Release suite passed 171 tests, including title and URL matching, ambiguity and revision rejection, and use of custom fields with attachments and history absent from the confirmed model. The legacy WPF Release project built with zero warnings or errors. Native desktop retesting is pending. |
+| 2026-11-23 | Linux verification | On FuryUbuntu x64, an isolated checkout of `e221930` passed the locked restore and all 171 Release tests with SDK 10.0.404. The source startup probe passed under Xvfb. The package and native input probes remain pending. |
 
 ## Order of work
 
