@@ -40,6 +40,14 @@ public sealed partial class EntryEditor
 
     private void SaveField_Click(object? sender, RoutedEventArgs e) => CommitField();
 
+    private bool HasUncommittedField()
+    {
+        var field = CustomFields.SelectedItem as PwCustomField;
+        return (FieldName.Text?.Trim() ?? "") != (field?.Key ?? "") ||
+            (FieldValue.Text ?? "") != (field?.Value ?? "") ||
+            (FieldProtected.IsChecked == true) != (field?.IsProtected ?? true);
+    }
+
     private bool CommitField()
     {
         var selected = CustomFields.SelectedItem as PwCustomField;
@@ -53,6 +61,7 @@ public sealed partial class EntryEditor
             return false;
         }
 
+        if (HasUncommittedField()) MarkEdited();
         var field = selected ?? new PwCustomField { EntryId = _draft.Id };
         field.Key = name;
         field.Value = value;
@@ -71,6 +80,7 @@ public sealed partial class EntryEditor
         if (CustomFields.SelectedItem is not PwCustomField field) return;
         field.Value = "";
         _draft.CustomFields.Remove(field);
+        MarkEdited();
         CustomFields.SelectedItem = null;
         FieldName.Clear();
         FieldValue.Clear();

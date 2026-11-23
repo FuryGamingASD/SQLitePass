@@ -59,8 +59,8 @@ public sealed partial class AvaloniaVaultTests
                     await window.OpenVaultAsync();
                     Assert.True(vaultPanel.IsVisible);
                     Assert.Equal(2, entryList.Items.Count);
-                    var groups = window.FindControl<ComboBox>("Groups")!;
-                    await window.SelectGroupAsync(groups.Items.OfType<GroupChoice>().Single(item => item.Folder?.IsRoot == true));
+                    var groups = window.FindControl<TreeView>("Groups")!;
+                    await window.SelectGroupAsync(window.FolderChoices.Single(item => item.Folder?.IsRoot == true));
                     Assert.Equal(2, entryList.Items.Count);
                     var tag = window.FindControl<TextBox>("TagFilter")!;
                     tag.Text = "de";
@@ -76,9 +76,9 @@ public sealed partial class AvaloniaVaultTests
                         await Task.Delay(10, timeout.Token);
                     expiry.SelectedIndex = 0;
                     while (entryList.Items.Count != 2) await Task.Delay(10, timeout.Token);
-                    await window.SelectGroupAsync(groups.Items.OfType<GroupChoice>().Single(item => item.IsRecycleBin));
+                    await window.SelectGroupAsync(window.FolderChoices.Single(item => item.IsRecycleBin));
                     Assert.Equal("Synthetic deleted entry", Assert.IsType<EntryRow>(Assert.Single(entryList.Items)).Title);
-                    await window.SelectGroupAsync(groups.Items.OfType<GroupChoice>().Single(item => !item.Id.HasValue));
+                    await window.SelectGroupAsync(window.FolderChoices.Single(item => !item.Id.HasValue));
                     Assert.Equal(2, entryList.Items.Count);
                     window.FindControl<TextBox>("SearchBox")!.Text = "portal";
                     await window.SearchAsync();
@@ -156,9 +156,9 @@ public sealed partial class AvaloniaVaultTests
             await desktop.Dispatch(async () =>
             {
                 var window = new VaultWindow(settings);
-                var groups = window.FindControl<ComboBox>("Groups")!;
+                var groups = window.FindControl<TreeView>("Groups")!;
                 var entries = window.FindControl<ListBox>("Entries")!;
-                GroupChoice Folder(string name) => groups.Items.OfType<GroupChoice>().Single(choice => choice.Folder?.Name == name);
+                GroupChoice Folder(string name) => window.FolderChoices.Single(choice => choice.Folder?.Name == name);
                 window.Show();
                 try
                 {
@@ -175,7 +175,7 @@ public sealed partial class AvaloniaVaultTests
                     await window.SelectGroupAsync(Folder("Archive"));
                     await NameFolderAsync(window, "Inbox", false, timeout.Token);
                     await window.ReorderFolderAsync(moveDown: false);
-                    Assert.True(groups.Items.IndexOf(Folder("Inbox")) < groups.Items.IndexOf(Folder("Work")));
+                    Assert.True(Folder("Archive").Children.First().Id == Folder("Inbox").Id);
 
                     await window.SelectGroupAsync(Folder("General"));
                     var entry = Assert.IsType<EntryRow>(Assert.Single(entries.Items));
@@ -189,7 +189,7 @@ public sealed partial class AvaloniaVaultTests
                     await ConfirmAsync(window, window.DeleteFolderAsync(), false, timeout.Token);
                     Assert.NotNull(Folder("Work"));
                     await ConfirmAsync(window, window.DeleteFolderAsync(), true, timeout.Token);
-                    Assert.DoesNotContain(groups.Items.OfType<GroupChoice>(), choice => choice.Folder?.Name is "Archive" or "Work" or "Inbox");
+                    Assert.DoesNotContain(window.FolderChoices, choice => choice.Folder?.Name is "Archive" or "Work" or "Inbox");
 
                     await window.SelectGroupAsync(Folder("Recycle bin"));
                     var recoverable = Assert.IsType<EntryRow>(Assert.Single(entries.Items));
@@ -382,7 +382,7 @@ public sealed partial class AvaloniaVaultTests
                         await ConfirmAsync(window, import, true, timeout.Token);
                         Assert.Contains("Imported 1 entries", window.FindControl<TextBlock>("StatusText")!.Text, StringComparison.Ordinal);
                     }
-                    var scope = window.FindControl<ComboBox>("Groups")!.Items.OfType<GroupChoice>().Single(choice => choice.Id == null);
+                    var scope = window.FolderChoices.Single(choice => choice.Id == null);
                     await window.SelectGroupAsync(scope);
                     Assert.Equal(3, entries.Items.Count);
 

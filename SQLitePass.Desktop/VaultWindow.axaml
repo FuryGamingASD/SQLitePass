@@ -3,121 +3,437 @@
         xmlns:desktop="using:SQLitePass.Desktop"
         x:Class="SQLitePass.Desktop.VaultWindow"
         Title="SQLitePass" Icon="avares://SQLitePass.Desktop/Resources/app.ico"
-        WindowStartupLocation="CenterScreen" Width="960" Height="640" MinWidth="580" MinHeight="480">
-    <Grid RowDefinitions="*,Auto" Margin="24">
-        <ScrollViewer x:Name="UnlockPanel" HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
-            <StackPanel Width="450" Spacing="12" Margin="12">
-                <TextBlock Text="SQLitePass" FontSize="32" FontWeight="SemiBold" />
-                <TextBlock x:Name="VaultPathLabel" />
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                    <TextBox x:Name="VaultPath" AutomationProperties.LabeledBy="{Binding #VaultPathLabel}" />
-                    <Button x:Name="BrowseVault" Grid.Column="1" Click="BrowseVault_Click" />
-                </Grid>
-                <TextBlock x:Name="PasswordLabel" />
-                <TextBox x:Name="MasterPassword" PasswordChar="●" IsUndoEnabled="False"
-                         AutomationProperties.LabeledBy="{Binding #PasswordLabel}" />
-                <TextBlock x:Name="KeyFileLabel" />
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                    <TextBox x:Name="KeyFilePath" AutomationProperties.LabeledBy="{Binding #KeyFileLabel}" />
-                    <Button x:Name="BrowseKeyFile" Grid.Column="1" Click="BrowseKeyFile_Click" />
-                </Grid>
-                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
-                    <Button x:Name="Unlock" Classes="accent" IsDefault="True" Click="Unlock_Click" />
-                    <Button x:Name="NewVault" Click="NewVault_Click" />
-                </StackPanel>
-                <WrapPanel>
-                    <Button x:Name="RestoreBackup" Margin="0,0,8,4" Click="RestoreBackup_Click" />
-                    <Button x:Name="LoginGenerator" Margin="0,0,8,4" Click="PasswordGenerator_Click" />
-                    <Button x:Name="LoginCheckUpdates" Margin="0,0,8,4" Click="CheckUpdates_Click" />
-                    <Button x:Name="LoginSettings" Margin="0,0,8,4" Click="Settings_Click" />
-                </WrapPanel>
-            </StackPanel>
-        </ScrollViewer>
-        <Grid x:Name="VaultPanel" RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="12" IsVisible="False">
-            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-                <TextBlock x:Name="VaultName" FontSize="23" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                <Menu x:Name="VaultMenu" Grid.Column="1" VerticalAlignment="Center">
-                    <MenuItem x:Name="FileMenu">
-                        <MenuItem x:Name="ChangeCredential" Click="ChangeCredential_Click" />
-                        <Separator />
-                        <MenuItem x:Name="ImportKeePass" Click="ImportKeePass_Click" />
-                        <MenuItem x:Name="ImportBitwarden" Click="ImportBitwarden_Click" />
-                        <MenuItem x:Name="ImportBrowser" Click="ImportBrowser_Click" />
-                        <MenuItem x:Name="ExportKeePass" Click="ExportKeePass_Click" />
-                        <Separator />
-                        <MenuItem x:Name="PasswordGeneratorCommand" Click="PasswordGenerator_Click" />
-                        <MenuItem x:Name="ClearClipboard" Click="ClearClipboard_Click" />
-                        <MenuItem x:Name="CheckUpdates" Click="CheckUpdates_Click" />
-                        <MenuItem x:Name="SettingsCommand" Click="Settings_Click" />
-                        <MenuItem x:Name="ExitApplication" Click="ExitApplication_Click" />
-                    </MenuItem>
-                </Menu>
-                <Button x:Name="LockVault" Grid.Column="2" Click="LockVault_Click" />
-            </Grid>
-            <StackPanel x:Name="QueryPanel" Grid.Row="1" Spacing="8">
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                    <TextBox x:Name="SearchBox" KeyDown="SearchBox_KeyDown" MaxLength="4096" />
-                    <Button x:Name="Search" Grid.Column="1" Click="Search_Click" />
-                </Grid>
-                <WrapPanel>
-                    <ComboBox x:Name="ExpiryFilter" Margin="0,0,8,4" SelectionChanged="BrowseOption_Changed" />
-                    <TextBox x:Name="TagFilter" MinWidth="115" MaxLength="256" Margin="0,0,8,4" KeyDown="SearchBox_KeyDown" />
-                    <ComboBox x:Name="SortField" Margin="0,0,8,4" SelectionChanged="BrowseOption_Changed" />
-                    <ToggleButton x:Name="SortDescending" Margin="0,0,8,4" Click="BrowseSort_Click" />
-                    <Button x:Name="ResetFilters" Margin="0,0,8,4" Click="ResetFilters_Click" />
-                </WrapPanel>
-            </StackPanel>
-            <Grid x:Name="GroupPanel" Grid.Row="2" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
-                <ComboBox x:Name="Groups" HorizontalAlignment="Stretch" SelectionChanged="Group_SelectionChanged" />
-                <Button x:Name="AddEntry" Grid.Column="1" Click="AddEntry_Click" />
-                <Button x:Name="EditEntry" Grid.Column="2" Click="EditEntry_Click" IsEnabled="False" />
-                <Menu Grid.Column="3" VerticalAlignment="Center">
-                    <MenuItem x:Name="FolderMenu">
-                        <MenuItem x:Name="CreateFolder" Click="CreateFolder_Click" />
-                        <MenuItem x:Name="RenameFolder" Click="RenameFolder_Click" />
-                        <MenuItem x:Name="MoveFolder" Click="MoveFolder_Click" />
-                        <MenuItem x:Name="MoveFolderUp" Click="MoveFolderUp_Click" />
-                        <MenuItem x:Name="MoveFolderDown" Click="MoveFolderDown_Click" />
-                        <Separator />
-                        <MenuItem x:Name="DeleteFolder" Click="DeleteFolder_Click" />
-                    </MenuItem>
-                    <MenuItem x:Name="EntryMenu">
-                        <MenuItem x:Name="CopyUser" Click="CopyUser_Click" />
-                        <MenuItem x:Name="CopyPassword" Click="CopyPassword_Click" />
-                        <MenuItem x:Name="AutoTypeEntry" Click="AutoTypeEntry_Click" />
-                        <Separator />
-                        <MenuItem x:Name="DuplicateEntry" Click="DuplicateEntry_Click" />
-                        <MenuItem x:Name="MoveEntryCommand" Click="MoveEntry_Click" />
-                        <MenuItem x:Name="DeleteEntry" Click="DeleteEntry_Click" />
-                        <MenuItem x:Name="RestoreEntry" Click="RestoreEntry_Click" />
-                        <Separator />
-                        <MenuItem x:Name="EmptyRecycleBin" Click="EmptyRecycleBin_Click" />
-                    </MenuItem>
-                </Menu>
-            </Grid>
-            <ListBox x:Name="Entries" Grid.Row="3" SelectionChanged="Entries_SelectionChanged">
-                <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="desktop:EntryRow">
-                        <Grid ColumnDefinitions="2*,*,*" ColumnSpacing="16">
-                            <TextBlock Text="{CompiledBinding Title}" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" />
-                            <TextBlock Grid.Column="1" Text="{CompiledBinding UserName}" TextTrimming="CharacterEllipsis" />
-                            <TextBlock Grid.Column="2" Text="{CompiledBinding Url}" TextTrimming="CharacterEllipsis" />
+        Background="{DynamicResource WorkspaceCanvas}" Foreground="{DynamicResource WorkspaceText}"
+        WindowStartupLocation="CenterScreen" Width="570" Height="595" MinWidth="540" MinHeight="420">
+    <Window.Styles>
+        <Style Selector="Button.icon-tool">
+            <Setter Property="MinWidth" Value="36" />
+            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="Padding" Value="9,6" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.icon-tool:not(.accent)">
+            <Setter Property="Background" Value="{DynamicResource WorkspaceSurface}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="7" />
+        </Style>
+        <Style Selector="Button.secondary-action">
+            <Setter Property="Background" Value="{DynamicResource WorkspaceSidebar}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="7" />
+        </Style>
+        <Style Selector="TextBox">
+            <Setter Property="CornerRadius" Value="7" />
+        </Style>
+        <Style Selector="TextBlock.field-label">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+        <Style Selector="Button.column-header">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0,0,6,0" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+        </Style>
+        <Style Selector="TextBlock.column-label">
+            <Setter Property="Foreground" Value="{DynamicResource WorkspaceMuted}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Control.optional-column">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="Window.wide Control.optional-column">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="ListBox.entries-list ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="MinHeight" Value="38" />
+        </Style>
+        <Style Selector="Border.entry-cell">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="6,8" />
+        </Style>
+        <Style Selector="Border.entry-cell TextBlock">
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Grid.drop-inside">
+            <Setter Property="Background" Value="{DynamicResource WorkspaceBrandTint}" />
+        </Style>
+        <Style Selector="Border.drop-indicator">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="Grid.drop-before Border.drop-top">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="Grid.drop-after Border.drop-bottom">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="TreeViewItem">
+            <Setter Property="IsExpanded" Value="{ReflectionBinding Expanded, Mode=TwoWay}" />
+        </Style>
+    </Window.Styles>
+    <Grid RowDefinitions="*,Auto">
+        <ScrollViewer x:Name="UnlockPanel" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                      HorizontalScrollBarVisibility="Disabled">
+            <Border x:Name="UnlockCard" Width="500" MaxWidth="500" VerticalAlignment="Center" Margin="20" Padding="28,25" CornerRadius="16"
+                    Background="{DynamicResource WorkspaceSurface}" BorderBrush="{DynamicResource WorkspaceBorder}"
+                    BorderThickness="1" BoxShadow="0 12 40 0 #24000000">
+                <StackPanel Spacing="16">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                        <Border Width="46" Height="46" CornerRadius="12" Background="{DynamicResource WorkspaceBrandTint}">
+                            <Image Source="avares://SQLitePass.Desktop/Resources/app_icon.png" Width="33" Height="33" />
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
+                            <TextBlock Text="SQLitePass" FontSize="22" FontWeight="SemiBold" />
+                            <TextBlock x:Name="LoginSubtitle" FontSize="12" Foreground="{DynamicResource WorkspaceMuted}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                        <Button x:Name="LoginTheme" Grid.Column="2" Classes="icon-tool" VerticalAlignment="Center" Click="ToggleTheme_Click">
+                            <desktop:DesktopIcon x:Name="LoginThemeIcon" Kind="Sun" />
+                        </Button>
+                    </Grid>
+                    <Border Height="1" Background="{DynamicResource WorkspaceBorder}" />
+                    <StackPanel Spacing="6">
+                        <TextBlock x:Name="VaultPathLabel" Classes="field-label" />
+                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                            <TextBox x:Name="VaultPath" AutomationProperties.LabeledBy="{Binding #VaultPathLabel}" MinHeight="36"
+                                     TextChanged="VaultPath_TextChanged" />
+                            <Button x:Name="RecentVaultButton" Grid.Column="1" Classes="icon-tool">
+                                <desktop:DesktopIcon Kind="ChevronDown" />
+                                <Button.Flyout>
+                                    <Flyout Placement="BottomEdgeAlignedRight">
+                                        <ListBox x:Name="RecentVaults" MaxWidth="430" MaxHeight="240"
+                                                 SelectionChanged="RecentVault_SelectionChanged">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{ReflectionBinding}" TextTrimming="CharacterEllipsis" />
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+                                    </Flyout>
+                                </Button.Flyout>
+                            </Button>
+                            <Button x:Name="BrowseVault" Classes="secondary-action" Grid.Column="2" MinHeight="36" Click="BrowseVault_Click" />
                         </Grid>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
-            <Grid x:Name="PagePanel" Grid.Row="4" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-                <StackPanel Spacing="2">
-                    <TextBlock x:Name="EntryCount" />
-                    <TextBlock x:Name="BackupStatus" TextWrapping="Wrap" />
+                        <TextBlock x:Name="LoginBackupFound" FontSize="12" IsVisible="False"
+                                   Foreground="{DynamicResource WorkspaceLink}" />
+                    </StackPanel>
+                    <StackPanel Spacing="6">
+                        <TextBlock x:Name="PasswordLabel" Classes="field-label" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                            <TextBox x:Name="MasterPassword" PasswordChar="●" IsUndoEnabled="False" MinHeight="36"
+                                     AutomationProperties.LabeledBy="{Binding #PasswordLabel}" />
+                            <Button x:Name="LoginReveal" Grid.Column="1" Classes="icon-tool" Click="LoginReveal_Click">
+                                <desktop:DesktopIcon x:Name="LoginRevealIcon" Kind="Eye" />
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+                    <StackPanel Spacing="6">
+                        <CheckBox x:Name="UseKeyFile" IsCheckedChanged="UseKeyFile_Changed">
+                            <TextBlock x:Name="KeyFileLabel" Classes="field-label" TextWrapping="Wrap" />
+                        </CheckBox>
+                        <Grid x:Name="KeyFilePanel" ColumnDefinitions="*,Auto" ColumnSpacing="6" IsVisible="False">
+                            <TextBox x:Name="KeyFilePath" MinHeight="36" AutomationProperties.LabeledBy="{Binding #KeyFileLabel}"
+                                     TextChanged="KeyFilePath_TextChanged" />
+                            <Button x:Name="BrowseKeyFile" Classes="secondary-action" Grid.Column="1" MinHeight="36" Click="BrowseKeyFile_Click" />
+                        </Grid>
+                    </StackPanel>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <Button x:Name="Unlock" Classes="accent" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                MinHeight="40" FontWeight="SemiBold" IsDefault="True" Click="Unlock_Click" />
+                        <Button x:Name="NewVault" Classes="secondary-action" Grid.Column="1" MinHeight="40" Click="NewVault_Click" />
+                    </Grid>
+                    <WrapPanel>
+                        <Button x:Name="RestoreBackup" Classes="secondary-action" Margin="0,0,6,4" Click="RestoreBackup_Click" />
+                        <Button x:Name="LoginGenerator" Classes="secondary-action" Margin="0,0,6,4" Click="PasswordGenerator_Click" />
+                        <Button x:Name="LoginCheckUpdates" Classes="secondary-action" Margin="0,0,6,4" Click="CheckUpdates_Click" />
+                        <Button x:Name="LoginSettings" Classes="secondary-action" Margin="0,0,6,4" Click="Settings_Click">
+                            <StackPanel Orientation="Horizontal" Spacing="7">
+                                <desktop:DesktopIcon Kind="Settings" />
+                                <TextBlock x:Name="LoginSettingsLabel" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="LoginExit" Classes="secondary-action" Margin="0,0,6,4" Click="ExitApplication_Click" />
+                    </WrapPanel>
                 </StackPanel>
-                <Button x:Name="PreviousPage" Grid.Column="1" Click="PreviousPage_Click" />
-                <Button x:Name="NextPage" Grid.Column="2" Click="NextPage_Click" />
+            </Border>
+        </ScrollViewer>
+        <Grid x:Name="VaultPanel" RowDefinitions="Auto,Auto,*" IsVisible="False">
+            <Border Background="{DynamicResource WorkspaceSurface}" BorderBrush="{DynamicResource WorkspaceBorder}"
+                    BorderThickness="0,0,0,1" Padding="16,8">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                    <Border Width="36" Height="36" CornerRadius="9" Background="{DynamicResource WorkspaceBrandTint}">
+                        <Image Source="avares://SQLitePass.Desktop/Resources/app_icon.png" Width="27" Height="27" />
+                    </Border>
+                    <TextBlock x:Name="VaultName" Grid.Column="1" FontSize="18" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    <Menu x:Name="VaultMenu" Grid.Column="2" VerticalAlignment="Center" Background="Transparent">
+                        <MenuItem x:Name="FileMenu">
+                            <MenuItem x:Name="NewEntryCommand" Click="AddEntry_Click" InputGesture="Ctrl+I" />
+                            <MenuItem x:Name="NewFolderCommand" Click="CreateFolder_Click" InputGesture="Ctrl+G" />
+                            <MenuItem x:Name="LockCommand" Click="LockVault_Click" InputGesture="Ctrl+L" />
+                            <Separator />
+                            <MenuItem x:Name="ChangeCredential" Click="ChangeCredential_Click" />
+                            <Separator />
+                            <MenuItem x:Name="ImportKeePass" Click="ImportKeePass_Click" />
+                            <MenuItem x:Name="ImportBitwarden" Click="ImportBitwarden_Click" />
+                            <MenuItem x:Name="ImportBrowser" Click="ImportBrowser_Click" />
+                            <MenuItem x:Name="ExportKeePass" Click="ExportKeePass_Click" />
+                            <Separator />
+                            <MenuItem x:Name="SettingsCommand" Click="Settings_Click" />
+                            <MenuItem x:Name="ExitApplication" Click="ExitApplication_Click" />
+                        </MenuItem>
+                        <MenuItem x:Name="EntryMenu">
+                            <MenuItem x:Name="EditEntryCommand" Click="EditEntry_Click" InputGesture="Enter" />
+                            <MenuItem x:Name="CopyUser" Click="CopyUser_Click" />
+                            <MenuItem x:Name="CopyPassword" Click="CopyPassword_Click" />
+                            <MenuItem x:Name="OpenUrlCommand" Click="OpenUrl_Click" />
+                            <MenuItem x:Name="AutoTypeEntry" Click="AutoTypeEntry_Click" />
+                            <Separator />
+                            <MenuItem x:Name="DuplicateEntry" Click="DuplicateEntry_Click" />
+                            <MenuItem x:Name="MoveEntryCommand" Click="MoveEntry_Click" />
+                            <MenuItem x:Name="DeleteEntry" Click="DeleteEntry_Click" />
+                            <MenuItem x:Name="RestoreEntry" Click="RestoreEntry_Click" />
+                            <MenuItem x:Name="EmptyRecycleBin" Click="EmptyRecycleBin_Click" />
+                        </MenuItem>
+                        <MenuItem x:Name="ViewMenu">
+                            <MenuItem x:Name="ThemeCommand" Click="ToggleTheme_Click" />
+                            <MenuItem x:Name="PasswordColumnCommand" Click="TogglePasswordColumn_Click" InputGesture="Ctrl+H" />
+                            <MenuItem x:Name="RefreshCommand" Click="Search_Click" InputGesture="F5" />
+                        </MenuItem>
+                        <MenuItem x:Name="ToolsMenu">
+                            <MenuItem x:Name="FolderMenu">
+                                <MenuItem x:Name="CreateFolder" Click="CreateFolder_Click" />
+                                <MenuItem x:Name="RenameFolder" Click="RenameFolder_Click" />
+                                <MenuItem x:Name="MoveFolder" Click="MoveFolder_Click" />
+                                <MenuItem x:Name="MoveFolderUp" Click="MoveFolderUp_Click" />
+                                <MenuItem x:Name="MoveFolderDown" Click="MoveFolderDown_Click" InputGesture="Ctrl+Down" />
+                                <MenuItem x:Name="MoveFolderToRoot" Click="MoveFolderToRoot_Click" />
+                                <Separator />
+                                <MenuItem x:Name="DeleteFolder" Click="DeleteFolder_Click" />
+                            </MenuItem>
+                            <MenuItem x:Name="PasswordGeneratorCommand" Click="PasswordGenerator_Click" />
+                            <MenuItem x:Name="ClearClipboard" Click="ClearClipboard_Click" />
+                            <MenuItem x:Name="CheckUpdates" Click="CheckUpdates_Click" />
+                            <MenuItem x:Name="AboutCommand" Click="About_Click" />
+                        </MenuItem>
+                    </Menu>
+                </Grid>
+            </Border>
+            <Border Grid.Row="1" Background="{DynamicResource WorkspaceSurface}" BorderBrush="{DynamicResource WorkspaceBorder}"
+                    BorderThickness="0,0,0,1" Padding="12,8">
+                <WrapPanel x:Name="VaultToolbar">
+                    <Button x:Name="AddEntry" Classes="accent icon-tool" Margin="0,0,6,4" Click="AddEntry_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <desktop:DesktopIcon Kind="Add" />
+                            <TextBlock x:Name="AddEntryLabel" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="EditEntry" Classes="icon-tool" Margin="0,0,4,4" Click="EditEntry_Click" IsEnabled="False">
+                        <desktop:DesktopIcon Kind="Edit" />
+                    </Button>
+                    <Button x:Name="ToolbarDelete" Classes="icon-tool" Margin="0,0,10,4" Click="DeleteEntry_Click">
+                        <desktop:DesktopIcon Kind="Trash" Foreground="{DynamicResource WorkspaceDanger}" />
+                    </Button>
+                    <Button x:Name="ToolbarCopyUser" Classes="icon-tool" Margin="0,0,4,4" Click="CopyUser_Click">
+                        <desktop:DesktopIcon Kind="User" />
+                    </Button>
+                    <Button x:Name="ToolbarCopyPassword" Classes="icon-tool" Margin="0,0,4,4" Click="CopyPassword_Click">
+                        <desktop:DesktopIcon Kind="Key" Foreground="{DynamicResource WorkspaceWarning}" />
+                    </Button>
+                    <Button x:Name="ToolbarOpenUrl" Classes="icon-tool" Margin="0,0,4,4" Click="OpenUrl_Click">
+                        <desktop:DesktopIcon Kind="Globe" Foreground="{DynamicResource WorkspaceLink}" />
+                    </Button>
+                    <Button x:Name="ToolbarAutoType" Classes="icon-tool" Margin="0,0,10,4" Click="AutoTypeEntry_Click">
+                        <desktop:DesktopIcon Kind="Keyboard" />
+                    </Button>
+                    <Button x:Name="ToolbarGenerator" Classes="icon-tool" Margin="0,0,4,4" Click="PasswordGenerator_Click">
+                        <desktop:DesktopIcon Kind="Generate" Foreground="{DynamicResource WorkspaceWarning}" />
+                    </Button>
+                    <Button x:Name="VaultTheme" Classes="icon-tool" Margin="0,0,4,4" Click="ToggleTheme_Click">
+                        <desktop:DesktopIcon x:Name="VaultThemeIcon" Kind="Sun" />
+                    </Button>
+                    <Button x:Name="VaultSettings" Classes="icon-tool" Margin="0,0,4,4" Click="Settings_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                            <desktop:DesktopIcon Kind="Settings" />
+                            <TextBlock x:Name="VaultSettingsLabel" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="LockVault" Classes="icon-tool" Margin="0,0,0,4" Click="LockVault_Click">
+                        <desktop:DesktopIcon Kind="Lock" />
+                    </Button>
+                </WrapPanel>
+            </Border>
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="224" MinWidth="160" MaxWidth="380" />
+                    <ColumnDefinition Width="5" />
+                    <ColumnDefinition Width="*" MinWidth="350" />
+                </Grid.ColumnDefinitions>
+                <Border x:Name="GroupPanel" Background="{DynamicResource WorkspaceSidebar}"
+                        BorderBrush="{DynamicResource WorkspaceBorder}" BorderThickness="0,0,1,0">
+                    <Grid RowDefinitions="Auto,*">
+                        <Grid ColumnDefinitions="*,Auto" Margin="13,9,8,7" ColumnSpacing="8">
+                            <TextBlock x:Name="FolderHeading" Classes="field-label" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource WorkspaceMuted}" TextTrimming="CharacterEllipsis" />
+                            <Button x:Name="SidebarAddFolder" Grid.Column="1" Classes="icon-tool" Click="CreateFolder_Click">
+                                <desktop:DesktopIcon Kind="Add" Foreground="{DynamicResource WorkspaceLink}" />
+                            </Button>
+                        </Grid>
+                        <TreeView x:Name="Groups" Grid.Row="1" Background="Transparent" Margin="5,0,5,8"
+                                  SelectionChanged="Group_SelectionChanged" KeyDown="Groups_KeyDown"
+                                  DragDrop.AllowDrop="True" DragDrop.DragOver="GroupRow_DragOver" DragDrop.Drop="GroupRow_Drop">
+                            <TreeView.ItemTemplate>
+                                <TreeDataTemplate x:DataType="desktop:GroupChoice" ItemsSource="{CompiledBinding Children}">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="7" MinHeight="27"
+                                          Background="Transparent" DragDrop.AllowDrop="True" PointerPressed="GroupRow_PointerPressed"
+                                          PointerMoved="WorkspaceRow_PointerMoved" PointerReleased="WorkspaceRow_PointerReleased"
+                                          DragDrop.DragOver="GroupRow_DragOver" DragDrop.DragLeave="GroupRow_DragLeave" DragDrop.Drop="GroupRow_Drop">
+                                        <Border Grid.ColumnSpan="2" Height="2" VerticalAlignment="Top" Classes="drop-indicator drop-top"
+                                                Background="{DynamicResource WorkspaceLink}" IsHitTestVisible="False" />
+                                        <Border Grid.ColumnSpan="2" Height="2" VerticalAlignment="Bottom" Classes="drop-indicator drop-bottom"
+                                                Background="{DynamicResource WorkspaceLink}" IsHitTestVisible="False" />
+                                        <desktop:DesktopIcon Kind="{CompiledBinding Icon}" Width="15" Height="15"
+                                                             VerticalAlignment="Center" Foreground="{DynamicResource WorkspaceLink}" />
+                                        <TextBlock Grid.Column="1" Text="{CompiledBinding Caption}" VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </Grid>
+                                </TreeDataTemplate>
+                            </TreeView.ItemTemplate>
+                        </TreeView>
+                    </Grid>
+                </Border>
+                <GridSplitter Grid.Column="1" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext"
+                              Background="{DynamicResource WorkspaceBorder}" />
+                <Grid Grid.Column="2" RowDefinitions="Auto,*,Auto,Auto" Margin="12,12,14,9" RowSpacing="8">
+                    <StackPanel x:Name="QueryPanel" Spacing="7">
+                        <TextBlock x:Name="FolderPath" FontSize="12" Foreground="{DynamicResource WorkspaceMuted}"
+                                   TextTrimming="CharacterEllipsis" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                            <TextBox x:Name="SearchBox" KeyDown="SearchBox_KeyDown" MaxLength="4096" MinHeight="35" />
+                            <Button x:Name="Search" Grid.Column="1" Classes="icon-tool" Click="Search_Click">
+                                <desktop:DesktopIcon Kind="Search" />
+                            </Button>
+                        </Grid>
+                        <WrapPanel>
+                            <ComboBox x:Name="ExpiryFilter" Margin="0,0,7,4" SelectionChanged="BrowseOption_Changed" />
+                            <TextBox x:Name="TagFilter" MinWidth="110" MaxLength="256" Margin="0,0,7,4" KeyDown="SearchBox_KeyDown" />
+                            <ComboBox x:Name="SortField" Margin="0,0,7,4" SelectionChanged="BrowseOption_Changed" />
+                            <ToggleButton x:Name="SortDescending" Margin="0,0,7,4" Click="BrowseSort_Click" />
+                            <Button x:Name="ResetFilters" Classes="secondary-action" Margin="0,0,7,4" Click="ResetFilters_Click" />
+                        </WrapPanel>
+                    </StackPanel>
+                    <Border Grid.Row="1" CornerRadius="9" ClipToBounds="True" BorderThickness="1"
+                            BorderBrush="{DynamicResource WorkspaceBorder}" Background="{DynamicResource WorkspaceSurface}">
+                        <Grid RowDefinitions="34,*">
+                            <Border Background="{DynamicResource WorkspaceSidebar}" BorderBrush="{DynamicResource WorkspaceBorder}"
+                                    BorderThickness="0,0,0,1" Padding="18,0,18,0">
+                                <Grid ColumnDefinitions="2*,1.35*,Auto,1.65*,Auto,Auto">
+                                    <Button Classes="column-header" Tag="Title" Click="ColumnSort_Click">
+                                        <TextBlock x:Name="TitleColumn" Classes="column-label" />
+                                    </Button>
+                                    <Button Grid.Column="1" Classes="column-header" Tag="UserName" Click="ColumnSort_Click">
+                                        <TextBlock x:Name="UserColumn" Classes="column-label" />
+                                    </Button>
+                                    <Button Grid.Column="2" Width="100" Classes="column-header" Tag="Password" Click="ColumnSort_Click">
+                                        <TextBlock x:Name="PasswordColumn" Classes="column-label" />
+                                    </Button>
+                                    <Button Grid.Column="3" Classes="column-header" Tag="Url" Click="ColumnSort_Click">
+                                        <TextBlock x:Name="UrlColumn" Classes="column-label" />
+                                    </Button>
+                                    <Button Grid.Column="4" Width="123" Classes="column-header optional-column" Tag="Notes" Click="ColumnSort_Click">
+                                        <TextBlock x:Name="NotesColumn" Classes="column-label" />
+                                    </Button>
+                                    <Button Grid.Column="5" Width="102" Classes="column-header optional-column" Tag="UpdatedAt" Click="ColumnSort_Click">
+                                        <TextBlock x:Name="UpdatedColumn" Classes="column-label" />
+                                    </Button>
+                                </Grid>
+                            </Border>
+                            <ListBox x:Name="Entries" Grid.Row="1" Classes="entries-list" Background="Transparent" BorderThickness="0"
+                                     SelectionChanged="Entries_SelectionChanged" KeyDown="Entries_KeyDown">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="desktop:EntryRow">
+                                        <Grid ColumnDefinitions="2*,1.35*,Auto,1.65*,Auto,Auto" PointerPressed="EntryRow_PointerPressed"
+                                              PointerMoved="WorkspaceRow_PointerMoved" PointerReleased="WorkspaceRow_PointerReleased">
+                                            <Border Name="EntryTitleCell" Classes="entry-cell" DoubleTapped="EntryTitle_DoubleTapped">
+                                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                                                    <desktop:DesktopIcon Kind="{CompiledBinding Icon}" Width="14" Height="14" VerticalAlignment="Center"
+                                                                         Foreground="{DynamicResource WorkspaceLink}" />
+                                                    <TextBlock Grid.Column="1" Text="{CompiledBinding Title}" FontWeight="SemiBold" />
+                                                </Grid>
+                                            </Border>
+                                            <Border Name="EntryUserCell" Grid.Column="1" Classes="entry-cell" DoubleTapped="EntryUser_DoubleTapped">
+                                                <TextBlock Text="{CompiledBinding UserName}" />
+                                            </Border>
+                                            <Border Name="EntryPasswordCell" Grid.Column="2" Width="100" Classes="entry-cell" DoubleTapped="EntryPassword_DoubleTapped">
+                                                <TextBlock Text="{CompiledBinding DisplayPassword}" Foreground="{DynamicResource WorkspaceMuted}" />
+                                            </Border>
+                                            <Border Grid.Column="3" Classes="entry-cell" DoubleTapped="EntryUrl_DoubleTapped">
+                                                <TextBlock Text="{CompiledBinding Url}" Foreground="{DynamicResource WorkspaceLink}" />
+                                            </Border>
+                                            <TextBlock Grid.Column="4" Width="123" Padding="6,0" Classes="optional-column"
+                                                       Text="{CompiledBinding Notes}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Grid.Column="5" Width="102" Padding="6,0" Classes="optional-column"
+                                                       Text="{CompiledBinding Updated}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <TextBlock x:Name="EmptyEntries" Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource WorkspaceMuted}" Margin="16" TextWrapping="Wrap" IsHitTestVisible="False" />
+                        </Grid>
+                    </Border>
+                    <Border x:Name="EntryPreview" Grid.Row="2" CornerRadius="8" Padding="12,8" IsVisible="False"
+                            Background="{DynamicResource WorkspaceSurface}" BorderBrush="{DynamicResource WorkspaceBorder}" BorderThickness="1">
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="5" ColumnSpacing="10">
+                            <TextBlock x:Name="PreviewTitle" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                            <WrapPanel Grid.Row="1">
+                                <TextBlock x:Name="PreviewUser" Margin="0,0,12,2" TextTrimming="CharacterEllipsis" MaxWidth="220" />
+                                <TextBlock x:Name="PreviewUrl" Margin="0,0,12,2" TextTrimming="CharacterEllipsis" MaxWidth="240"
+                                           Foreground="{DynamicResource WorkspaceLink}" />
+                                <TextBlock x:Name="PreviewSecret" Margin="0,0,10,2" TextTrimming="CharacterEllipsis" MaxWidth="200" />
+                                <ProgressBar x:Name="PreviewQuality" Width="64" MinWidth="0" Height="5" Maximum="100"
+                                             VerticalAlignment="Center" />
+                            </WrapPanel>
+                            <StackPanel Grid.Column="1" Grid.RowSpan="2" Orientation="Horizontal" Spacing="5">
+                                <Button x:Name="PreviewReveal" Classes="icon-tool" Click="PreviewReveal_Click">
+                                    <desktop:DesktopIcon x:Name="PreviewRevealIcon" Kind="Eye" />
+                                </Button>
+                                <Button x:Name="PreviewCopyPassword" Classes="icon-tool" Click="CopyPassword_Click">
+                                    <desktop:DesktopIcon Kind="Copy" />
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <Grid x:Name="PagePanel" Grid.Row="3" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="7">
+                        <StackPanel Spacing="2" VerticalAlignment="Center">
+                            <TextBlock x:Name="EntryCount" Foreground="{DynamicResource WorkspaceMuted}" FontSize="12" />
+                            <TextBlock x:Name="BackupStatus" Foreground="{DynamicResource WorkspaceMuted}" FontSize="12" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <Button x:Name="PreviousPage" Classes="secondary-action" Grid.Column="1" Click="PreviousPage_Click" />
+                        <Button x:Name="NextPage" Classes="secondary-action" Grid.Column="2" Click="NextPage_Click" />
+                    </Grid>
+                </Grid>
             </Grid>
         </Grid>
-        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,8,0,0">
-            <TextBlock x:Name="StatusText" TextWrapping="Wrap" VerticalAlignment="Center" />
-            <Button x:Name="CancelOperation" Grid.Column="1" IsVisible="False" Click="CancelOperation_Click" />
-        </Grid>
+        <Border Grid.Row="1" Padding="14,6" Background="{DynamicResource WorkspaceSidebar}" MinHeight="32"
+                BorderBrush="{DynamicResource WorkspaceBorder}" BorderThickness="0,1,0,0">
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                <TextBlock x:Name="StatusText" TextWrapping="Wrap" VerticalAlignment="Center" FontSize="12"
+                           AutomationProperties.LiveSetting="Polite" />
+                <TextBlock x:Name="ClipboardStatus" Grid.Column="1" MaxWidth="280" TextWrapping="Wrap" FontSize="12"
+                           VerticalAlignment="Center" Foreground="{DynamicResource WorkspaceLink}" AutomationProperties.LiveSetting="Polite" />
+                <Button x:Name="CancelOperation" Grid.Column="2" IsVisible="False" Click="CancelOperation_Click" />
+            </Grid>
+        </Border>
     </Grid>
 </Window>

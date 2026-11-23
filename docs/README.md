@@ -20,6 +20,7 @@ The root [README](../README.md), [security policy](../SECURITY.md), [changelog](
 
 ## Audit evidence and findings
 
+- [Feature parity from 1.0.0 through 1.2.0](audit/FEATURE_PARITY_1.2.0.md).
 - [Initial technical audit](audit/AUDIT_2026-11-16.md) — findings against the identified 1.0.2 commit.
 - [Remediation status](audit/REMEDIATION_2026-11-16.md) — historical findings and fixes through 1.1.3, with a 1.2.0 follow-up.
 - [Synthetic reproduction evidence](audit/AUDIT_EVIDENCE_2026-11-16.json).

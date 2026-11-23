@@ -24,9 +24,10 @@ public sealed partial class VaultWindow
     private async void CopyUser_Click(object? sender, RoutedEventArgs e) => await CopyEntryFieldAsync(password: false);
     private async void CopyPassword_Click(object? sender, RoutedEventArgs e) => await CopyEntryFieldAsync(password: true);
 
-    private Task CopyEntryFieldAsync(bool password) => RunOperationAsync(async token =>
+    private Task CopyEntryFieldAsync(bool password, EntryRow? target = null) => RunOperationAsync(async token =>
     {
-        if (_session is not { } session || _clipboard is not { } clipboard || _query.OnlyRecycleBin || Entries.SelectedItem is not EntryRow row) return;
+        var row = target ?? Entries.SelectedItem as EntryRow;
+        if (_session is not { } session || _clipboard is not { } clipboard || _query.OnlyRecycleBin || row == null) return;
         var overview = await session.Storage.LoadEntryOverviewAsync(row.Id, session.Crypto, row.Revision, token);
         try
         {
@@ -35,7 +36,7 @@ public sealed partial class VaultWindow
             int seconds = Math.Clamp(_settings.ClipboardClearSeconds, 3, 300);
             bool copied = await clipboard.CopyAsync(value, TimeSpan.FromSeconds(seconds), token);
             token.ThrowIfCancellationRequested();
-            StatusText.Text = copied ? Text("ClipboardCopiedFor", Text(password ? "ColPassword" : "ColUserName"), seconds) : Text("ClipboardBusy");
+            ClipboardStatus.Text = copied ? Text("ClipboardCopiedFor", Text(password ? "ColPassword" : "ColUserName"), seconds) : Text("ClipboardBusy");
         }
         finally { overview.ClearSecrets(); }
     });
@@ -70,7 +71,7 @@ public sealed partial class VaultWindow
 
     private void PresentClipboardClear(ClipboardClearResult result)
     {
-        if (result == ClipboardClearResult.Cleared) StatusText.Text = Text("ClipboardCleared");
-        if (result == ClipboardClearResult.Busy) StatusText.Text = Text("ClipboardClearFailed");
+        if (result == ClipboardClearResult.Cleared) ClipboardStatus.Text = Text("ClipboardCleared");
+        if (result == ClipboardClearResult.Busy) ClipboardStatus.Text = Text("ClipboardClearFailed");
     }
 }

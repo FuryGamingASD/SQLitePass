@@ -14,20 +14,24 @@ public sealed partial class EntryEditor : Window
     private readonly Func<PasswordGeneratorDialog>? _createGenerator;
     private Window? _confirmation;
     private Task _operation = Task.CompletedTask;
+    private readonly bool _readOnly;
     private bool _closed;
     private bool _busy;
+    private bool _edited;
+    private bool _permitClose;
 
     public EntryEditor() : this(new PwEntry(), (key, _) => key) { }
 
     internal EntryEditor(PwEntry draft, Func<string, object[], string> text, string? vaultPath = null,
-        Func<PasswordGeneratorDialog>? createGenerator = null)
+        Func<PasswordGeneratorDialog>? createGenerator = null, bool readOnly = false)
     {
         _draft = draft;
         _text = text;
         _vaultPath = vaultPath;
         _createGenerator = createGenerator;
+        _readOnly = readOnly;
         InitializeComponent();
-        Title = text(draft.Revision > 0 ? "EntryEditTitle" : "EntryNewTitle", []);
+        Title = text(readOnly ? "EntryViewTitle" : draft.Revision > 0 ? "EntryEditTitle" : "EntryNewTitle", []);
         TitleLabel.Text = text("LblTitle", []);
         UserLabel.Text = text("LblUserName", []);
         PasswordLabel.Text = text("LblPassword", []);
@@ -52,6 +56,22 @@ public sealed partial class EntryEditor : Window
         InitializeAttachments();
         InitializeHistory();
         InitializeSensitiveReveals();
+        if (readOnly)
+        {
+            foreach (var field in new[] { EntryTitle, UserName, Password, Url, Tags, Notes, FieldName, FieldValue, Sequence })
+                field.IsReadOnly = true;
+            foreach (var command in new[] { Save, GeneratePassword, AddField, SaveField, RemoveField, AddAttachment,
+                RemoveAttachment, RestoreHistory, ClearHistory })
+                command.IsVisible = false;
+            EnableExpiry.IsEnabled = Expiry.IsEnabled = FieldProtected.IsEnabled = AutoTypeEnabled.IsEnabled = false;
+            Cancel.Content = text("Close", []);
+        }
+        EditedIndicator.Text = text("EntryUnsavedChanges", []);
+        foreach (var field in new[] { EntryTitle, UserName, Password, Url, Tags, Notes, Sequence })
+            field.TextChanged += (_, _) => MarkCredentialChanges();
+        EnableExpiry.IsCheckedChanged += (_, _) => MarkCredentialChanges();
+        Expiry.SelectedDateChanged += (_, _) => MarkCredentialChanges();
+        AutoTypeEnabled.IsCheckedChanged += (_, _) => MarkCredentialChanges();
         Opened += (_, _) => EntryTitle.Focus();
         Closed += (_, _) =>
         {
@@ -88,7 +108,49 @@ public sealed partial class EntryEditor : Window
         if (Expiry.IsEnabled && Expiry.SelectedDate == null) Expiry.SelectedDate = DateTimeOffset.Now.Date.AddMonths(3);
     }
 
-    private void Cancel_Click(object? sender, RoutedEventArgs e) => Close(false);
+    private void MarkEdited()
+    {
+        if (_readOnly || _closed) return;
+        _edited = EditedIndicator.IsVisible = true;
+    }
+
+    private void MarkCredentialChanges()
+    {
+        DateTime? expiry = EnableExpiry.IsChecked == true ? Expiry.SelectedDate?.Date : null;
+        if ((EntryTitle.Text ?? "") != _draft.Title || (UserName.Text ?? "") != _draft.UserName ||
+            (Password.Text ?? "") != _draft.Password || (Url.Text ?? "") != _draft.Url ||
+            (Tags.Text ?? "") != _draft.Tags || (Notes.Text ?? "") != _draft.Notes ||
+            (Sequence.Text ?? "") != _draft.AutoTypeSequence || expiry != _draft.ExpiryDate?.Date ||
+            (AutoTypeEnabled.IsChecked == true) != _draft.AutoTypeEnabled)
+            MarkEdited();
+    }
+
+    internal void CloseForVaultLock()
+    {
+        _permitClose = true;
+        if (!_closed) Close(false);
+    }
+
+    private void Cancel_Click(object? sender, RoutedEventArgs e) => CloseForVaultLock();
+
+    protected override async void OnClosing(WindowClosingEventArgs e)
+    {
+        base.OnClosing(e);
+        if (_permitClose || _readOnly || e.Cancel || e.CloseReason != WindowCloseReason.WindowClosing ||
+            (!_edited && !HasUncommittedField())) return;
+        e.Cancel = true;
+        if (_confirmation != null) return;
+        HideSensitiveValue();
+        try
+        {
+            if (await ConfirmHistoryAsync(_text("EntryUnsavedChanges", []), _text("EntryDiscardChanges", []), _lifetime.Token) && !_closed)
+            {
+                await Task.Yield();
+                CloseForVaultLock();
+            }
+        }
+        catch (OperationCanceledException) when (_closed) { }
+    }
 
     private async void GeneratePassword_Click(object? sender, RoutedEventArgs e)
     {
@@ -109,7 +171,7 @@ public sealed partial class EntryEditor : Window
 
     internal void Save_Click(object? sender, RoutedEventArgs e)
     {
-        if (_closed || _busy) return;
+        if (_readOnly || _closed || _busy) return;
         if (string.IsNullOrWhiteSpace(EntryTitle.Text))
         {
             ShowValidation("TitleRequired");
@@ -147,6 +209,7 @@ public sealed partial class EntryEditor : Window
                 return;
             }
         }
+        _permitClose = true;
         Close(true);
     }
 

@@ -35,6 +35,7 @@ public sealed partial class EntryEditor
         }
         attachment.EntryId = _draft.Id;
         _draft.Attachments.Add(attachment);
+        MarkEdited();
         Attachments.SelectedItem = attachment;
     }, "AttachmentFailed");
 
@@ -85,5 +86,6 @@ public sealed partial class EntryEditor
         if (Attachments.SelectedItem is not PwAttachment attachment) return;
         CryptographicOperations.ZeroMemory(attachment.Data);
         _draft.Attachments.Remove(attachment);
+        MarkEdited();
     }
 }

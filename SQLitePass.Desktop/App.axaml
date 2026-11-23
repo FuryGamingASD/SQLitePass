@@ -1,7 +1,55 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:desktop="using:SQLitePass.Desktop"
              x:Class="SQLitePass.Desktop.App">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="WorkspaceCanvas">#09090B</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceSurface">#121215</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceSidebar">#0D0D10</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceBorder">#27272A</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceText">#F4F4F5</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceMuted">#A1A1AA</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceBrandTint">#172554</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceLink">#93C5FD</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceDanger">#FCA5A5</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceWarning">#FCD34D</SolidColorBrush>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="WorkspaceCanvas">#F8FAFC</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceSurface">#FFFFFF</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceSidebar">#F1F5F9</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceBorder">#CBD5E1</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceText">#0F172A</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceMuted">#475569</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceBrandTint">#DBEAFE</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceLink">#1D4ED8</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceDanger">#B91C1C</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceWarning">#92400E</SolidColorBrush>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="{x:Static desktop:DesktopAppearance.HighContrast}">
+                    <SolidColorBrush x:Key="WorkspaceCanvas">#000000</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceSurface">#000000</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceSidebar">#000000</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceBorder">#FFFFFF</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceText">#FFFFFF</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceMuted">#FFFFFF</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceBrandTint">#242424</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceLink">#FFFF00</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceDanger">#FFB4B4</SolidColorBrush>
+                    <SolidColorBrush x:Key="WorkspaceWarning">#FFFF00</SolidColorBrush>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
     <Application.Styles>
-        <FluentTheme />
+        <FluentTheme>
+            <FluentTheme.Palettes>
+                <ColorPaletteResources x:Key="Light" Accent="#2563EB" />
+                <ColorPaletteResources x:Key="Dark" Accent="#2563EB" />
+            </FluentTheme.Palettes>
+        </FluentTheme>
     </Application.Styles>
 </Application>

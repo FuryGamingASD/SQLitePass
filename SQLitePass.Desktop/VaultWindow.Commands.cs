@@ -7,13 +7,17 @@ namespace SQLitePass.Desktop;
 
 public sealed partial class VaultWindow
 {
-    private IEnumerable<GroupChoice> FolderChoices => Groups.Items.OfType<GroupChoice>();
+    internal IReadOnlyList<GroupChoice> FolderChoices { get; private set; } = [];
     private PwGroup? SelectedFolder => (Groups.SelectedItem as GroupChoice)?.Folder;
     private Guid? RootFolderId => FolderChoices.FirstOrDefault(choice => choice.Folder?.IsRoot == true)?.Id;
 
     private void SetVaultCommandLabels()
     {
         FileMenu.Header = Text("MenuFile");
+        NewEntryCommand.Header = Text("MenuAddEntry");
+        NewFolderCommand.Header = Text("MenuAddGroup");
+        LockCommand.Header = Text("MenuLockVault");
+        EditEntryCommand.Header = Text("MenuEditEntry");
         ChangeCredential.Header = Text("MenuChangeMasterPassword");
         ImportKeePass.Header = Text("MenuImportCsv");
         ImportBitwarden.Header = Text("MenuImportBitwardenJson");
@@ -30,8 +34,16 @@ public sealed partial class VaultWindow
         MoveFolder.Header = Text("MoveFolderToFolder");
         MoveFolderUp.Header = Text("MenuMoveGroupUp");
         MoveFolderDown.Header = Text("MenuMoveGroupDown");
+        MoveFolderToRoot.Header = Text("MenuMoveGroupToRoot");
         DeleteFolder.Header = Text("MenuDeleteGroup");
-        EntryMenu.Header = Text("EntriesList");
+        EntryMenu.Header = Text("MenuEdit");
+        ViewMenu.Header = Text("MenuView");
+        ToolsMenu.Header = Text("MenuTools");
+        ThemeCommand.Header = Text("MenuToggleTheme");
+        PasswordColumnCommand.Header = Text("MenuTogglePasswords");
+        RefreshCommand.Header = Text("MenuRefresh");
+        AboutCommand.Header = Text("MenuAbout");
+        OpenUrlCommand.Header = Text("TbOpenUrl");
         CopyUser.Header = Text("TbCopyUser");
         CopyPassword.Header = Text("TbCopyPassword");
         AutoTypeEntry.Header = Text("MenuAutoType");
@@ -46,24 +58,42 @@ public sealed partial class VaultWindow
     {
         var folder = SelectedFolder;
         bool writable = _session is { Storage.IsReadOnly: false };
-        bool hasEntry = Entries.SelectedItem is EntryRow;
+        var selected = Entries.SelectedItem as EntryRow;
+        bool hasEntry = selected != null;
         ChangeCredential.IsEnabled = writable;
         ClearClipboard.IsEnabled = _clipboard != null;
-        CopyUser.IsEnabled = CopyPassword.IsEnabled = _clipboard != null && hasEntry && !_query.OnlyRecycleBin;
-        AutoTypeEntry.IsEnabled = _autoTypeAvailable && hasEntry && !_query.OnlyRecycleBin;
+        bool canCopy = _clipboard != null && hasEntry && !_query.OnlyRecycleBin;
+        CopyUser.IsEnabled = ToolbarCopyUser.IsEnabled = canCopy && !string.IsNullOrEmpty(selected?.UserName);
+        CopyPassword.IsEnabled = ToolbarCopyPassword.IsEnabled = PreviewCopyPassword.IsEnabled = canCopy && selected!.HasPassword;
+        AutoTypeEntry.IsEnabled = ToolbarAutoType.IsEnabled = _autoTypeAvailable && hasEntry && !_query.OnlyRecycleBin;
+        OpenUrlCommand.IsEnabled = ToolbarOpenUrl.IsEnabled = selected != null && EntryUri(selected.Url) != null && !_query.OnlyRecycleBin;
+        PreviewReveal.IsEnabled = selected?.HasPassword == true && !_query.OnlyRecycleBin;
         ImportKeePass.IsEnabled = ImportBitwarden.IsEnabled = ImportBrowser.IsEnabled = writable;
         ExportKeePass.IsEnabled = _session != null;
         bool editableFolder = writable && folder is { IsRoot: false, IsRecycleBin: false };
-        CreateFolder.IsEnabled = writable && !_query.OnlyRecycleBin;
+        CreateFolder.IsEnabled = NewFolderCommand.IsEnabled = SidebarAddFolder.IsEnabled = writable && !_query.OnlyRecycleBin;
         RenameFolder.IsEnabled = writable && folder is { IsRecycleBin: false };
         MoveFolder.IsEnabled = DeleteFolder.IsEnabled = editableFolder;
         MoveFolderUp.IsEnabled = MoveFolderDown.IsEnabled = editableFolder;
-        AddEntry.IsEnabled = writable && !_query.OnlyRecycleBin;
-        EditEntry.IsEnabled = DuplicateEntry.IsEnabled = MoveEntryCommand.IsEnabled = writable && hasEntry && !_query.OnlyRecycleBin;
-        DeleteEntry.IsEnabled = writable && hasEntry;
+        MoveFolderToRoot.IsEnabled = editableFolder && folder?.ParentId != RootFolderId;
+        AddEntry.IsEnabled = NewEntryCommand.IsEnabled = writable && !_query.OnlyRecycleBin;
+        EditEntry.IsEnabled = EditEntryCommand.IsEnabled = hasEntry;
+        DuplicateEntry.IsEnabled = MoveEntryCommand.IsEnabled = writable && hasEntry && !_query.OnlyRecycleBin;
+        PasswordColumnCommand.IsEnabled = _session != null && !_query.OnlyRecycleBin;
+        DeleteEntry.IsEnabled = ToolbarDelete.IsEnabled = writable && hasEntry;
         RestoreEntry.IsEnabled = writable && hasEntry && _query.OnlyRecycleBin;
         EmptyRecycleBin.IsEnabled = writable && _query.OnlyRecycleBin;
     }
+
+    private async void MoveFolderToRoot_Click(object? sender, RoutedEventArgs e) => await RunOperationAsync(async token =>
+    {
+        if (_session is not { Storage.IsReadOnly: false } session ||
+            SelectedFolder is not { IsRoot: false, IsRecycleBin: false } folder || RootFolderId is not { } root ||
+            folder.ParentId == root) return;
+        await session.Storage.MoveGroupAsync(folder.Id, folder.Revision, root, session.Crypto);
+        token.ThrowIfCancellationRequested();
+        await ReloadFolderAsync(session, folder.Id, token);
+    });
 
     private async void CreateFolder_Click(object? sender, RoutedEventArgs e) => await OpenFolderEditorAsync(rename: false);
     private async void RenameFolder_Click(object? sender, RoutedEventArgs e) => await OpenFolderEditorAsync(rename: true);

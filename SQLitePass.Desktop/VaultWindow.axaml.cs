@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Security.Cryptography;
@@ -12,15 +13,62 @@ using SQLitePass.Core.Crypto;
 using SQLitePass.Core.Models;
 using SQLitePass.Core.Services;
 using SQLitePass.Desktop.Services;
+using SQLitePass.UI.Controls;
 using SQLitePass.UI.Services;
 
 namespace SQLitePass.Desktop;
 
-internal sealed record EntryRow(Guid Id, long Revision, string Title, string UserName, string Url);
-internal sealed record GroupChoice(PwGroup? Folder, string Name)
+internal sealed class EntryRow(Guid id, long revision, string title, string userName, bool hasPassword,
+    string url, string notes, string updated, double? passwordQuality) : INotifyPropertyChanged
 {
+    private string? _revealedPassword;
+
+    public Guid Id { get; } = id;
+    public long Revision { get; } = revision;
+    public string Title { get; } = title;
+    public string UserName { get; } = userName;
+    public bool HasPassword { get; } = hasPassword;
+    public string Url { get; } = url;
+    public string Notes { get; } = notes;
+    public string Updated { get; } = updated;
+    public double? PasswordQuality { get; } = passwordQuality;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+    public AppIconKind Icon => AppIconLabels.Entry(Title);
+    public string PasswordMask => HasPassword ? "••••••••" : "";
+    public string DisplayPassword => _revealedPassword ?? PasswordMask;
+
+    public void SetRevealedPassword(string? password)
+    {
+        if (_revealedPassword == password) return;
+        _revealedPassword = password;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DisplayPassword)));
+    }
+}
+internal sealed class GroupChoice(PwGroup? folder, string name)
+{
+    public PwGroup? Folder { get; } = folder;
+    public string Name { get; } = name;
     public Guid? Id => Folder?.Id;
     public bool IsRecycleBin => Folder?.IsRecycleBin == true;
+    public string Caption => Folder?.Name ?? Name;
+    public AppIconKind Icon => IsRecycleBin ? AppIconKind.Trash :
+        Folder?.IsRoot == true ? AppIconKind.Shield : AppIconLabels.Group(Caption);
+    public IReadOnlyList<GroupChoice> Children { get; set; } = [];
+    public Action<Guid, bool>? ExpansionChanged { get; set; }
+    private bool _expanded;
+
+    public bool Expanded
+    {
+        get => _expanded;
+        set
+        {
+            if (_expanded == value) return;
+            _expanded = value;
+            if (Id is { } id) ExpansionChanged?.Invoke(id, value);
+        }
+    }
+
     public override string ToString() => Name;
 }
 
@@ -36,6 +84,7 @@ public sealed partial class VaultWindow : Window
     private TaskCompletionSource? _operationFinished;
     private Window? _ownedDialog;
     private EntryPageQuery _query = new();
+    private EntryPageCursor? _shownPage;
     private EntryPageCursor? _previous;
     private EntryPageCursor? _next;
     private bool _closing;
@@ -47,8 +96,11 @@ public sealed partial class VaultWindow : Window
 
     public VaultWindow() : this(new AppSettings()) { }
 
-    public VaultWindow(AppSettings settings, bool useNativeSession = false)
+    public VaultWindow(AppSettings settings, bool useNativeSession = false) : this(settings, useNativeSession, null) { }
+
+    internal VaultWindow(AppSettings settings, bool useNativeSession, SessionClipboard? clipboard)
     {
+        _clipboard = clipboard;
         _settings = settings;
         _language = TranslationCatalog.ResolveLanguage(settings.Language, CultureInfo.CurrentUICulture);
         InitializeComponent();
@@ -64,15 +116,11 @@ public sealed partial class VaultWindow : Window
         RestoreBackup.Content = Text("LoginRestoreBackup");
         LoginGenerator.Content = Text("GeneratorTitle");
         LoginCheckUpdates.Content = Text("MenuCheckUpdates").Replace("_", "", StringComparison.Ordinal);
-        LoginSettings.Content = Text("TbSettings");
-        LockVault.Content = Text("MenuLockVault").Replace("_", "", StringComparison.Ordinal);
         SearchBox.PlaceholderText = Text("SearchPlaceholder");
-        Search.Content = Text("SearchActiveScope");
         InitializeBrowseOptions();
-        AddEntry.Content = Text("TbNewEntry");
-        EditEntry.Content = Text("TbEdit");
         SetVaultCommandLabels();
-        Avalonia.Automation.AutomationProperties.SetName(Entries, Text("AllActiveEntries"));
+        InitializeWorkspace(useNativeSession);
+        Avalonia.Automation.AutomationProperties.SetName(Entries, Text("EntriesList"));
         Avalonia.Automation.AutomationProperties.SetName(Groups, Text("FoldersAndGroups"));
         PreviousPage.Content = Text("PreviousEntryPage");
         NextPage.Content = Text("NextEntryPage");
@@ -190,6 +238,7 @@ public sealed partial class VaultWindow : Window
     {
         string password = MasterPassword.Text ?? "";
         string? path = KeyFilePath.Text?.Trim();
+        HideLoginPassword();
         MasterPassword.Clear();
         return Task.Run(() => string.IsNullOrEmpty(path) ? new MasterKey(password) : MasterKey.FromFile(password, path), token);
     }
@@ -201,15 +250,19 @@ public sealed partial class VaultWindow : Window
             token.ThrowIfCancellationRequested();
             _query = new EntryPageQuery();
             await LoadPageAsync(session, _query, null, token);
+            await EnterVaultLayoutAsync();
             token.ThrowIfCancellationRequested();
             _session = session;
             session.Storage.BackupStatusChanged += OnBackupStatusChanged;
             UpdateBackupStatus();
             ResetIdleTime();
             VaultName.Text = session.Metadata.VaultName;
+            RememberVaultPath();
             UnlockPanel.IsVisible = false;
             VaultPanel.IsVisible = true;
+            RegisterGlobalAutoType();
             SearchBox.Focus();
+            if (_settings.ShowPasswordColumnDefault) await RevealPasswordColumnPageAsync(token);
         }
         finally
         {
@@ -228,6 +281,7 @@ public sealed partial class VaultWindow : Window
 
     internal Task SearchAsync() => RunOperationAsync(async token =>
     {
+        _searchTimer.Stop();
         if (_session == null) return;
         await RefreshEntryQueryAsync(_session, ReadBrowseOptions(_query), token);
     });
@@ -248,8 +302,8 @@ public sealed partial class VaultWindow : Window
         }
         catch
         {
-            if (!token.IsCancellationRequested && Groups.ItemsSource is IEnumerable<GroupChoice> choices)
-                Groups.SelectedItem = choices.FirstOrDefault(choice => choice.Id == _query.GroupId);
+            if (!token.IsCancellationRequested)
+                Groups.SelectedItem = FolderChoices.FirstOrDefault(choice => choice.Id == _query.GroupId);
             throw;
         }
     });
@@ -275,9 +329,19 @@ public sealed partial class VaultWindow : Window
         try
         {
             token.ThrowIfCancellationRequested();
-            SetGroupChoices(page.Groups, query.GroupId);
-            Entries.ItemsSource = page.Entries.Select(entry => new EntryRow(entry.Id, entry.Revision, entry.Title, entry.UserName, entry.Url)).ToArray();
+            SetGroupChoices(page.Groups, query.GroupId, session.Metadata.VaultId);
+            HideColumnPasswords();
+            var selectedEntry = (Entries.SelectedItem as EntryRow)?.Id;
+            var rows = page.Entries.Select(entry => new EntryRow(entry.Id, entry.Revision, entry.Title, entry.UserName,
+                !string.IsNullOrEmpty(entry.Password), entry.Url, NotePreview(entry.Notes),
+                entry.UpdatedAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture),
+                entry.Password.Length is > 0 and <= 512 ? PasswordGenerator.CalculateEntropy(entry.Password) : null)).ToArray();
+            Entries.ItemsSource = rows;
+            Entries.SelectedItem = rows.FirstOrDefault(row => row.Id == selectedEntry);
+            EmptyEntries.IsVisible = rows.Length == 0;
+            UpdateEntryPreview();
             EntryCount.Text = Text("EntriesPageRange", page.FirstIndex, page.Entries.Count == 0 ? 0 : page.FirstIndex + page.Entries.Count - 1, page.MatchedCount);
+            _shownPage = cursor;
             _previous = page.PreviousCursor;
             _next = page.NextCursor;
         }
@@ -287,39 +351,17 @@ public sealed partial class VaultWindow : Window
         }
     }
 
-    private void SetGroupChoices(IReadOnlyList<PwGroup> groups, Guid? selected)
+    private void Entries_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        var map = groups.ToDictionary(group => group.Id);
-        string GroupPath(PwGroup group)
-        {
-            var parts = new Stack<string>();
-            parts.Push(group.Name);
-            for (Guid? ancestor = group.ParentId; ancestor is { } id && map.TryGetValue(id, out var parent); ancestor = parent.ParentId)
-                parts.Push(parent.Name);
-            return string.Join(" / ", parts);
-        }
-        var children = groups.ToLookup(group => group.ParentId);
-        var choices = new List<GroupChoice> { new(null, Text("AllActiveEntries")) };
-        void AddChildren(Guid? parent)
-        {
-            foreach (var child in children[parent])
-            {
-                choices.Add(new GroupChoice(child, GroupPath(child)));
-                AddChildren(child.Id);
-            }
-        }
-        AddChildren(null);
-        Groups.ItemsSource = choices;
-        Groups.SelectedItem = choices.FirstOrDefault(choice => choice.Id == selected) ?? choices[0];
+        UpdateEntryPreview();
+        UpdateVaultCommands();
     }
-
-    private void Entries_SelectionChanged(object? sender, SelectionChangedEventArgs e) => UpdateVaultCommands();
 
     private async void AddEntry_Click(object? sender, RoutedEventArgs e) => await OpenEditorAsync(null);
 
     private async void EditEntry_Click(object? sender, RoutedEventArgs e)
     {
-        if (Entries.SelectedItem is EntryRow row) await OpenEditorAsync(row);
+        if (Entries.SelectedItem is EntryRow row) await OpenSelectedEntryAsync(row);
     }
 
     internal Task OpenEditorAsync(EntryRow? row) => RunOperationAsync(async token =>
@@ -358,17 +400,26 @@ public sealed partial class VaultWindow : Window
 
     internal async Task LockVaultAsync()
     {
+        HidePasswordReveals();
+        _searchTimer.Stop();
+        _autoTypeHotkey?.Dispose();
+        _autoTypeHotkey = null;
         var finished = _operationFinished?.Task;
         _operation?.Cancel();
-        _ownedDialog?.Close(false);
+        if (_ownedDialog is EntryEditor editor) editor.CloseForVaultLock();
+        else _ownedDialog?.Close(false);
         var session = _session;
         _session = null;
         VaultPanel.IsVisible = false;
-        VaultName.Text = EntryCount.Text = BackupStatus.Text = SearchBox.Text = MasterPassword.Text = KeyFilePath.Text = "";
+        ClipboardStatus.Text = "";
+        VaultName.Text = FolderPath.Text = EntryCount.Text = BackupStatus.Text = SearchBox.Text = MasterPassword.Text = KeyFilePath.Text = "";
+        UseKeyFile.IsChecked = false;
         Entries.ItemsSource = null;
         Groups.ItemsSource = null;
+        FolderChoices = [];
+        UpdateEntryPreview();
         ResetBrowseOptions();
-        _previous = _next = null;
+        _shownPage = _previous = _next = null;
         var clipboardClear = _clipboard?.ClearAsync();
         if (session != null)
         {
@@ -401,6 +452,8 @@ public sealed partial class VaultWindow : Window
         if (_closing) return;
         _closing = true;
         await LockVaultAsync();
+        await FlushWorkspacePreferencesAsync();
+        await SaveWindowSizeAsync(this);
         _permitClose = true;
         // Avoid reentering the native Closing callback when no operation was pending.
         await Task.Yield();
@@ -457,10 +510,12 @@ public sealed partial class VaultWindow : Window
     private void UpdateControls()
     {
         bool idle = _operation == null && !_closing && !_systemLocked;
-        UnlockPanel.IsEnabled = QueryPanel.IsEnabled = GroupPanel.IsEnabled = VaultMenu.IsEnabled = idle;
+        UnlockPanel.IsEnabled = GroupPanel.IsEnabled = VaultMenu.IsEnabled = VaultToolbar.IsEnabled = Entries.IsEnabled = idle;
+        QueryPanel.IsEnabled = idle || _liveSearch && !_closing && !_systemLocked;
+        EntryPreview.IsEnabled = idle;
         CancelOperation.IsVisible = _canCancelOperation && !_closing && !_systemLocked;
         CancelOperation.IsEnabled = _operation?.IsCancellationRequested == false;
-        Search.Content = Text(_query.OnlyRecycleBin ? "SearchRecycleBinScope" : "SearchActiveScope");
+        LabelAction(Search, _query.OnlyRecycleBin ? "SearchRecycleBinScope" : "SearchActiveScope");
         UpdateVaultCommands();
         PreviousPage.IsEnabled = idle && _previous != null;
         NextPage.IsEnabled = idle && _next != null;
@@ -506,8 +561,13 @@ public sealed partial class VaultWindow : Window
     private async Task<bool> ShowOwnedAsync(Window dialog)
     {
         ProtectDialog(dialog);
+        PrepareWindowSize(dialog);
         _ownedDialog = dialog;
         try { return await dialog.ShowDialog<bool>(this); }
-        finally { _ownedDialog = null; }
+        finally
+        {
+            _ownedDialog = null;
+            await SaveWindowSizeAsync(dialog);
+        }
     }
 }

@@ -34,6 +34,7 @@ public sealed partial class SettingsWindow : Window
         LanguageChoice.SelectedItem = LanguageChoice.Items.OfType<ComboBoxItem>()
             .FirstOrDefault(item => Equals(item.Tag, settings.Language)) ?? systemLanguage;
         SetOption(DarkTheme, "SettingsDarkTheme", settings.DarkMode);
+        SetOption(ShowPasswordsOnUnlock, "SettingsShowPasswordDefault", settings.ShowPasswordColumnDefault);
         SetOption(DiagnosticLogging, "SettingsDiagnosticLogging", settings.EnableDiagnosticLogging);
 
         SecurityHeading.Text = text("SettingsSectionSecurity", []);
@@ -135,6 +136,7 @@ public sealed partial class SettingsWindow : Window
 
         Settings.Language = (LanguageChoice.SelectedItem as ComboBoxItem)?.Tag as string ?? "";
         Settings.DarkMode = DarkTheme.IsChecked == true;
+        Settings.ShowPasswordColumnDefault = ShowPasswordsOnUnlock.IsChecked == true;
         Settings.EnableDiagnosticLogging = DiagnosticLogging.IsChecked == true;
         Settings.ClipboardClearSeconds = seconds;
         Settings.AutoLockMinutes = minutes;

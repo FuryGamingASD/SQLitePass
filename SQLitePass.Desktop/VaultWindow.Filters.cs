@@ -1,6 +1,7 @@
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using SQLitePass.Core.Models;
 using SQLitePass.Core.Services;
 
@@ -14,6 +15,8 @@ public sealed partial class VaultWindow
     }
 
     private bool _changingBrowseControls;
+    private bool _liveSearch;
+    private readonly DispatcherTimer _searchTimer = new() { Interval = TimeSpan.FromMilliseconds(280) };
 
     private void InitializeBrowseOptions()
     {
@@ -27,6 +30,7 @@ public sealed partial class VaultWindow
         {
             new(EntrySortField.Title, Text("ColTitle")),
             new(EntrySortField.UserName, Text("ColUserName")),
+            new(EntrySortField.Password, Text("ColPassword")),
             new(EntrySortField.Url, Text("ColUrl")),
             new(EntrySortField.Notes, Text("ColNotes")),
             new(EntrySortField.UpdatedAt, Text("ColUpdatedAt"))
@@ -39,6 +43,47 @@ public sealed partial class VaultWindow
         SortDescending.Content = Text("SortEntriesDescending");
         ResetFilters.Content = Text("ResetEntryFilters");
         ResetBrowseOptions();
+        SearchBox.TextChanged += QueueLiveSearch;
+        TagFilter.TextChanged += QueueLiveSearch;
+        _searchTimer.Tick += RunLiveSearch;
+        Closed += (_, _) => _searchTimer.Stop();
+    }
+
+    private void QueueLiveSearch(object? sender, TextChangedEventArgs e)
+    {
+        if (_session == null || _changingBrowseControls || _closing || _systemLocked) return;
+        _searchTimer.Stop();
+        _searchTimer.Start();
+    }
+
+    private async void RunLiveSearch(object? sender, EventArgs e)
+    {
+        _searchTimer.Stop();
+        if (_session == null || _closing || _systemLocked) return;
+        if (_operation != null) { _searchTimer.Start(); return; }
+        _liveSearch = true;
+        try { await SearchAsync(); }
+        finally
+        {
+            _liveSearch = false;
+            UpdateControls();
+        }
+    }
+
+    private async void ColumnSort_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_session == null || _operation != null || sender is not Button { Tag: string tag } ||
+            !Enum.TryParse<EntrySortField>(tag, out var sort)) return;
+        var option = SortField.Items.OfType<BrowseOption<EntrySortField>>().Single(item => item.Value == sort);
+        _changingBrowseControls = true;
+        try
+        {
+            bool same = Equals(SortField.SelectedItem, option);
+            SortField.SelectedItem = option;
+            SortDescending.IsChecked = same && SortDescending.IsChecked != true;
+        }
+        finally { _changingBrowseControls = false; }
+        await SearchAsync();
     }
 
     private EntryPageQuery ReadBrowseOptions(EntryPageQuery query) => query with

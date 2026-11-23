@@ -78,6 +78,7 @@ public sealed partial class EntryEditor
         foreach (var revision in _draft.History)
             revision.Title = revision.UserName = revision.Password = revision.Url = revision.Notes = revision.SnapshotJson = "";
         _draft.History.Clear();
+        MarkEdited();
         RefreshHistory();
     }, "HistoryRestoreFailed");
 

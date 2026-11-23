@@ -76,7 +76,7 @@ namespace SQLitePass.Core.Services
             if (string.IsNullOrWhiteSpace(filePath)) return;
             Store.Update(settings =>
             {
-                settings.RecentVaults.RemoveAll(x => string.Equals(x, filePath, StringComparison.OrdinalIgnoreCase));
+                settings.RecentVaults.RemoveAll(x => string.Equals(x, filePath, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal));
                 settings.RecentVaults.Insert(0, filePath);
                 settings.RecentVaults = settings.RecentVaults.Take(10).ToList();
                 settings.LastOpenedVaultPath = filePath;

@@ -1,7 +1,5 @@
 using System.Globalization;
-using Avalonia;
 using Avalonia.Interactivity;
-using Avalonia.Styling;
 using SQLitePass.Core.Services;
 using SQLitePass.UI.Services;
 using Velopack.Locators;
@@ -44,7 +42,7 @@ public sealed partial class VaultWindow
             AppSettings previous = _settings;
             _settings = saved;
             Topmost = saved.AlwaysOnTop;
-            if (Application.Current is { } app) app.RequestedThemeVariant = saved.DarkMode ? ThemeVariant.Dark : ThemeVariant.Light;
+            ApplyWorkspaceTheme(saved.DarkMode);
             AppLogger.Configure(saved.EnableDiagnosticLogging);
             if (previous.ProtectScreenCapture != saved.ProtectScreenCapture)
                 _desktopSession?.Protect(this, saved.ProtectScreenCapture);

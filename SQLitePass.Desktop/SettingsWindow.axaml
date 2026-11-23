@@ -1,40 +1,69 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="SQLitePass.Desktop.SettingsWindow"
+        Background="{DynamicResource WorkspaceCanvas}" Foreground="{DynamicResource WorkspaceText}"
         Width="575" Height="660" MinWidth="430" MinHeight="350"
         WindowStartupLocation="CenterOwner">
+    <Window.Styles>
+        <Style Selector="Border.settings-card">
+            <Setter Property="Background" Value="{DynamicResource WorkspaceSurface}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource WorkspaceBorder}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="14,12" />
+        </Style>
+        <Style Selector="TextBlock.settings-section">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="Margin" Value="0,0,0,3" />
+        </Style>
+    </Window.Styles>
     <Grid Margin="20" RowDefinitions="*,Auto,Auto" RowSpacing="12">
         <ScrollViewer>
-            <StackPanel Spacing="8" Margin="0,0,14,0">
-                <TextBlock x:Name="AppearanceHeading" FontWeight="SemiBold" />
-                <TextBlock x:Name="LanguageLabel" />
-                <ComboBox x:Name="LanguageChoice" MinWidth="154" AutomationProperties.LabeledBy="{Binding #LanguageLabel}" />
-                <CheckBox x:Name="DarkTheme" />
-                <CheckBox x:Name="DiagnosticLogging" />
-
-                <TextBlock x:Name="SecurityHeading" FontWeight="SemiBold" Margin="0,8,0,0" />
-                <TextBlock x:Name="ClipboardLabel" />
-                <TextBox x:Name="ClipboardSeconds" Width="104" HorizontalAlignment="Left" MaxLength="3"
-                         AutomationProperties.LabeledBy="{Binding #ClipboardLabel}" />
-                <TextBlock x:Name="IdleLabel" />
-                <TextBox x:Name="IdleMinutes" Width="104" HorizontalAlignment="Left" MaxLength="2"
-                         AutomationProperties.LabeledBy="{Binding #IdleLabel}" />
-                <CheckBox x:Name="LockOnMinimize" />
-                <CheckBox x:Name="LockOnSession" />
-                <CheckBox x:Name="ProtectCapture" />
-
-                <TextBlock x:Name="TrayHeading" FontWeight="SemiBold" Margin="0,8,0,0" />
-                <CheckBox x:Name="MinimizeToTray" />
-                <CheckBox x:Name="CloseToTray" />
-                <CheckBox x:Name="AlwaysOnTop" />
-                <CheckBox x:Name="StartWithWindows" />
-
-                <TextBlock x:Name="BackupHeading" FontWeight="SemiBold" Margin="0,8,0,0" />
-                <CheckBox x:Name="AutomaticBackup" />
-                <TextBlock x:Name="BackupDescription" TextWrapping="Wrap" />
-                <TextBlock x:Name="BackupFolderLabel" TextWrapping="Wrap" />
-                <TextBox x:Name="BackupFolder" AutomationProperties.LabeledBy="{Binding #BackupFolderLabel}" />
-                <Button x:Name="BrowseFolder" Click="BrowseFolder_Click" />
+            <StackPanel Spacing="10" Margin="0,0,8,0">
+                <Border Classes="settings-card">
+                    <StackPanel Spacing="7">
+                        <TextBlock x:Name="AppearanceHeading" Classes="settings-section" />
+                        <TextBlock x:Name="LanguageLabel" />
+                        <ComboBox x:Name="LanguageChoice" MinWidth="154" AutomationProperties.LabeledBy="{Binding #LanguageLabel}" />
+                        <CheckBox x:Name="DarkTheme" />
+                        <CheckBox x:Name="ShowPasswordsOnUnlock" />
+                        <CheckBox x:Name="DiagnosticLogging" />
+                    </StackPanel>
+                </Border>
+                <Border Classes="settings-card">
+                    <StackPanel Spacing="7">
+                        <TextBlock x:Name="SecurityHeading" Classes="settings-section" />
+                        <TextBlock x:Name="ClipboardLabel" />
+                        <TextBox x:Name="ClipboardSeconds" Width="104" HorizontalAlignment="Left" MaxLength="3"
+                                 AutomationProperties.LabeledBy="{Binding #ClipboardLabel}" />
+                        <TextBlock x:Name="IdleLabel" />
+                        <TextBox x:Name="IdleMinutes" Width="104" HorizontalAlignment="Left" MaxLength="2"
+                                 AutomationProperties.LabeledBy="{Binding #IdleLabel}" />
+                        <CheckBox x:Name="LockOnMinimize" />
+                        <CheckBox x:Name="LockOnSession" />
+                        <CheckBox x:Name="ProtectCapture" />
+                    </StackPanel>
+                </Border>
+                <Border Classes="settings-card">
+                    <StackPanel Spacing="7">
+                        <TextBlock x:Name="TrayHeading" Classes="settings-section" />
+                        <CheckBox x:Name="MinimizeToTray" />
+                        <CheckBox x:Name="CloseToTray" />
+                        <CheckBox x:Name="AlwaysOnTop" />
+                        <CheckBox x:Name="StartWithWindows" />
+                    </StackPanel>
+                </Border>
+                <Border Classes="settings-card">
+                    <StackPanel Spacing="7">
+                        <TextBlock x:Name="BackupHeading" Classes="settings-section" />
+                        <CheckBox x:Name="AutomaticBackup" />
+                        <TextBlock x:Name="BackupDescription" TextWrapping="Wrap" />
+                        <TextBlock x:Name="BackupFolderLabel" TextWrapping="Wrap" />
+                        <TextBox x:Name="BackupFolder" AutomationProperties.LabeledBy="{Binding #BackupFolderLabel}" />
+                        <Button x:Name="BrowseFolder" Click="BrowseFolder_Click" />
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </ScrollViewer>
         <TextBlock Grid.Row="1" x:Name="Validation" TextWrapping="Wrap" IsVisible="False"

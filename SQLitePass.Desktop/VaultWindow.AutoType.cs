@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using SQLitePass.Core.Services;
 using SQLitePass.Desktop.Services;
 
@@ -11,6 +12,7 @@ public sealed partial class VaultWindow
 {
     private bool _autoTypeAvailable;
     private bool _autoTypeInProgress;
+    private WindowsAutoTypeHotkey? _autoTypeHotkey;
 
     private void InitializeAutoType()
     {
@@ -36,7 +38,26 @@ public sealed partial class VaultWindow
         if (Entries.SelectedItem is EntryRow row) await RunOperationAsync(token => AutoTypeEntryAsync(row, token), canCancel: true);
     }
 
-    private async Task AutoTypeEntryAsync(EntryRow row, CancellationToken token)
+    private void RegisterGlobalAutoType()
+    {
+        if (_desktopSession == null || !OperatingSystem.IsWindows()) return;
+        _autoTypeHotkey = WindowsAutoTypeHotkey.TryRegister(this, GlobalAutoTypePressed);
+        if (_autoTypeHotkey == null) StatusText.Text = Text("HotkeyUnavailableStatus");
+    }
+
+    private void GlobalAutoTypePressed()
+    {
+        if (!OperatingSystem.IsWindows() || _session is not { } session || _systemLocked || _closing || _operation != null) return;
+        var input = new WindowsAutoTypeInput(allowActivation: false);
+        if (ReadAutoTypeTarget(input) is not { } target) return;
+        Dispatcher.UIThread.Post(async () =>
+        {
+            if (!ReferenceEquals(_session, session)) return;
+            await RunOperationAsync(token => AutoTypeEntryAsync(null, token, target), canCancel: true);
+        });
+    }
+
+    private async Task AutoTypeEntryAsync(EntryRow? row, CancellationToken token, AutoTypeTarget? capturedTarget = null)
     {
         if (_session is not { } session || _query.OnlyRecycleBin) return;
         using var linuxInput = OperatingSystem.IsLinux() ? X11AutoTypeInput.TryCreate() : null;
@@ -48,25 +69,27 @@ public sealed partial class VaultWindow
         }
 
         _autoTypeInProgress = true;
-        StatusText.Text = Text("AutoTypeSelectDestination");
+        if (capturedTarget == null) StatusText.Text = Text("AutoTypeSelectDestination");
         try
         {
-            var target = await WaitForAutoTypeTargetAsync(input, expected: null, token);
-            var matches = await session.Storage.FindAutoTypeCandidatesAsync(session.Crypto, target.Title, row.Id, row.Revision, token);
+            var target = capturedTarget ?? await WaitForAutoTypeTargetAsync(input, expected: null, token);
+            var matches = await session.Storage.FindAutoTypeCandidatesAsync(session.Crypto, target.Title, row?.Id, row?.Revision, token);
             try
             {
                 if (matches.Count != 1)
                 {
-                    StatusText.Text = Text("AutoTypeEntryUnavailable");
+                    if (capturedTarget != null) ShowFromTray();
+                    StatusText.Text = Text(row == null ? "AutoTypeGlobalNoUniqueMatch" : "AutoTypeEntryUnavailable");
                     return;
                 }
 
                 token.ThrowIfCancellationRequested();
                 if (ReadAutoTypeTarget(input) != target) throw new OperationCanceledException();
+                var entry = matches[0];
                 string process = $"{AutoTypeService.GetWindowProcessName(target.ProcessId)} ({target.ProcessId})";
                 ShowFromTray();
                 bool accepted = await ConfirmAsync(Text("AutoTypeConfirmTitle"),
-                    Text("AutoTypeConfirmText", VisibleAutoTypeTitle(matches[0].Title), VisibleAutoTypeTitle(target.Title), process)
+                    Text("AutoTypeConfirmText", VisibleAutoTypeTitle(entry.Title), VisibleAutoTypeTitle(target.Title), process)
                     + "\n\n" + Text("AutoTypeReturnToDestination"), acceptLabel: Text("AutoTypeConfirmAction"));
                 if (!accepted)
                 {
@@ -77,7 +100,7 @@ public sealed partial class VaultWindow
                 StatusText.Text = Text("AutoTypeReturnToDestination");
                 await WaitForAutoTypeTargetAsync(input, target, token);
 
-                var confirmed = await session.Storage.LoadAutoTypeEntryAsync(row.Id, row.Revision, session.Crypto, token);
+                var confirmed = await session.Storage.LoadAutoTypeEntryAsync(entry.Id, entry.Revision, session.Crypto, token);
                 try
                 {
                     await AutoTypeService.ExecuteAutoTypeAsync(confirmed, target.Handle, 250, token, input, target.Title, target.ProcessId);

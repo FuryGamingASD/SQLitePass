@@ -19,6 +19,9 @@
     <Compile Include="../SQLitePass.UI/Services/SingleInstanceCoordinator.cs" Link="Services/WindowsSingleInstanceCoordinator.cs" />
     <EmbeddedResource Include="../SQLitePass.UI/Localization/*.json" LogicalName="SQLitePass.Localization.%(Filename)%(Extension)" WithCulture="false" />
     <AvaloniaResource Include="../SQLitePass.UI/Resources/app.ico" Link="Resources/app.ico" />
+    <AvaloniaResource Include="../SQLitePass.UI/Resources/app_icon.png" Link="Resources/app_icon.png" />
+    <Compile Include="../SQLitePass.UI/Controls/AppIconPaths.cs" Link="Controls/AppIconPaths.cs" />
+    <Compile Include="../SQLitePass.UI/Controls/AppIconLabels.cs" Link="Controls/AppIconLabels.cs" />
     <Content Include="../LICENSE" Link="LICENSE" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="../SECURITY.md" Link="SECURITY.md" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
