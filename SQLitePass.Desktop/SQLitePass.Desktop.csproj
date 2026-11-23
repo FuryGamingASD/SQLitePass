@@ -10,6 +10,11 @@
     <ApplicationIcon>../SQLitePass.UI/Resources/app.ico</ApplicationIcon>
     <UpdateSigningPublicKeyBase64 Condition="'$(UpdateSigningPublicKeyBase64)' == ''">$(UPDATE_SIGNING_PUBLIC_KEY)</UpdateSigningPublicKeyBase64>
   </PropertyGroup>
+  <PropertyGroup Condition="!$([MSBuild]::IsOSPlatform('Windows'))">
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <CsWinRTEnabled>false</CsWinRTEnabled>
+    <CsWinRTIIDOptimizerOptOut>true</CsWinRTIIDOptimizerOptOut>
+  </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="SQLitePass.Tests" />
     <ProjectReference Include="../SQLitePass.Core/SQLitePass.Core.csproj" />

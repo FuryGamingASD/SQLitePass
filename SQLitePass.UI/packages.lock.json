@@ -14,6 +14,11 @@
         "resolved": "1.2.161",
         "contentHash": "OpHNacIumnkhaaX3ZlQ/TCR4YPOJvud2/PAOoWb6o+mIrLwIVA275I5wAgt4q/1O2VrJeDwR1qFQyqzG4lUArg=="
       },
+      "BouncyCastle.Cryptography": {
+        "type": "Transitive",
+        "resolved": "2.6.2",
+        "contentHash": "7oWOcvnntmMKNzDLsdxAYqApt+AjpRpP2CShjMfIa3umZ42UQMvH0tl1qAliYPNYO6vTdcGMqnRrCPmsfzTI1w=="
+      },
       "Konscious.Security.Cryptography.Argon2": {
         "type": "Transitive",
         "resolved": "1.3.1",
@@ -84,7 +89,14 @@
         "type": "Project",
         "dependencies": {
           "Konscious.Security.Cryptography.Argon2": "[1.3.1, )",
-          "Microsoft.Data.Sqlite": "[11.0.0, )"
+          "Microsoft.Data.Sqlite": "[11.0.0, )",
+          "SQLitePass.Kdbx": "[1.2.2, )"
+        }
+      },
+      "sqlitepass.kdbx": {
+        "type": "Project",
+        "dependencies": {
+          "BouncyCastle.Cryptography": "[2.6.2, )"
         }
       }
     },
