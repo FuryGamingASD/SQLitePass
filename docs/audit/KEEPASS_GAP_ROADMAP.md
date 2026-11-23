@@ -60,6 +60,7 @@
 | 2026-11-23 | Production signing custody | The encrypted RSA key was provisioned on FuryUbuntu with owner-only access. The unlock secret is protected by Windows DPAPI under the operator profile. Only the public pin was registered in GitHub. SHA-256 of the DER public key: `214BDFCF48E07D3631B4504F84959162CF5DF67D504A14CADFAE342D52AF2FCB`. |
 | 2026-11-23 | Bounded freshness | Implemented an offline-signed checkpoint binding the latest version and manifest digest with a maximum 30-day validity. It is distributed with the release, so an older valid checkpoint can still be replayed until expiry. The signed checkpoint can be renewed independently of the packages. |
 | 2026-11-23 | Packaging notice repair | The first 1.3.0 Windows release rehearsal passed 227 tests and stopped while collecting the SDK runtime notices. The package now preserves the publisher's Windows SDK license link and the vendored KDBX license and notice. The Windows release packaging script passed locally after this correction. [First rehearsal](https://github.com/FuryGamingASD/SQLitePass/actions/runs/45282055641) |
+| 2026-11-23 | Native signed release rehearsal | Windows and Linux passed shared verification and the installation and upgrade gates for `a77dac9`. Windows verified Setup, updates from the public WPF and Avalonia baselines, and uninstall. Linux verified exact replacement of the public 1.2.2 AppImage and vault reopening. Both applied an update signed by an ephemeral key, restarted at the test package version with the vault locked and reopened the synthetic fixture. The tagged build runs the gates again, including the manual transition. [Release rehearsal](https://github.com/FuryGamingASD/SQLitePass/actions/runs/45283170672) |
 
 ## Order of work
 
@@ -85,7 +86,7 @@
   - [x] Select an offline-signed, expiring checkpoint served by the latest release. [Freshness policy](../UPDATE_SIGNING.md#freshness-policy)
   - [x] Provision the encrypted RSA production key and register its public key.
   - [x] Implement the signed checkpoint and define its renewal interval. [Freshness policy](../UPDATE_SIGNING.md#freshness-policy)
-  - [ ] Rehearse the first installation and subsequent signed updates on both platforms.
+  - [x] Rehearse the first installation and subsequent signed updates on both platforms. [Native rehearsal](https://github.com/FuryGamingASD/SQLitePass/actions/runs/45283170672)
 - [x] Evaluate and implement optional machine-level configuration for locking, export and Auto-Type. Personal installations retain existing user preferences when no managed policy is present; administrators can apply the documented Windows or Linux policy.
 - [x] Run the full Release suite and desktop startup probe on FuryUbuntu for the integrated revision.
 

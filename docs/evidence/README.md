@@ -1,6 +1,6 @@
 # Verification evidence
 
-The [1.2.0 release outcome](../releases/RELEASE_OUTCOME_1.2.0.md) links to shared tests, native desktop and package verification, public package provenance and SHA-256 checksums. The Windows Win+L observation and the scope of the Linux logind, suspend and Xfce checks are recorded in the [desktop guide](../CROSS_PLATFORM.md#native-session-results-for-120).
+The 1.3.0 release report links to shared tests, native installation and signed upgrade rehearsals, public package provenance and SHA-256 checksums. The desktop guide records the earlier Windows Win+L and Linux logind, suspend and Xfce checks. [1.3.0 release verification](../releases/RELEASE_OUTCOME_1.3.0.md) · [Desktop session evidence](../CROSS_PLATFORM.md#native-session-results-for-120)
 
 ## Historical synthetic benchmarks and WPF checks
 

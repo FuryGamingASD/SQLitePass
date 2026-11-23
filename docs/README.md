@@ -31,6 +31,7 @@ The root [README](../README.md), [security policy](../SECURITY.md), [changelog](
 
 ## Releases
 
+- [SQLitePass 1.3.0 release verification and downloads](releases/RELEASE_OUTCOME_1.3.0.md).
 - [SQLitePass 1.3.0 release notes](../RELEASE_NOTES.md#sqlitepass-130).
 - [SQLitePass 1.3.0 first installation and authenticated upgrades](UPDATE_SIGNING.md#transition-for-existing-installations).
 - [SQLitePass 1.2.2 release outcome and downloads](releases/RELEASE_OUTCOME_1.2.2.md).

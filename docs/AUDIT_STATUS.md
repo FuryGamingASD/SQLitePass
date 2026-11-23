@@ -1,6 +1,6 @@
 # Audit Status
 
-Updated on 23 November 2026 for SQLitePass 1.3.0. This document summarizes the project's internal evidence. [Release notes](../RELEASE_NOTES.md#sqlitepass-130)
+Updated on 23 November 2026 for SQLitePass 1.3.0. This document summarizes the project's internal evidence. [Release verification](releases/RELEASE_OUTCOME_1.3.0.md)
 
 ## Purpose
 
