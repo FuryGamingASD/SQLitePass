@@ -128,6 +128,12 @@ public sealed partial class AvaloniaVaultTests
                     Assert.False(quality.IsVisible);
                     Assert.False(estimate.IsEnabled);
 
+                    var columnCommand = window.FindControl<MenuItem>("PasswordColumnCommand")!;
+                    columnCommand.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                    await WaitAsync(() => row.DisplayPassword == entrySecret && entries.IsEnabled, timeout.Token);
+                    columnCommand.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                    Assert.Equal(row.PasswordMask, row.DisplayPassword);
+
                     DoubleClick("EntryUserCell");
                     await WaitAsync(() => backend.Text == "demo-user", timeout.Token);
                     await WaitAsync(() => entries.IsEnabled, timeout.Token);

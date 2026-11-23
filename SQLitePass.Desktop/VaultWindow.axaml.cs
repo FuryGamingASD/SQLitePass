@@ -326,7 +326,7 @@ public sealed partial class VaultWindow : Window
     private async Task LoadPageAsync(VaultSession session, EntryPageQuery query, EntryPageCursor? cursor, CancellationToken token)
     {
         var storageQuery = query.GroupId.HasValue && query.GroupId == RootFolderId ? query with { GroupId = null } : query;
-        var page = await session.Storage.LoadEntryPageAsync(session.Crypto, storageQuery, cursor, cancellationToken: token);
+        var page = await session.Storage.LoadEntryGridPageAsync(session.Crypto, storageQuery, cursor, token);
         try
         {
             token.ThrowIfCancellationRequested();
@@ -334,7 +334,7 @@ public sealed partial class VaultWindow : Window
             HideColumnPasswords();
             var selectedEntry = (Entries.SelectedItem as EntryRow)?.Id;
             var rows = page.Entries.Select(entry => new EntryRow(entry.Id, entry.Revision, entry.Title, entry.UserName,
-                !string.IsNullOrEmpty(entry.Password), entry.Url, NotePreview(entry.Notes),
+                entry.HasPassword, entry.Url, NotePreview(entry.Notes),
                 entry.UpdatedAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture))).ToArray();
             Entries.ItemsSource = rows;
             Entries.SelectedItem = rows.FirstOrDefault(row => row.Id == selectedEntry);

@@ -41,8 +41,9 @@ public sealed partial class SqliteStorageProvider
         Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(query)));
 
     private static long EstimatedEntryBytes(PwEntry entry) => 1024L + 2L *
-        ((long)(entry.Title?.Length ?? 0) + (entry.UserName?.Length ?? 0) + (entry.Password?.Length ?? 0) +
-        (entry.Url?.Length ?? 0) + (entry.Notes?.Length ?? 0) + (entry.Tags?.Length ?? 0) + (entry.AutoTypeSequence?.Length ?? 0));
+        ((long)(entry.Title?.Length ?? 0) + (entry.UserName?.Length ?? 0) + (entry.GridPasswordLength ?? entry.Password?.Length ?? 0) +
+        (entry.Url?.Length ?? 0) + (entry.Notes?.Length ?? 0) + (entry.Tags?.Length ?? 0) +
+        (entry.GridAutoTypeSequenceLength ?? entry.AutoTypeSequence?.Length ?? 0));
 
     private static bool Matches(PwEntry entry, EntryPageQuery query, VaultMetadata metadata)
     {
@@ -70,7 +71,15 @@ public sealed partial class SqliteStorageProvider
 
     public Task<VaultEntryPage> LoadEntryPageAsync(CryptoEngine crypto, EntryPageQuery query,
         EntryPageCursor? cursor = null, Guid? focusEntryId = null, CancellationToken cancellationToken = default,
-        IProgress<VaultReadProgress>? progress = null)
+        IProgress<VaultReadProgress>? progress = null) =>
+        LoadEntryPageAsync(crypto, query, cursor, focusEntryId, cancellationToken, progress, forGrid: false);
+
+    public Task<VaultEntryPage> LoadEntryGridPageAsync(CryptoEngine crypto, EntryPageQuery query,
+        EntryPageCursor? cursor = null, CancellationToken cancellationToken = default) =>
+        LoadEntryPageAsync(crypto, query, cursor, focusEntryId: null, cancellationToken, progress: null, forGrid: true);
+
+    private Task<VaultEntryPage> LoadEntryPageAsync(CryptoEngine crypto, EntryPageQuery query, EntryPageCursor? cursor,
+        Guid? focusEntryId, CancellationToken cancellationToken, IProgress<VaultReadProgress>? progress, bool forGrid)
     {
         ArgumentNullException.ThrowIfNull(query);
         if (query.PageSize is < 1 or > 500 || query.MaximumPageBytes is < 1024 or > 64L * 1024 * 1024 ||
@@ -80,6 +89,9 @@ public sealed partial class SqliteStorageProvider
             throw new ArgumentException("Unsupported entry query.", nameof(query));
         if (query.Expiry != EntryExpiryFilter.All && query.ExpiryReferenceDate == null)
             query = query with { ExpiryReferenceDate = DateOnly.FromDateTime(DateTime.Today) };
+        JsonSerializerOptions? projection = null;
+        if (forGrid)
+            projection = query.SortBy == EntrySortField.Password ? EntrySerialization.PasswordSortedGridOptions : EntrySerialization.GridOptions;
         CheckCrypto(crypto);
         return ReadAsync((connection, transaction, key, metadata) =>
         {
@@ -100,7 +112,7 @@ public sealed partial class SqliteStorageProvider
             if ((cursor?.EntryId ?? focusEntryId) is Guid anchorId)
             {
                 var anchor = ReadEntries(connection, transaction, key, metadata, includeDetails: false, entryId: anchorId,
-                    cancellationToken: cancellationToken).SingleOrDefault();
+                    cancellationToken: cancellationToken, projection: projection).SingleOrDefault();
                 try
                 {
                     if (anchor != null && Matches(anchor, query, metadata))
@@ -120,7 +132,7 @@ public sealed partial class SqliteStorageProvider
             try
             {
                 foreach (var entry in EnumerateEntries(connection, transaction, key, metadata, includeDetails: false,
-                    cancellationToken: cancellationToken, progress: progress))
+                    cancellationToken: cancellationToken, progress: progress, projection: projection))
                 {
                     bool retained = false;
                     try
@@ -156,6 +168,15 @@ public sealed partial class SqliteStorageProvider
                     next = new(selected[^1].Id, stamp, queryStamp);
                 if (firstIndex > 1)
                     previous = new(selected[0].Id, stamp, queryStamp, Backward: true);
+                if (forGrid)
+                {
+                    foreach (var entry in selected)
+                    {
+                        entry.GridPasswordLength ??= entry.Password?.Length ?? 0;
+                        entry.Password = entry.AutoTypeSequence = string.Empty;
+                        entry.GridAutoTypeSequenceLength = null;
+                    }
+                }
                 return new VaultEntryPage(metadata, groups, selected, matched, total, firstIndex, start, next, previous);
             }
             catch

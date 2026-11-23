@@ -29,6 +29,10 @@ namespace SQLitePass.Core.Models
         [System.Text.Json.Serialization.JsonIgnore]
         public bool HasLoadedDetails { get; private set; } = true;
         internal void MarkAsOverview() => HasLoadedDetails = false;
+        internal int? GridPasswordLength { get; set; }
+        internal int? GridAutoTypeSequenceLength { get; set; }
+        [System.Text.Json.Serialization.JsonIgnore]
+        public bool HasPassword => (GridPasswordLength ?? Password?.Length ?? 0) > 0;
         [System.Text.Json.Serialization.JsonIgnore]
         public string? SourceGroupPath { get; set; }
 
@@ -173,6 +177,7 @@ namespace SQLitePass.Core.Models
 
         public void ClearSecrets()
         {
+            GridPasswordLength = GridAutoTypeSequenceLength = null;
             UserName = Password = Url = Notes = Tags = Title = AutoTypeSequence = string.Empty;
             foreach (var field in CustomFields) field.Value = string.Empty;
             foreach (var file in Attachments) System.Security.Cryptography.CryptographicOperations.ZeroMemory(file.Data);

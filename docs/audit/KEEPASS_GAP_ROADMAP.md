@@ -14,6 +14,9 @@
 | 2026-11-23 | Auto-Type memory | Candidate lookup projects identity, title, URL and eligibility for matching. The confirmation retains only ID, revision and title. The confirmed read projects fields usable by Auto-Type and skips attachments and history. Both paths still decrypt and clear a temporary authenticated record buffer. |
 | 2026-11-23 | Auto-Type verification | The Windows Release suite passed 171 tests, including title and URL matching, ambiguity and revision rejection, and use of custom fields with attachments and history absent from the confirmed model. The legacy WPF Release project built with zero warnings or errors. Native desktop retesting is pending. |
 | 2026-11-23 | Linux verification | On FuryUbuntu x64, an isolated checkout of `e221930` passed the locked restore and all 171 Release tests with SDK 10.0.404. The source startup probe passed under Xvfb. The package and native input probes remain pending. |
+| 2026-11-23 | Grid read design | Use a separate grid projection with password presence and scalar lengths. Keep the existing byte budget and sort keys so the displayed page can still be reloaded for an explicit reveal. Password sorting continues to require reading the password temporarily. |
+| 2026-11-23 | Grid implementation | Avalonia uses the reduced page. The normal grid read tracks the decoded lengths of passwords and Auto-Type sequences for the existing page budget. The password-sort path removes plaintext from the selected records before returning them to the workspace. |
+| 2026-11-23 | Grid verification on Windows | All 173 Release tests passed. The new paging cases compare normal grid and explicit reveal boundaries at the same byte limit with escaped Unicode data. The workspace test exercises revealing and hiding the password column and copying a password from a masked row. The legacy WPF Release project built with zero warnings or errors. |
 
 ## Order of work
 
@@ -25,4 +28,4 @@
 - [ ] Prepare a scoped independent review of the format, credential rotation, backup, import and update packages. Record the reviewed commit and follow-up findings.
 - [ ] Evaluate machine-level configuration for locking, export and Auto-Type when deployment requirements are available.
 
-The browsing scan still decrypts each scalar overview. Password sorting temporarily uses the plaintext value. The next memory pass should reduce fields materialized by the normal grid while preserving sorting, search, selection and the explicit reveal path.
+Grid reads still decrypt whole authenticated records temporarily and materialize the fields needed for display, filtering and ordering. Explicit password sorting temporarily uses the plaintext value. The next memory pass should narrow the selected-entry reads used for copying, revealing and scoring, which still obtain the full scalar overview.

@@ -109,6 +109,51 @@ public partial class VaultSecurityTests
         Assert.False(vault.Storage.IsReadOnly);
     }
 
+    [Theory]
+    [InlineData(EntrySortField.Title)]
+    [InlineData(EntrySortField.Password)]
+    public async Task GridPagesKeepTheSameBoundariesAsAnExplicitPasswordRead(EntrySortField sort)
+    {
+        using var vault = await TestVault.Create();
+        string escapedPassword = string.Concat(Enumerable.Repeat("À😀\"\\", 250));
+        string sequence = string.Concat(Enumerable.Repeat("è\\{TAB}", 200));
+        var entries = new[]
+        {
+            new PwEntry { GroupId = vault.Root.Id, Title = "A", Notes = "match" },
+            new PwEntry { GroupId = vault.Root.Id, Title = "B", Notes = "match", Password = escapedPassword, AutoTypeSequence = sequence },
+            new PwEntry { GroupId = vault.Root.Id, Title = "C", Notes = "match", Password = "z" },
+            new PwEntry { GroupId = vault.Root.Id, Title = "D", Notes = "unrelated", Password = "x" }
+        };
+        await vault.Storage.SaveEntriesBatchAsync(entries, vault.Crypto);
+        long budget = 2_048 + 2L * (entries[0].Title.Length + entries[0].Notes.Length + entries[0].AutoTypeSequence.Length +
+            entries[1].Title.Length + entries[1].Notes.Length + escapedPassword.Length + sequence.Length);
+        var query = new EntryPageQuery(SearchText: "match", SortBy: sort, MaximumPageBytes: budget);
+        EntryPageCursor? cursor = null;
+        var titles = new List<string>();
+        do
+        {
+            var grid = await vault.Storage.LoadEntryGridPageAsync(vault.Crypto, query, cursor);
+            var reveal = await vault.Storage.LoadEntryPageAsync(vault.Crypto, query, cursor);
+            if (cursor == null) Assert.Equal(2, grid.Entries.Count);
+            Assert.Equal(reveal.FirstIndex, grid.FirstIndex);
+            Assert.Equal(reveal.NextCursor, grid.NextCursor);
+            Assert.Equal(reveal.PreviousCursor, grid.PreviousCursor);
+            Assert.Equal(reveal.Entries.Select(entry => entry.Id), grid.Entries.Select(entry => entry.Id));
+            Assert.All(grid.Entries, entry =>
+            {
+                Assert.Empty(entry.Password);
+                Assert.Empty(entry.AutoTypeSequence);
+                Assert.False(entry.HasLoadedDetails);
+                Assert.Equal(entry.Title != "A", entry.HasPassword);
+            });
+            if (reveal.Entries.Any(entry => entry.Title == "B"))
+                Assert.Equal(escapedPassword, Assert.Single(reveal.Entries, entry => entry.Title == "B").Password);
+            titles.AddRange(grid.Entries.Select(entry => entry.Title));
+            cursor = grid.NextCursor;
+        } while (cursor != null);
+        Assert.Equal(sort == EntrySortField.Title ? new[] { "A", "B", "C" } : new[] { "A", "C", "B" }, titles);
+    }
+
     [Fact]
     public async Task SearchIsGlobalForActiveEntriesAndTrashSearchIsConfinedToTrash()
     {
