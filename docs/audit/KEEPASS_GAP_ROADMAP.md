@@ -30,6 +30,7 @@
 | 2026-11-23 | Editor memory implementation | Existing Avalonia drafts take ownership of the loaded entry and skip the upfront clone and serialized original. The Save action rereads the recorded revision and clears the temporary model after preparing history. |
 | 2026-11-23 | Legacy verifier repair | The session test still constructed a cursor with a sort value after the paging change. Updated the fixture to use the ID-only cursor and retained the assertion that locking clears pagination state. The full legacy WPF solution built with zero warnings or errors. Its isolated `--session-only` verifier passed the lock and editing checks. |
 | 2026-11-23 | Editor verification on Windows | All 181 Release tests passed. Coverage includes cleanup on discard and during cancellation, a conflict before loading the original revision, and preservation of the authenticated original revision with its attachment in saved history. |
+| 2026-11-23 | Editor verification on Linux | On FuryUbuntu x64, `a49252c` passed locked restore and all 181 Release tests with SDK 10.0.404. Source startup passed under Xvfb. Package and native desktop retesting remain pending. |
 
 ## Order of work
 
