@@ -25,6 +25,7 @@
 | 2026-11-23 | Password column design | Bind reveal to the snapshot shown by the grid, including the first page. Read the displayed entry identities and revisions in one authenticated transaction. If the page became stale, keep the passwords masked. |
 | 2026-11-23 | Password column implementation | Replaced the full page reload with a bounded, parameterized read for the displayed passwords. Preserved the 512 UTF-16 code unit preview cap and timed masking. Snapshot, revision or row mismatches stop the entire reveal. |
 | 2026-11-23 | Password column verification on Windows | All 177 Release tests passed. Coverage includes off-page exclusion, preview length, cancellation, stale revisions and missing records. The Avalonia workspace kept a stale first page masked after an edit from another session and revealed the password after refresh. The legacy WPF Release build completed with zero warnings or errors. |
+| 2026-11-23 | Password column verification on Linux | On FuryUbuntu x64, `9927ab6` passed locked restore and all 177 Release tests with SDK 10.0.404. Source startup passed under Xvfb. Package and native input probes remain pending. |
 
 ## Order of work
 
@@ -36,4 +37,4 @@
 - [ ] Prepare a scoped independent review of the format, credential rotation, backup, import and update packages. Record the reviewed commit and follow-up findings.
 - [ ] Evaluate machine-level configuration for locking, export and Auto-Type when deployment requirements are available.
 
-Grid reads still decrypt whole authenticated records temporarily and materialize the fields needed for display, filtering and ordering. Explicit password sorting temporarily uses the plaintext value. The next memory pass should review which sensitive data the entry editor retains across its tabs and after closing or locking.
+Grid reads still decrypt whole authenticated records temporarily and materialize the fields needed for display, filtering and ordering. Explicit password sorting temporarily uses the plaintext value. The next memory pass should review the entry editor. Its close handler clears text controls and detaches detail lists. `EntryEditDraft` still holds the serialized original entry for change detection and history across the lifetime of the editor. Preserve history on save and verify cancel, lock and revision conflicts when changing that retention.
