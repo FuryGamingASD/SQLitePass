@@ -21,7 +21,10 @@ public sealed record EntryPageCursor(Guid EntryId, string SnapshotStamp,
 
 public sealed record VaultEntryPage(VaultMetadata Metadata, List<PwGroup> Groups, List<PwEntry> Entries,
     int MatchedCount, int TotalCount, int FirstIndex, EntryPageCursor? CurrentCursor, EntryPageCursor? NextCursor,
-    EntryPageCursor? PreviousCursor = null);
+    EntryPageCursor? PreviousCursor = null)
+{
+    public string SnapshotStamp { get; init; } = string.Empty;
+}
 
 public class VaultConflictException(string message) : InvalidOperationException(message);
 

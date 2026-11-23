@@ -22,6 +22,9 @@
 | 2026-11-23 | Selected credential reads | Copy, preview reveal and quality estimation now request the specific username or password. The Core authenticates the vault, checks the record identity and revision, and clears the decrypted payload buffer. |
 | 2026-11-23 | Credential verification on Windows | All 175 Release tests passed. Coverage includes the two projections, escaped Unicode values, an empty password, cancellation, stale revisions, full-vault authentication, and the Avalonia copy, reveal and score actions. The legacy WPF Release project built with zero warnings or errors. |
 | 2026-11-23 | Credential verification on Linux | On FuryUbuntu x64, `42d133a` passed locked restore and all 175 Release tests with SDK 10.0.404. Source startup passed under Xvfb. Package and native input probes remain pending. |
+| 2026-11-23 | Password column design | Bind reveal to the snapshot shown by the grid, including the first page. Read the displayed entry identities and revisions in one authenticated transaction. If the page became stale, keep the passwords masked. |
+| 2026-11-23 | Password column implementation | Replaced the full page reload with a bounded, parameterized read for the displayed passwords. Preserved the 512 UTF-16 code unit preview cap and timed masking. Snapshot, revision or row mismatches stop the entire reveal. |
+| 2026-11-23 | Password column verification on Windows | All 177 Release tests passed. Coverage includes off-page exclusion, preview length, cancellation, stale revisions and missing records. The Avalonia workspace kept a stale first page masked after an edit from another session and revealed the password after refresh. The legacy WPF Release build completed with zero warnings or errors. |
 
 ## Order of work
 
@@ -33,4 +36,4 @@
 - [ ] Prepare a scoped independent review of the format, credential rotation, backup, import and update packages. Record the reviewed commit and follow-up findings.
 - [ ] Evaluate machine-level configuration for locking, export and Auto-Type when deployment requirements are available.
 
-Grid reads still decrypt whole authenticated records temporarily and materialize the fields needed for display, filtering and ordering. Explicit password sorting temporarily uses the plaintext value. The full-column reveal still reloads the scalar overview for the page. The next memory pass should read just the passwords and revisions of the visible rows for that action.
+Grid reads still decrypt whole authenticated records temporarily and materialize the fields needed for display, filtering and ordering. Explicit password sorting temporarily uses the plaintext value. The next memory pass should review which sensitive data the entry editor retains across its tabs and after closing or locking.

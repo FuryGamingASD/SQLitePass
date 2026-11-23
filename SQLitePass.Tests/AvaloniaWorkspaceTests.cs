@@ -141,6 +141,28 @@ public sealed partial class AvaloniaVaultTests
                     columnCommand.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
                     Assert.Equal(row.PasswordMask, row.DisplayPassword);
 
+                    await using (var writer = Assert.IsType<VaultSession>(await VaultSession.OpenAsync(path, master, store.Load(),
+                        () => Task.FromResult(false), timeout.Token)))
+                    {
+                        var updated = await writer.Storage.LoadEntryAsync(row.Id, writer.Crypto, row.Revision);
+                        try
+                        {
+                            updated.Notes = "Edited in another session";
+                            await writer.Storage.SaveEntryAsync(updated, writer.Crypto);
+                        }
+                        finally { updated.ClearSecrets(); }
+                    }
+                    columnCommand.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                    var status = window.FindControl<TextBlock>("StatusText")!;
+                    await WaitAsync(() => entries.IsEnabled && status.Text?.StartsWith("The state changed", StringComparison.Ordinal) == true, timeout.Token);
+                    Assert.Equal(row.PasswordMask, row.DisplayPassword);
+                    await window.SearchAsync();
+                    row = Assert.IsType<EntryRow>(Assert.Single(entries.Items));
+                    columnCommand.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                    await WaitAsync(() => row.DisplayPassword == entrySecret && entries.IsEnabled, timeout.Token);
+                    columnCommand.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                    Assert.Equal(row.PasswordMask, row.DisplayPassword);
+
                     DoubleClick("EntryUserCell");
                     await WaitAsync(() => backend.Text == "demo-user", timeout.Token);
                     await WaitAsync(() => entries.IsEnabled, timeout.Token);

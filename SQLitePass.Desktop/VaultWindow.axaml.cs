@@ -83,7 +83,7 @@ public sealed partial class VaultWindow : Window
     private TaskCompletionSource? _operationFinished;
     private Window? _ownedDialog;
     private EntryPageQuery _query = new();
-    private EntryPageCursor? _shownPage;
+    private string? _shownPageStamp;
     private EntryPageCursor? _previous;
     private EntryPageCursor? _next;
     private bool _closing;
@@ -341,7 +341,7 @@ public sealed partial class VaultWindow : Window
             EmptyEntryPanel.IsVisible = rows.Length == 0;
             UpdateEntryPreview();
             EntryCount.Text = Text("EntriesPageRange", page.FirstIndex, page.Entries.Count == 0 ? 0 : page.FirstIndex + page.Entries.Count - 1, page.MatchedCount);
-            _shownPage = cursor;
+            _shownPageStamp = page.SnapshotStamp;
             _previous = page.PreviousCursor;
             _next = page.NextCursor;
         }
@@ -421,7 +421,8 @@ public sealed partial class VaultWindow : Window
         FolderChoices = [];
         UpdateEntryPreview();
         ResetBrowseOptions();
-        _shownPage = _previous = _next = null;
+        _shownPageStamp = null;
+        _previous = _next = null;
         var clipboardClear = _clipboard?.ClearAsync();
         if (session != null)
         {

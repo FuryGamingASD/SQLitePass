@@ -356,7 +356,7 @@ public sealed partial class SqliteStorageProvider : IDisposable
     private static IEnumerable<PwEntry> EnumerateEntries(SqliteConnection c, SqliteTransaction tx, CryptoEngine crypto, VaultMetadata m,
         Guid? groupId = null, bool includeDetails = true, Guid? entryId = null,
         CancellationToken cancellationToken = default, IProgress<VaultReadProgress>? progress = null,
-        JsonSerializerOptions? projection = null)
+        JsonSerializerOptions? projection = null, IReadOnlyList<Guid>? entryIds = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         using var cmd = c.CreateCommand(); cmd.Transaction = tx;
@@ -366,6 +366,16 @@ public sealed partial class SqliteStorageProvider : IDisposable
         {
             cmd.CommandText += groupId.HasValue ? " AND id=$id" : " WHERE id=$id";
             cmd.Parameters.AddWithValue("$id", entryId.Value.ToString());
+        }
+        else if (entryIds != null)
+        {
+            var parameters = new string[entryIds.Count];
+            for (int i = 0; i < entryIds.Count; i++)
+            {
+                parameters[i] = "$id" + i.ToString(CultureInfo.InvariantCulture);
+                cmd.Parameters.AddWithValue(parameters[i], entryIds[i].ToString());
+            }
+            cmd.CommandText += (groupId.HasValue ? " AND " : " WHERE ") + $"id IN ({string.Join(", ", parameters)})";
         }
         int total = 0;
         if (progress != null)

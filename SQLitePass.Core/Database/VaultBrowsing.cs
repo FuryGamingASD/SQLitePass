@@ -11,6 +11,9 @@ namespace SQLitePass.Core.Database;
 
 public sealed partial class SqliteStorageProvider
 {
+    private const int MaximumEntryPageSize = 500;
+    private const int MaximumPasswordPreviewLength = 512;
+
     private readonly record struct EntryOrderKey(string Value, Guid Id);
 
     private static EntryOrderKey OrderKey(PwEntry entry, EntrySortField field) => new(field switch
@@ -82,7 +85,7 @@ public sealed partial class SqliteStorageProvider
         Guid? focusEntryId, CancellationToken cancellationToken, IProgress<VaultReadProgress>? progress, bool forGrid)
     {
         ArgumentNullException.ThrowIfNull(query);
-        if (query.PageSize is < 1 or > 500 || query.MaximumPageBytes is < 1024 or > 64L * 1024 * 1024 ||
+        if (query.PageSize is < 1 or > MaximumEntryPageSize || query.MaximumPageBytes is < 1024 or > 64L * 1024 * 1024 ||
             query.SearchText == null || query.SearchText.Length > 4096 || !Enum.IsDefined(query.SortBy) ||
             !Enum.IsDefined(query.Expiry) || query.Tag == null || query.Tag.Length > 256 ||
             query.ExpiryReferenceDate > DateOnly.MaxValue.AddDays(-30))
@@ -177,7 +180,7 @@ public sealed partial class SqliteStorageProvider
                         entry.GridAutoTypeSequenceLength = null;
                     }
                 }
-                return new VaultEntryPage(metadata, groups, selected, matched, total, firstIndex, start, next, previous);
+                return new VaultEntryPage(metadata, groups, selected, matched, total, firstIndex, start, next, previous) { SnapshotStamp = stamp };
             }
             catch
             {
@@ -186,6 +189,38 @@ public sealed partial class SqliteStorageProvider
                 throw;
             }
         }, cancellationToken, progress);
+    }
+
+    public Task<IReadOnlyDictionary<Guid, string>> LoadPasswordColumnAsync(CryptoEngine crypto, string snapshotStamp,
+        IReadOnlyDictionary<Guid, long> expectedRevisions, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(snapshotStamp);
+        ArgumentNullException.ThrowIfNull(expectedRevisions);
+        if (expectedRevisions.Count > MaximumEntryPageSize) throw new ArgumentOutOfRangeException(nameof(expectedRevisions));
+        var revisions = new Dictionary<Guid, long>(expectedRevisions);
+        var ids = revisions.Keys.ToArray();
+        CheckCrypto(crypto);
+        return ReadAsync<IReadOnlyDictionary<Guid, string>>((connection, transaction, key, metadata) =>
+        {
+            if (SnapshotStamp(connection, transaction) != snapshotStamp) throw new VaultPageChangedException();
+            var passwords = new Dictionary<Guid, string>(ids.Length);
+            if (ids.Length == 0) return passwords;
+
+            foreach (var entry in EnumerateEntries(connection, transaction, key, metadata, cancellationToken: cancellationToken,
+                projection: EntrySerialization.PasswordOptions, entryIds: ids))
+            {
+                try
+                {
+                    if (entry.Revision != revisions[entry.Id] || entry.GroupId == metadata.RecycleBinGroupId)
+                        throw new VaultPageChangedException();
+                    string password = entry.Password ?? string.Empty;
+                    passwords.Add(entry.Id, password.Length <= MaximumPasswordPreviewLength ? password : password[..MaximumPasswordPreviewLength]);
+                }
+                finally { entry.ClearSecrets(); }
+            }
+            if (passwords.Count != ids.Length) throw new VaultPageChangedException();
+            return passwords;
+        }, cancellationToken);
     }
 
     public Task<List<AutoTypeCandidate>> FindAutoTypeCandidatesAsync(CryptoEngine crypto, string windowTitle,

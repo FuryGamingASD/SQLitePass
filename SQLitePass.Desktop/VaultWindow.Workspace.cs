@@ -319,23 +319,16 @@ public sealed partial class VaultWindow
 
     private async Task RevealPasswordColumnPageAsync(CancellationToken token)
     {
-        if (_session is not { } session || _query.OnlyRecycleBin || Entries.ItemCount == 0) return;
+        if (_session is not { } session || _query.OnlyRecycleBin || _shownPageStamp is not { } stamp) return;
+        var rows = Entries.Items.OfType<EntryRow>().Where(row => row.HasPassword).ToDictionary(row => row.Id);
+        if (rows.Count == 0) return;
         int request = ++_columnRevealRequest;
-        var storageQuery = _query.GroupId.HasValue && _query.GroupId == RootFolderId ? _query with { GroupId = null } : _query;
-        var page = await session.Storage.LoadEntryPageAsync(session.Crypto, storageQuery, _shownPage, cancellationToken: token);
-        try
-        {
-            token.ThrowIfCancellationRequested();
-            if (request != _columnRevealRequest || !ReferenceEquals(_session, session)) return;
-            var rows = Entries.Items.OfType<EntryRow>().ToDictionary(row => row.Id);
-            foreach (var entry in page.Entries)
-            {
-                if (rows.TryGetValue(entry.Id, out var row) && row.Revision == entry.Revision && row.HasPassword)
-                    row.SetRevealedPassword(entry.Password.Length <= 512 ? entry.Password : entry.Password[..512]);
-            }
-            _columnRevealTimer.Start();
-        }
-        finally { foreach (var entry in page.Entries) entry.ClearSecrets(); }
+        var revisions = rows.ToDictionary(pair => pair.Key, pair => pair.Value.Revision);
+        var passwords = await session.Storage.LoadPasswordColumnAsync(session.Crypto, stamp, revisions, token);
+        token.ThrowIfCancellationRequested();
+        if (request != _columnRevealRequest || !ReferenceEquals(_session, session)) return;
+        foreach (var (id, password) in passwords) rows[id].SetRevealedPassword(password);
+        _columnRevealTimer.Start();
     }
 
     private void HideColumnPasswords()

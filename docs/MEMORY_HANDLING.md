@@ -177,6 +177,8 @@ Page cursors carry the boundary entry ID, snapshot and query stamps, and navigat
 
 Copying the username reads that field from the selected revision. Copying the password, revealing the selected password and estimating its quality each read the password from the selected revision. These reads authenticate the vault and zero the decrypted record buffer. The requested string may remain in managed memory until garbage collection.
 
+Revealing the password column reads only the passwords of entries displayed on the current page in one authenticated transaction. An outdated snapshot or entry revision leaves the entire column masked, including on the first page. The preview remains capped at 512 UTF-16 code units per entry. Each requested password can exist as a temporary managed string before that cap is applied.
+
 ---
 
 ## Entry Cleanup

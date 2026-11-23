@@ -155,6 +155,51 @@ public partial class VaultSecurityTests
     }
 
     [Fact]
+    public async Task PasswordColumnReadsOnlyRequestedRowsAndLimitsThePreview()
+    {
+        using var vault = await TestVault.Create();
+        string longPassword = new string('é', 512) + " omitted suffix";
+        var first = new PwEntry { GroupId = vault.Root.Id, Title = "A", Password = longPassword };
+        var second = new PwEntry { GroupId = vault.Root.Id, Title = "B", Password = "second synthetic value" };
+        var offPage = new PwEntry { GroupId = vault.Root.Id, Title = "C", Password = "off-page synthetic value" };
+        await vault.Storage.SaveEntriesBatchAsync([first, second, offPage], vault.Crypto);
+        var page = await vault.Storage.LoadEntryGridPageAsync(vault.Crypto, new(PageSize: 2));
+        var requested = page.Entries.ToDictionary(entry => entry.Id, entry => entry.Revision);
+        var passwords = await vault.Storage.LoadPasswordColumnAsync(vault.Crypto, page.SnapshotStamp, requested);
+
+        Assert.Equal(2, passwords.Count);
+        Assert.Equal(longPassword[..512], passwords[first.Id]);
+        Assert.Equal(second.Password, passwords[second.Id]);
+        Assert.DoesNotContain(offPage.Id, passwords.Keys);
+    }
+
+    [Fact]
+    public async Task PasswordColumnRejectsStaleSnapshotsRevisionsAndMissingRows()
+    {
+        using var vault = await TestVault.Create();
+        var entry = new PwEntry { GroupId = vault.Root.Id, Title = "A", Password = "first synthetic value" };
+        var offPage = new PwEntry { GroupId = vault.Root.Id, Title = "B", Password = "off-page synthetic value" };
+        await vault.Storage.SaveEntriesBatchAsync([entry, offPage], vault.Crypto);
+        var query = new EntryPageQuery(PageSize: 1);
+        var firstPage = await vault.Storage.LoadEntryGridPageAsync(vault.Crypto, query);
+        Assert.Null(firstPage.CurrentCursor);
+        var requested = new Dictionary<Guid, long> { [entry.Id] = entry.Revision };
+
+        offPage.Password = "unrelated edit";
+        await vault.Storage.SaveEntryAsync(offPage, vault.Crypto);
+        await Assert.ThrowsAsync<VaultPageChangedException>(() =>
+            vault.Storage.LoadPasswordColumnAsync(vault.Crypto, firstPage.SnapshotStamp, requested));
+        var current = await vault.Storage.LoadEntryGridPageAsync(vault.Crypto, query);
+        await Assert.ThrowsAsync<VaultPageChangedException>(() => vault.Storage.LoadPasswordColumnAsync(vault.Crypto,
+            current.SnapshotStamp, new Dictionary<Guid, long> { [entry.Id] = entry.Revision - 1 }));
+        await Assert.ThrowsAsync<VaultPageChangedException>(() => vault.Storage.LoadPasswordColumnAsync(vault.Crypto,
+            current.SnapshotStamp, new Dictionary<Guid, long> { [Guid.Empty] = entry.Revision }));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => vault.Storage.LoadPasswordColumnAsync(vault.Crypto,
+            current.SnapshotStamp, requested, new CancellationToken(canceled: true)));
+        Assert.False(vault.Storage.IsReadOnly);
+    }
+
+    [Fact]
     public async Task SearchIsGlobalForActiveEntriesAndTrashSearchIsConfinedToTrash()
     {
         using var vault = await TestVault.Create();
