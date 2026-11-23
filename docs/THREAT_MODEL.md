@@ -670,7 +670,7 @@ The Avalonia updater verifies a detached RSA/SHA-256 signature against a public 
 
 ### Residual Risk
 
-The signature prevents a party with release-feed or asset-upload access from substituting an unsigned update for a client with an installed pin. The private key stays with the signing operator outside GitHub. The operator must independently verify the source and candidate before signing. An administrator who controls the repository or builds can still submit misleading provenance or tamper with an initial download, so the first manual installation requires independently verified hashes and a pin. A signed release newer than the installed version can still be replayed while the host withholds a more recent release. An independently distributed signed checkpoint is the planned freshness control. [Signing and transition](UPDATE_SIGNING.md) · [Velopack feed hash discussion](https://github.com/velopack/velopack/issues/105)
+The signature prevents a party with release-feed or asset-upload access from substituting an unsigned update for a client with an installed pin. The private key stays with the signing operator outside GitHub. The operator must independently verify the source and candidate before signing. An administrator who controls the repository or builds can still submit misleading provenance or tamper with an initial download, so the first manual installation requires independently verified hashes and a pin. The offline-signed latest-release checkpoint limits replay to its validity period of up to 30 days. GitHub can withhold the latest checkpoint or replay an older one while it is valid. [Signing and transition](UPDATE_SIGNING.md) · [Velopack feed hash discussion](https://github.com/velopack/velopack/issues/105)
 
 ---
 
@@ -685,7 +685,7 @@ The signature prevents a party with release-feed or asset-upload access from sub
 | Clipboard Exposure | Timed Clipboard Cleanup |
 | Window Capture | Screen Capture Protection |
 | Auto-Type Hijack | Per-event Validation; Residual Global-Input Race |
-| Update Feed Tampering | Pinned publisher signature and package hash verification; production key custody and freshness remain open |
+| Update Feed Tampering | Pinned publisher signature, signed freshness checkpoint and package hash verification |
 | User Error | Recovery Snapshots |
 | Failed Rekey | Pre-Rekey Backup |
 | Failed Migration | Migration Backup |

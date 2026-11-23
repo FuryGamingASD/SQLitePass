@@ -57,6 +57,8 @@
 | 2026-11-23 | Production release check | The GitHub repository lists neither the `UPDATE_SIGNING_PUBLIC_KEY` variable nor the `UPDATE_SIGNING_PRIVATE_KEY` secret. Native installer transition and signed production publication remain open. The globally published version is 1.2.2. |
 | 2026-11-23 | Offline signing path | Tagged Verify runs assemble the Windows and Linux release bundle with the public key. The signer accepts an encrypted private key on the independently controlled machine. The publisher verifies the signed bundle locally before any publication action. Windows and Linux transition probes now pin the public 1.2.2 artifacts as the current baseline. The selected freshness design uses a separately distributed, signed, expiring checkpoint. |
 | 2026-11-23 | Offline signing verification | `e98fdf6` passed all 11 release simulations with an encrypted ephemeral RSA key on Windows and FuryUbuntu. The full Windows CI passed all 225 tests and the NuGet advisory gate. The production key and the native installer and signed-update rehearsals remain outstanding. |
+| 2026-11-23 | Production signing custody | The encrypted RSA key was provisioned on FuryUbuntu with owner-only access. The unlock secret is protected by Windows DPAPI under the operator profile. Only the public pin was registered in GitHub. SHA-256 of the DER public key: `214BDFCF48E07D3631B4504F84959162CF5DF67D504A14CADFAE342D52AF2FCB`. |
+| 2026-11-23 | Bounded freshness | Implemented an offline-signed checkpoint binding the latest version and manifest digest with a maximum 30-day validity. It is distributed with the release, so an older valid checkpoint can still be replayed until expiry. The signed checkpoint can be renewed independently of the packages. |
 
 ## Order of work
 
@@ -80,8 +82,9 @@
 - [x] Add independent publisher authentication for update feeds/packages with a pinned client key and tests for feed/package tampering, invalid signatures and replay/rollback. This mitigates release-host-only compromise. The production key is not provisioned; keep the trust-domain and release-transition actions below open.
   - [x] Separate bundle building, offline signing and publication. Update the Windows and Linux transition probes to cover the public 1.2.2 baseline. [Update signing runbook](../UPDATE_SIGNING.md#build-sign-and-publish)
   - [x] Select an independently distributed, signed, expiring checkpoint for update freshness. [Freshness policy](../UPDATE_SIGNING.md#freshness-policy)
-  - [ ] Provision the encrypted RSA production key with the signing operator and register its public key. Rehearse the first installation and subsequent signed updates on both platforms.
-  - [ ] Choose the independent checkpoint origin and renewal cadence, then integrate and verify the checkpoint before claiming automated freshness protection.
+  - [x] Provision the encrypted RSA production key and register its public key.
+  - [x] Implement the signed checkpoint and define its renewal interval. [Freshness policy](../UPDATE_SIGNING.md#freshness-policy)
+  - [ ] Rehearse the first installation and subsequent signed updates on both platforms.
 - [x] Evaluate and implement optional machine-level configuration for locking, export and Auto-Type. Personal installations retain existing user preferences when no managed policy is present; administrators can apply the documented Windows or Linux policy.
 - [x] Run the full Release suite and desktop startup probe on FuryUbuntu for the integrated revision.
 

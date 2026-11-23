@@ -138,6 +138,34 @@ public sealed class AuthenticatedUpdateSourceTests
         Assert.Equal(0, fixture.Provider.ReadCount);
     }
 
+    [Fact]
+    public async Task SignedFreshnessRejectsStaleFeedsAndManifestSubstitution()
+    {
+        using var fixture = new Fixture("1.2.4", [1, 2, 3], verifyFreshness: true);
+        var source = fixture.Source;
+        var release = Assert.Single((await source.GetReleaseFeed(null!, "SQLitePass", Channel)).Assets);
+        fixture.Inner.Assets[0] = new VelopackAsset { PackageId = "SQLitePass", Type = VelopackAssetType.Full,
+            Version = SemanticVersion.Parse("1.2.3") };
+        await Assert.ThrowsAsync<CryptographicException>(() => source.GetReleaseFeed(null!, "SQLitePass", Channel));
+        fixture.Inner.Assets[0] = release;
+        fixture.SetFreshness("1.2.4", new string('0', 64), fixture.Clock.Now, fixture.Clock.Now.AddDays(30));
+        await Assert.ThrowsAsync<CryptographicException>(() => source.GetReleaseFeed(null!, "SQLitePass", Channel));
+    }
+
+    [Fact]
+    public async Task FreshnessExpiryRejectsCurrentFeedAndPreviouslyApprovedPackage()
+    {
+        using var fixture = new Fixture("1.2.4", [1, 2, 3], verifyFreshness: true);
+        var asset = Assert.Single((await fixture.Source.GetReleaseFeed(null!, "SQLitePass", Channel)).Assets);
+        var local = new VelopackAsset { PackageId = "SQLitePass", Type = VelopackAssetType.Full, Version = asset.Version };
+        Assert.Empty((await fixture.Source.GetReleaseFeed(null!, "SQLitePass", Channel, latestLocalRelease: local)).Assets);
+        Assert.Single((await fixture.Source.GetReleaseFeed(null!, "SQLitePass", Channel)).Assets);
+        fixture.Clock.Now = fixture.Clock.Now.AddDays(30);
+        var error = Assert.Throws<CryptographicException>(() => fixture.Source.VerifyPackageFile(asset, "unused"));
+        Assert.Contains("no current", error.Message);
+        await Assert.ThrowsAsync<InvalidDataException>(() => fixture.Source.GetReleaseFeed(null!, "SQLitePass", Channel, latestLocalRelease: local));
+    }
+
     private sealed class Fixture : IDisposable
     {
         private readonly RSA _signer = RSA.Create(3072);
@@ -146,8 +174,10 @@ public sealed class AuthenticatedUpdateSourceTests
         internal FakeUpdateSource Inner { get; }
         internal FakeManifestProvider Provider { get; }
         internal AuthenticatedUpdateSource Source { get; }
+        internal TestClock Clock { get; } = new();
+        private readonly FakeFreshnessProvider _freshness;
 
-        internal Fixture(string version, byte[] packageBytes)
+        internal Fixture(string version, byte[] packageBytes, bool verifyFreshness = false)
         {
             PackageBytes = packageBytes;
             string sha256 = Convert.ToHexString(SHA256.HashData(packageBytes));
@@ -166,11 +196,33 @@ public sealed class AuthenticatedUpdateSourceTests
             byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(manifest);
             Manifest = new SignedManifestBytes(bytes, _signer.SignData(bytes, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1));
             Provider = new FakeManifestProvider(Manifest);
-            Source = new AuthenticatedUpdateSource(Inner, Provider,
-                new UpdateManifestVerifier(Convert.ToBase64String(_signer.ExportSubjectPublicKeyInfo())));
+            _freshness = new FakeFreshnessProvider(Provider);
+            SetFreshness(version, Convert.ToHexString(SHA256.HashData(bytes)), Clock.Now, Clock.Now.AddDays(30));
+            Source = new AuthenticatedUpdateSource(Inner, verifyFreshness ? _freshness : Provider,
+                new UpdateManifestVerifier(Convert.ToBase64String(_signer.ExportSubjectPublicKeyInfo())), Clock);
+        }
+
+        internal void SetFreshness(string version, string hash, DateTimeOffset issuedAt, DateTimeOffset expiresAt)
+        {
+            byte[] checkpoint = JsonSerializer.SerializeToUtf8Bytes(new UpdateFreshnessDocument(1, "SQLitePass", version, hash, issuedAt, expiresAt));
+            _freshness.Envelope = JsonSerializer.SerializeToUtf8Bytes(new SignedUpdateFreshness(Convert.ToBase64String(checkpoint),
+                Convert.ToBase64String(_signer.SignData(checkpoint, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1))));
         }
 
         public void Dispose() => _signer.Dispose();
+    }
+
+    private sealed class TestClock : TimeProvider
+    {
+        internal DateTimeOffset Now { get; set; } = new(2026, 11, 23, 13, 0, 0, TimeSpan.Zero);
+        public override DateTimeOffset GetUtcNow() => Now;
+    }
+
+    private sealed class FakeFreshnessProvider(FakeManifestProvider provider) : IUpdateManifestProvider, IUpdateFreshnessProvider
+    {
+        internal byte[] Envelope { get; set; } = [];
+        public Task<SignedManifestBytes> GetAsync(SemanticVersion version) => provider.GetAsync(version);
+        public Task<byte[]> GetFreshnessAsync() => Task.FromResult(Envelope);
     }
 
     private sealed class FakeManifestProvider(SignedManifestBytes signed) : IUpdateManifestProvider

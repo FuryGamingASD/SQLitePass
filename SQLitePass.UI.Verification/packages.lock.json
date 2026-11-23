@@ -87,7 +87,7 @@
         "type": "Project",
         "dependencies": {
           "Hardcodet.NotifyIcon.Wpf": "[2.0.1, )",
-          "SQLitePass.Core": "[1.2.2, )",
+          "SQLitePass.Core": "[1.3.0, )",
           "Velopack": "[1.2.161, )"
         }
       },
@@ -96,7 +96,7 @@
         "dependencies": {
           "Konscious.Security.Cryptography.Argon2": "[1.3.1, )",
           "Microsoft.Data.Sqlite": "[11.0.0, )",
-          "SQLitePass.Kdbx": "[1.2.2, )"
+          "SQLitePass.Kdbx": "[1.3.0, )"
         }
       },
       "sqlitepass.kdbx": {

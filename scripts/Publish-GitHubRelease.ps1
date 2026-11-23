@@ -18,7 +18,7 @@ function Assert-ExistingTag {
     if($LASTEXITCODE -ne 0 -or $remoteCommit -cne $SourceCommit){throw 'The remote tag does not resolve to the verified source commit.'}
 }
 $checksums=@(Get-Content (Join-Path $ArtifactDirectory 'checksums.json') -Raw | ConvertFrom-Json)
-foreach($required in @('sqlitepass-update-auth.json','sqlitepass-update-auth.sig')){
+foreach($required in @('sqlitepass-update-auth.json','sqlitepass-update-auth.sig','sqlitepass-update-freshness.json')){
     if($required -notin @($checksums | ForEach-Object File)){throw 'The release is missing a signed update manifest; run the protected signing workflow step first.'}
     if(-not (Test-Path -LiteralPath (Join-Path $ArtifactDirectory $required) -PathType Leaf)){throw "Missing signed update asset: $required"}
 }
@@ -50,6 +50,24 @@ try {
         -not $rsa.VerifyData($manifest, $signature, [System.Security.Cryptography.HashAlgorithmName]::SHA256,
             [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)) {
         throw 'The update manifest signature is invalid.'
+    }
+    $freshnessPath = Join-Path $ArtifactDirectory 'sqlitepass-update-freshness.json'
+    if ((Get-Item -LiteralPath $freshnessPath).Length -gt 16384) { throw 'The freshness checkpoint is oversized.' }
+    $envelope = Get-Content -LiteralPath $freshnessPath -Raw | ConvertFrom-Json
+    $checkpointBytes = [Convert]::FromBase64String($envelope.Checkpoint)
+    $checkpointSignature = [Convert]::FromBase64String($envelope.Signature)
+    if (-not $rsa.VerifyData($checkpointBytes, $checkpointSignature, [System.Security.Cryptography.HashAlgorithmName]::SHA256,
+        [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)) {
+        throw 'The update freshness checkpoint signature is invalid.'
+    }
+    $checkpoint = [Text.Encoding]::UTF8.GetString($checkpointBytes) | ConvertFrom-Json -DateKind String
+    $issued = [DateTimeOffset]::Parse($checkpoint.IssuedAt, [Globalization.CultureInfo]::InvariantCulture)
+    $expiry = [DateTimeOffset]::Parse($checkpoint.ExpiresAt, [Globalization.CultureInfo]::InvariantCulture)
+    $now = [DateTimeOffset]::UtcNow
+    if ($checkpoint.SchemaVersion -ne 1 -or $checkpoint.PackageId -cne 'SQLitePass' -or $checkpoint.Version -cne $provenance.Version -or
+        $checkpoint.ManifestSha256 -ine [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($manifest)) -or
+        $issued -gt $now.AddMinutes(5) -or $expiry -le $now -or $expiry -le $issued -or $expiry - $issued -gt [TimeSpan]::FromDays(30)) {
+        throw 'The update freshness checkpoint is invalid or expired.'
     }
 } finally { $rsa.Dispose() }
 $expectedManifest = & (Join-Path $PSScriptRoot 'Get-AvaloniaUpdateManifest.ps1') -ArtifactDirectory $ArtifactDirectory

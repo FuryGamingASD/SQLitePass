@@ -28,10 +28,18 @@ internal sealed record UpdateManifestDocument(
     UpdateManifestAsset[] Assets);
 
 internal sealed record SignedManifestBytes(byte[] Manifest, byte[] Signature);
+internal sealed record UpdateFreshnessDocument(int SchemaVersion, string PackageId, string Version,
+    string ManifestSha256, DateTimeOffset IssuedAt, DateTimeOffset ExpiresAt);
+internal sealed record SignedUpdateFreshness(string Checkpoint, string Signature);
 
 internal interface IUpdateManifestProvider
 {
     Task<SignedManifestBytes> GetAsync(SemanticVersion version);
+}
+
+internal interface IUpdateFreshnessProvider
+{
+    Task<byte[]> GetFreshnessAsync();
 }
 
 internal interface IUpdatePackageDownloader
@@ -39,10 +47,11 @@ internal interface IUpdatePackageDownloader
     Task DownloadAsync(UpdateManifestAsset asset, string localFile, Action<int> progress, CancellationToken cancelToken);
 }
 
-internal sealed class GitHubReleaseManifestProvider : IUpdateManifestProvider, IUpdatePackageDownloader
+internal sealed class GitHubReleaseManifestProvider : IUpdateManifestProvider, IUpdatePackageDownloader, IUpdateFreshnessProvider
 {
     internal const string ManifestFileName = "sqlitepass-update-auth.json";
     internal const string SignatureFileName = "sqlitepass-update-auth.sig";
+    internal const string FreshnessFileName = "sqlitepass-update-freshness.json";
     private static readonly HttpClient Http = new(new HttpClientHandler { AllowAutoRedirect = true })
     {
         Timeout = TimeSpan.FromSeconds(20)
@@ -50,6 +59,9 @@ internal sealed class GitHubReleaseManifestProvider : IUpdateManifestProvider, I
     private readonly HttpClient _http;
 
     internal GitHubReleaseManifestProvider(HttpClient? httpClient = null) => _http = httpClient ?? Http;
+
+    public Task<byte[]> GetFreshnessAsync() => DownloadBoundedAsync(_http,
+        new Uri($"https://github.com/FuryGamingASD/SQLitePass/releases/latest/download/{FreshnessFileName}"), 16 * 1024);
 
     public async Task<SignedManifestBytes> GetAsync(SemanticVersion version)
     {
@@ -179,7 +191,7 @@ internal sealed class UpdateManifestVerifier
         }
     }
 
-    internal UpdateManifestDocument Verify(SignedManifestBytes signed)
+    private void VerifySignature(SignedManifestBytes signed)
     {
         if (_configurationError != null) throw new InvalidOperationException(_configurationError);
         if (signed.Manifest.Length is < 1 or > 64 * 1024 || signed.Signature.Length is < 1 or > 1024)
@@ -189,7 +201,32 @@ internal sealed class UpdateManifestVerifier
         rsa.ImportSubjectPublicKeyInfo(_publicKey, out _);
         if (!rsa.VerifyData(signed.Manifest, signed.Signature, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1))
             throw new CryptographicException("The update manifest signature is invalid.");
+    }
 
+    internal UpdateFreshnessDocument VerifyFreshness(byte[] envelope, DateTimeOffset now)
+    {
+        if (envelope.Length is < 1 or > 16 * 1024)
+            throw new InvalidDataException("The update freshness envelope has an invalid size.");
+        var signed = JsonSerializer.Deserialize<SignedUpdateFreshness>(envelope, JsonOptions)
+            ?? throw new InvalidDataException("The update freshness envelope is empty.");
+        if (string.IsNullOrEmpty(signed.Checkpoint) || string.IsNullOrEmpty(signed.Signature))
+            throw new InvalidDataException("The update freshness envelope is incomplete.");
+        byte[] checkpoint = Convert.FromBase64String(signed.Checkpoint);
+        VerifySignature(new(checkpoint, Convert.FromBase64String(signed.Signature)));
+        var freshness = JsonSerializer.Deserialize<UpdateFreshnessDocument>(checkpoint, JsonOptions)
+            ?? throw new InvalidDataException("The update freshness checkpoint is empty.");
+        if (freshness.SchemaVersion != 1 || freshness.PackageId != "SQLitePass" ||
+            string.IsNullOrEmpty(freshness.Version) || !IsStableVersion(freshness.Version) ||
+            freshness.ManifestSha256 is not { Length: 64 } || !freshness.ManifestSha256.All(Uri.IsHexDigit) ||
+            freshness.IssuedAt > now.AddMinutes(5) || freshness.ExpiresAt <= now ||
+            freshness.ExpiresAt <= freshness.IssuedAt || freshness.ExpiresAt - freshness.IssuedAt > TimeSpan.FromDays(30))
+            throw new InvalidDataException("The signed update freshness checkpoint is invalid or expired.");
+        return freshness;
+    }
+
+    internal UpdateManifestDocument Verify(SignedManifestBytes signed)
+    {
+        VerifySignature(signed);
         var manifest = JsonSerializer.Deserialize<UpdateManifestDocument>(signed.Manifest, JsonOptions)
             ?? throw new InvalidDataException("The signed update manifest is empty.");
         if (manifest.SchemaVersion != 1 || manifest.PackageId != "SQLitePass" ||
@@ -221,16 +258,20 @@ internal sealed class UpdateManifestVerifier
 /// </summary>
 internal sealed class AuthenticatedUpdateSource : IUpdateSource
 {
+    private sealed record AuthorizedAsset(UpdateManifestAsset Asset, DateTimeOffset ExpiresAt);
     private readonly IUpdateSource _inner;
     private readonly IUpdateManifestProvider _manifestProvider;
     private readonly UpdateManifestVerifier _verifier;
-    private readonly ConcurrentDictionary<string, UpdateManifestAsset> _authorized = new(StringComparer.Ordinal);
+    private readonly TimeProvider _timeProvider;
+    private readonly ConcurrentDictionary<string, AuthorizedAsset> _authorized = new(StringComparer.Ordinal);
 
-    internal AuthenticatedUpdateSource(IUpdateSource inner, IUpdateManifestProvider manifestProvider, UpdateManifestVerifier verifier)
+    internal AuthenticatedUpdateSource(IUpdateSource inner, IUpdateManifestProvider manifestProvider, UpdateManifestVerifier verifier,
+        TimeProvider? timeProvider = null)
     {
         _inner = inner;
         _manifestProvider = manifestProvider;
         _verifier = verifier;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     internal static AuthenticatedUpdateSource ForOfficialReleases(IUpdateSource inner)
@@ -246,14 +287,29 @@ internal sealed class AuthenticatedUpdateSource : IUpdateSource
         if (appId != "SQLitePass" || channel is not ("win" or "linux"))
             throw new InvalidDataException("The signed update feed has an unexpected application or channel.");
 
-        var feed = await _inner.GetReleaseFeed(logger, appId, channel, stagingId, latestLocalRelease).ConfigureAwait(false);
+        var freshnessProvider = _manifestProvider as IUpdateFreshnessProvider;
+        var feed = await _inner.GetReleaseFeed(logger, appId, channel, stagingId,
+            freshnessProvider == null ? latestLocalRelease : null).ConfigureAwait(false);
         var candidate = feed.Assets
             .Where(asset => asset.PackageId == appId && asset.Type == VelopackAssetType.Full)
             .MaxBy(asset => asset.Version);
+        UpdateFreshnessDocument? freshness = null;
+        if (freshnessProvider != null)
+        {
+            _authorized.Clear();
+            byte[] envelope = await freshnessProvider.GetFreshnessAsync().ConfigureAwait(false);
+            freshness = _verifier.VerifyFreshness(envelope, _timeProvider.GetUtcNow());
+            if (candidate == null || candidate.Version.ToString() != freshness.Version ||
+                latestLocalRelease != null && candidate.Version < latestLocalRelease.Version)
+                throw new CryptographicException("The update feed differs from the signed latest-release checkpoint.");
+        }
         if (candidate == null || latestLocalRelease != null && candidate.Version <= latestLocalRelease.Version)
             return new VelopackAssetFeed { Assets = [] };
 
-        var signed = _verifier.Verify(await _manifestProvider.GetAsync(candidate.Version).ConfigureAwait(false));
+        var manifest = await _manifestProvider.GetAsync(candidate.Version).ConfigureAwait(false);
+        if (freshness != null && !Convert.ToHexString(SHA256.HashData(manifest.Manifest)).Equals(freshness.ManifestSha256, StringComparison.OrdinalIgnoreCase))
+            throw new CryptographicException("The update manifest differs from the signed latest-release checkpoint.");
+        var signed = _verifier.Verify(manifest);
         if (signed.Version != candidate.Version.ToString())
             throw new InvalidDataException("The signed update version does not match the Velopack feed.");
         var entry = signed.Assets.SingleOrDefault(asset => asset.Channel == channel)
@@ -263,7 +319,7 @@ internal sealed class AuthenticatedUpdateSource : IUpdateSource
             !entry.Sha256.Equals(candidate.SHA256, StringComparison.OrdinalIgnoreCase))
             throw new CryptographicException("The Velopack feed differs from the signed release manifest.");
 
-        _authorized[Key(candidate)] = entry;
+        _authorized[Key(candidate)] = new(entry, freshness?.ExpiresAt ?? DateTimeOffset.MaxValue);
         return new VelopackAssetFeed { Assets = [candidate] };
     }
 
@@ -302,9 +358,9 @@ internal sealed class AuthenticatedUpdateSource : IUpdateSource
     }
 
     private UpdateManifestAsset GetExpected(VelopackAsset asset) =>
-        _authorized.TryGetValue(Key(asset), out var expected)
-            ? expected
-            : throw new CryptographicException("The Velopack package has no verified release manifest.");
+        _authorized.TryGetValue(Key(asset), out var expected) && expected.ExpiresAt > _timeProvider.GetUtcNow()
+            ? expected.Asset
+            : throw new CryptographicException("The Velopack package has no current verified release manifest.");
 
     private static string Key(VelopackAsset asset) =>
         $"{asset.PackageId}\n{asset.Version}\n{asset.Type}\n{asset.FileName}\n{asset.Size}\n{asset.SHA256}";

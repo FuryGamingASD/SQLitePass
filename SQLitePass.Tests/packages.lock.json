@@ -387,7 +387,7 @@
         "dependencies": {
           "Konscious.Security.Cryptography.Argon2": "[1.3.1, )",
           "Microsoft.Data.Sqlite": "[11.0.0, )",
-          "SQLitePass.Kdbx": "[1.2.2, )"
+          "SQLitePass.Kdbx": "[1.3.0, )"
         }
       },
       "sqlitepass.desktop": {
@@ -397,7 +397,7 @@
           "Avalonia.Themes.Fluent": "[12.1.6, )",
           "Microsoft.Win32.SystemEvents": "[10.0.15, )",
           "Microsoft.Windows.CsWinRT": "[2.2.0, )",
-          "SQLitePass.Core": "[1.2.2, )",
+          "SQLitePass.Core": "[1.3.0, )",
           "Tmds.DBus.Protocol": "[0.94.1, )",
           "Velopack": "[1.2.161, )"
         }
@@ -411,7 +411,7 @@
       "sqlitepass.testhost": {
         "type": "Project",
         "dependencies": {
-          "SQLitePass.Core": "[1.2.2, )"
+          "SQLitePass.Core": "[1.3.0, )"
         }
       }
     },
