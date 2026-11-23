@@ -59,12 +59,20 @@ wait_for_probe() {
     return 1
 }
 
-wait_for_probe 'SQLitePass session probe ready.'
+wait_for_probe 'SQLitePass dialog probe ready.'
 hint_changed=1
 set_hint true
-wait_for_probe 'SQLitePass observed the test session lock.'
+wait_for_probe 'SQLitePass observed the dialog lock.'
 set_hint false
 hint_changed=0
+wait_for_probe 'SQLitePass observed the dialog unlock.'
+wait_for_probe 'SQLitePass operation probe ready.'
+hint_changed=1
+set_hint true
+wait_for_probe 'SQLitePass observed the operation lock.'
+set_hint false
+hint_changed=0
+wait_for_probe 'SQLitePass observed the operation unlock.'
 wait "$probe_pid"
 probe_pid=
 cat "$report_dir/session-lock.json"

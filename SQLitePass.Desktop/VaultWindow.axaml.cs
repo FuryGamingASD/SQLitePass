@@ -475,7 +475,7 @@ public sealed partial class VaultWindow : Window
         CancelOperation.IsEnabled = false;
     }
 
-    private async Task RunOperationAsync(Func<CancellationToken, Task> action, bool canCancel = false)
+    internal async Task RunOperationAsync(Func<CancellationToken, Task> action, bool canCancel = false)
     {
         if (_operation != null || _closing || _systemLocked) return;
         using var operation = new CancellationTokenSource();
