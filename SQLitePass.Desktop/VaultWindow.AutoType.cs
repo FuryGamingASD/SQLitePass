@@ -40,14 +40,14 @@ public sealed partial class VaultWindow
 
     private void RegisterGlobalAutoType()
     {
-        if (_desktopSession == null || !OperatingSystem.IsWindows()) return;
+        if (_machinePolicy.DisableAutoType || _desktopSession == null || !OperatingSystem.IsWindows()) return;
         _autoTypeHotkey = WindowsAutoTypeHotkey.TryRegister(this, GlobalAutoTypePressed);
         if (_autoTypeHotkey == null) StatusText.Text = Text("HotkeyUnavailableStatus");
     }
 
     private void GlobalAutoTypePressed()
     {
-        if (!OperatingSystem.IsWindows() || _session is not { } session || _systemLocked || _closing || _operation != null) return;
+        if (_machinePolicy.DisableAutoType || !OperatingSystem.IsWindows() || _session is not { } session || _systemLocked || _closing || _operation != null) return;
         var input = new WindowsAutoTypeInput(allowActivation: false);
         if (ReadAutoTypeTarget(input) is not { } target) return;
         Dispatcher.UIThread.Post(async () =>
@@ -57,8 +57,15 @@ public sealed partial class VaultWindow
         });
     }
 
-    private async Task AutoTypeEntryAsync(EntryRow? row, CancellationToken token, AutoTypeTarget? capturedTarget = null)
+    internal Task AutoTypeEntryAsync(EntryRow? row, CancellationToken token) => AutoTypeEntryAsync(row, token, capturedTarget: null);
+
+    private async Task AutoTypeEntryAsync(EntryRow? row, CancellationToken token, AutoTypeTarget? capturedTarget)
     {
+        if (_machinePolicy.DisableAutoType)
+        {
+            StatusText.Text = Text("MachinePolicyAutoTypeDisabled");
+            return;
+        }
         if (_session is not { } session || (row != null && _query.OnlyRecycleBin)) return;
         using var linuxInput = OperatingSystem.IsLinux() ? X11AutoTypeInput.TryCreate() : null;
         IAutoTypeInput? input = OperatingSystem.IsWindows() ? new WindowsAutoTypeInput(allowActivation: false) : linuxInput;

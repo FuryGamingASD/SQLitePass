@@ -13,16 +13,19 @@ public sealed partial class SettingsWindow : Window
 {
     private readonly Func<string, object[], string> _text;
     private readonly bool _allowWindowsStartup;
+    private readonly MachinePolicyState _machinePolicy;
     private bool _pickingFolder;
     private bool _closed;
 
     public SettingsWindow() : this(new AppSettings(), (key, _) => key, false) { }
 
-    internal SettingsWindow(AppSettings settings, Func<string, object[], string> text, bool allowWindowsStartup)
+    internal SettingsWindow(AppSettings settings, Func<string, object[], string> text, bool allowWindowsStartup,
+        MachinePolicyState? machinePolicy = null)
     {
         Settings = settings;
         _text = text;
         _allowWindowsStartup = allowWindowsStartup;
+        _machinePolicy = machinePolicy ?? MachinePolicyState.Unmanaged;
         InitializeComponent();
         Title = text("SettingsTitle", []);
         AppearanceHeading.Text = text("SettingsSectionAppearance", []);
@@ -41,9 +44,13 @@ public sealed partial class SettingsWindow : Window
         ClipboardLabel.Text = text("SettingsClipboardSeconds", []);
         ClipboardSeconds.Text = settings.ClipboardClearSeconds.ToString(CultureInfo.CurrentCulture);
         IdleLabel.Text = text("SettingsIdleMinutes", []);
-        IdleMinutes.Text = settings.AutoLockMinutes.ToString(CultureInfo.CurrentCulture);
-        SetOption(LockOnMinimize, "SettingsLockOnWindowMinimize", settings.AutoLockOnMinimize);
-        SetOption(LockOnSession, "SettingsLockOnSession", settings.AutoLockOnWindowsLock);
+        IdleMinutes.Text = _machinePolicy.EffectiveAutoLockMinutes(settings.AutoLockMinutes).ToString(CultureInfo.CurrentCulture);
+        SetOption(LockOnMinimize, "SettingsLockOnWindowMinimize", _machinePolicy.LockOnMinimize(settings.AutoLockOnMinimize));
+        SetOption(LockOnSession, "SettingsLockOnSession", _machinePolicy.LockOnSessionLock(settings.AutoLockOnWindowsLock));
+        LockOnMinimize.IsEnabled = !_machinePolicy.IsValid || _machinePolicy.Options?.ForceLockOnMinimize != true;
+        LockOnSession.IsEnabled = !_machinePolicy.IsValid || _machinePolicy.Options?.ForceLockOnSessionLock != true;
+        MachinePolicyStatus.IsVisible = _machinePolicy.IsPresent;
+        MachinePolicyStatus.Text = _machinePolicy.IsValid ? text("SettingsMachinePolicy", []) : text("MachinePolicyInvalid", []);
         SetOption(ProtectCapture, "SettingsProtectScreenCapture", settings.ProtectScreenCapture);
         ProtectCapture.IsVisible = OperatingSystem.IsWindows();
 
@@ -117,6 +124,13 @@ public sealed partial class SettingsWindow : Window
             ShowValidation("SettingsIdleInvalid", IdleMinutes);
             return;
         }
+        if (_machinePolicy.IsValid && _machinePolicy.Options?.MaxAutoLockMinutes is int maximum && (minutes == 0 || minutes > maximum))
+        {
+            Validation.Text = _text("SettingsMachinePolicyAutoLockInvalid", [maximum]);
+            Validation.IsVisible = true;
+            IdleMinutes.Focus();
+            return;
+        }
 
         string? backupFolder = BackupFolder.Text?.Trim();
         if (string.IsNullOrEmpty(backupFolder)) backupFolder = null;
@@ -140,8 +154,10 @@ public sealed partial class SettingsWindow : Window
         Settings.EnableDiagnosticLogging = DiagnosticLogging.IsChecked == true;
         Settings.ClipboardClearSeconds = seconds;
         Settings.AutoLockMinutes = minutes;
-        Settings.AutoLockOnMinimize = LockOnMinimize.IsChecked == true;
-        Settings.AutoLockOnWindowsLock = LockOnSession.IsChecked == true;
+        if (_machinePolicy.Options?.ForceLockOnMinimize != true)
+            Settings.AutoLockOnMinimize = LockOnMinimize.IsChecked == true;
+        if (_machinePolicy.Options?.ForceLockOnSessionLock != true)
+            Settings.AutoLockOnWindowsLock = LockOnSession.IsChecked == true;
         if (OperatingSystem.IsWindows()) Settings.ProtectScreenCapture = ProtectCapture.IsChecked == true;
         Settings.MinimizeToTray = MinimizeToTray.IsChecked == true;
         Settings.CloseToTray = CloseToTray.IsChecked == true;

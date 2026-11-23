@@ -65,11 +65,11 @@ public sealed partial class VaultWindow
         bool canCopy = _clipboard != null && hasEntry && !_query.OnlyRecycleBin;
         CopyUser.IsEnabled = ToolbarCopyUser.IsEnabled = canCopy && !string.IsNullOrEmpty(selected?.UserName);
         CopyPassword.IsEnabled = ToolbarCopyPassword.IsEnabled = PreviewCopyPassword.IsEnabled = canCopy && selected!.HasPassword;
-        AutoTypeEntry.IsEnabled = ToolbarAutoType.IsEnabled = _autoTypeAvailable && hasEntry && !_query.OnlyRecycleBin;
+        AutoTypeEntry.IsEnabled = ToolbarAutoType.IsEnabled = _autoTypeAvailable && !_machinePolicy.DisableAutoType && hasEntry && !_query.OnlyRecycleBin;
         OpenUrlCommand.IsEnabled = ToolbarOpenUrl.IsEnabled = selected != null && EntryUri(selected.Url) != null && !_query.OnlyRecycleBin;
         PreviewEstimateQuality.IsEnabled = PreviewReveal.IsEnabled = selected?.HasPassword == true && !_query.OnlyRecycleBin;
         ImportKeePass.IsEnabled = ImportBitwarden.IsEnabled = ImportBrowser.IsEnabled = writable;
-        ExportKeePass.IsEnabled = _session != null;
+        ExportKeePass.IsEnabled = _session != null && !_machinePolicy.DisableExport;
         bool editableFolder = writable && folder is { IsRoot: false, IsRecycleBin: false };
         CreateFolder.IsEnabled = NewFolderCommand.IsEnabled = SidebarAddFolder.IsEnabled = writable && !_query.OnlyRecycleBin;
         RenameFolder.IsEnabled = writable && folder is { IsRecycleBin: false };

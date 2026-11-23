@@ -20,7 +20,7 @@ public sealed partial class VaultWindow
         {
             var draft = await Task.Run(load, token);
             token.ThrowIfCancellationRequested();
-            var dialog = new SettingsWindow(draft, Text, allowWindowsStartup);
+            var dialog = new SettingsWindow(draft, Text, allowWindowsStartup, _machinePolicy);
             if (!await ShowOwnedAsync(dialog)) return;
             token.ThrowIfCancellationRequested();
 

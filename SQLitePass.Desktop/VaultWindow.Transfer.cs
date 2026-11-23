@@ -77,6 +77,11 @@ public sealed partial class VaultWindow
 
     internal Task ExportVaultFileAsync(Func<Task<string?>> chooseDestination) => RunOperationAsync(async token =>
     {
+        if (_machinePolicy.DisableExport)
+        {
+            StatusText.Text = Text(_machinePolicy.IsValid ? "MachinePolicyExportDisabled" : "MachinePolicyInvalid");
+            return;
+        }
         if (_session is not { } session) return;
         if (!await ConfirmAsync(Text("ExportTitle"), Text("ExportWarning"))) return;
         token.ThrowIfCancellationRequested();
