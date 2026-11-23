@@ -20,6 +20,7 @@ public sealed partial class VaultWindow
         MaxWidth = screen != null ? Math.Min(510, screen.WorkingArea.Width / screen.Scaling) : 510;
         MaxHeight = screen != null ? screen.WorkingArea.Height / screen.Scaling : double.PositiveInfinity;
         CanResize = false;
+        WorkspaceResizeEdges.IsVisible = false;
         WindowDecorations = WindowDecorations.None;
         SizeToContent = SizeToContent.Height;
         Width = MaxWidth;
@@ -33,7 +34,9 @@ public sealed partial class VaultWindow
         UpdateWindowMaximize();
         PropertyChanged += (_, change) =>
         {
-            if (change.Property == WindowStateProperty) UpdateWindowMaximize();
+            if (change.Property != WindowStateProperty) return;
+            UpdateWindowMaximize();
+            UpdateWorkspaceResizeEdges();
         };
     }
 
@@ -62,20 +65,31 @@ public sealed partial class VaultWindow
 
     private void ToggleWindowMaximized() => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
 
+    private void UpdateWorkspaceResizeEdges() =>
+        WorkspaceResizeEdges.IsVisible = OperatingSystem.IsLinux() && _vaultLayoutStarted && WindowState == WindowState.Normal;
+
+    private void WorkspaceResizeEdge_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.Source is not Border { Tag: WindowEdge edge } || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+        BeginResizeDrag(edge, e);
+        e.Handled = true;
+    }
+
     private void EnterVaultLayout()
     {
         if (_vaultLayoutStarted) return;
         _vaultLayoutStarted = true;
         SizeToContent = SizeToContent.Manual;
-        WindowDecorations = WindowDecorations.BorderOnly;
-        CanResize = true;
         MaxWidth = MaxHeight = double.PositiveInfinity;
-        MinWidth = 620;
-        MinHeight = 460;
+        CanResize = true;
+        WindowDecorations = OperatingSystem.IsLinux() ? WindowDecorations.None : WindowDecorations.BorderOnly;
         Width = 1100;
         Height = 720;
+        MinWidth = 620;
+        MinHeight = 460;
         PrepareWindowSize(this);
         if (_restoreVaultMaximized && WindowState == WindowState.Normal) WindowState = WindowState.Maximized;
+        UpdateWorkspaceResizeEdges();
     }
 
     private Task LeaveVaultLayoutAsync()

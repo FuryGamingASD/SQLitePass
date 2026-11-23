@@ -63,8 +63,10 @@ public sealed partial class VaultWindow
         ApplyLoginLayout();
         InitializeWindowControls();
         UpdateRecentVaults();
-        SizeChanged += (_, _) => Classes.Set("wide", Bounds.Width >= 1000);
-        Opened += (_, _) => Classes.Set("wide", Bounds.Width >= 1000);
+        PropertyChanged += (_, change) =>
+        {
+            if (change.Property == BoundsProperty) Classes.Set("wide", Bounds.Width >= 1000);
+        };
         Deactivated += (_, _) => HidePasswordReveals();
         _loginRevealTimer.Tick += (_, _) => HideLoginPassword();
         _previewRevealTimer.Tick += (_, _) => HidePreviewPassword();

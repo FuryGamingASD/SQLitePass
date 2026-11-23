@@ -34,6 +34,9 @@
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
+        <Style Selector="Grid#WorkspaceResizeEdges > Border">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
         <Style Selector="TextBox">
             <Setter Property="CornerRadius" Value="7" />
         </Style>
@@ -470,5 +473,16 @@
                 <Button x:Name="CancelOperation" Grid.Column="2" IsVisible="False" Click="CancelOperation_Click" />
             </Grid>
         </Border>
+        <Grid x:Name="WorkspaceResizeEdges" Grid.RowSpan="2" IsVisible="False" RowDefinitions="6,*,6"
+              ColumnDefinitions="6,*,6" PointerPressed="WorkspaceResizeEdge_PointerPressed">
+            <Border Tag="{x:Static WindowEdge.NorthWest}" Cursor="TopLeftCorner" />
+            <Border Grid.Column="1" Tag="{x:Static WindowEdge.North}" Cursor="SizeNorthSouth" />
+            <Border Grid.Column="2" Tag="{x:Static WindowEdge.NorthEast}" Cursor="TopRightCorner" />
+            <Border Grid.Row="1" Tag="{x:Static WindowEdge.West}" Cursor="SizeWestEast" />
+            <Border Grid.Row="1" Grid.Column="2" Tag="{x:Static WindowEdge.East}" Cursor="SizeWestEast" />
+            <Border Grid.Row="2" Tag="{x:Static WindowEdge.SouthWest}" Cursor="BottomLeftCorner" />
+            <Border Grid.Row="2" Grid.Column="1" Tag="{x:Static WindowEdge.South}" Cursor="SizeNorthSouth" />
+            <Border Grid.Row="2" Grid.Column="2" Tag="{x:Static WindowEdge.SouthEast}" Cursor="BottomRightCorner" />
+        </Grid>
     </Grid>
 </Window>

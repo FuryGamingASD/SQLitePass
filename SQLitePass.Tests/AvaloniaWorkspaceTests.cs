@@ -68,7 +68,7 @@ public sealed partial class AvaloniaVaultTests
                     Assert.True(passwordBox.RevealPassword);
                     await window.OpenVaultAsync();
                     Assert.False(passwordBox.RevealPassword);
-                    Assert.Equal(WindowDecorations.BorderOnly, window.WindowDecorations);
+                    Assert.Equal(OperatingSystem.IsLinux() ? WindowDecorations.None : WindowDecorations.BorderOnly, window.WindowDecorations);
                     Assert.True(window.CanResize);
                     Assert.Equal("SQLitePass", window.FindControl<TextBlock>("WorkspaceTitle")!.Text);
                     Assert.True(window.FindControl<Button>("VaultSettings")!.IsVisible);
