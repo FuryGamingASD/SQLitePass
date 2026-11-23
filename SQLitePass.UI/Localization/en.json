@@ -36,7 +36,7 @@
   "MenuDeleteGroup": "Delete Group",
   "MenuMoveGroupUp": "Move Up",
   "MenuMoveGroupDown": "Move Down",
-  "MenuMoveGroupToRoot": "Move to Parent Level",
+  "MenuMoveGroupToRoot": "Move to Root",
   "MoveEntryToFolder": "Move entry to folder…",
   "MoveFolderToFolder": "Move folder…",
   "MoveDestination": "Choose the destination folder.",

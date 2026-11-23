@@ -77,6 +77,8 @@ public sealed partial class VaultWindow
         MoveFolderUp.IsEnabled = MoveFolderDown.IsEnabled = editableFolder;
         MoveFolderToRoot.IsEnabled = editableFolder && folder?.ParentId != RootFolderId;
         AddEntry.IsEnabled = NewEntryCommand.IsEnabled = writable && !_query.OnlyRecycleBin;
+        EmptyNewEntry.IsVisible = NewEntryCommand.IsEnabled;
+        EmptyNewEntry.IsEnabled = NewEntryCommand.IsEnabled && _operation == null;
         EditEntry.IsEnabled = EditEntryCommand.IsEnabled = hasEntry;
         DuplicateEntry.IsEnabled = MoveEntryCommand.IsEnabled = writable && hasEntry && !_query.OnlyRecycleBin;
         PasswordColumnCommand.IsEnabled = _session != null && !_query.OnlyRecycleBin;

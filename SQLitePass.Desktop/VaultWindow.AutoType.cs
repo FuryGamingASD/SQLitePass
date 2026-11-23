@@ -59,7 +59,7 @@ public sealed partial class VaultWindow
 
     private async Task AutoTypeEntryAsync(EntryRow? row, CancellationToken token, AutoTypeTarget? capturedTarget = null)
     {
-        if (_session is not { } session || _query.OnlyRecycleBin) return;
+        if (_session is not { } session || (row != null && _query.OnlyRecycleBin)) return;
         using var linuxInput = OperatingSystem.IsLinux() ? X11AutoTypeInput.TryCreate() : null;
         IAutoTypeInput? input = OperatingSystem.IsWindows() ? new WindowsAutoTypeInput(allowActivation: false) : linuxInput;
         if (input == null)

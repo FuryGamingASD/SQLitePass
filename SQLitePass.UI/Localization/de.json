@@ -36,7 +36,7 @@
   "MenuDeleteGroup": "Gruppe löschen",
   "MenuMoveGroupUp": "Nach oben verschieben",
   "MenuMoveGroupDown": "Nach unten verschieben",
-  "MenuMoveGroupToRoot": "Auf übergeordnete Ebene verschieben",
+  "MenuMoveGroupToRoot": "In die oberste Ebene verschieben",
   "MoveEntryToFolder": "Eintrag in einen Ordner verschieben…",
   "MoveFolderToFolder": "Ordner verschieben…",
   "MoveDestination": "Wählen Sie den Zielordner.",

@@ -341,7 +341,7 @@ public sealed partial class VaultWindow : Window
                 entry.Password.Length is > 0 and <= 512 ? PasswordGenerator.CalculateEntropy(entry.Password) : null)).ToArray();
             Entries.ItemsSource = rows;
             Entries.SelectedItem = rows.FirstOrDefault(row => row.Id == selectedEntry);
-            EmptyEntries.IsVisible = rows.Length == 0;
+            EmptyEntryPanel.IsVisible = rows.Length == 0;
             UpdateEntryPreview();
             EntryCount.Text = Text("EntriesPageRange", page.FirstIndex, page.Entries.Count == 0 ? 0 : page.FirstIndex + page.Entries.Count - 1, page.MatchedCount);
             _shownPage = cursor;

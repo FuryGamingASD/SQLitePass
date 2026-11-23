@@ -43,6 +43,7 @@ public sealed partial class VaultWindow
         NotesColumn.Text = Text("ColNotes");
         UpdatedColumn.Text = Text("ColUpdatedAt");
         EmptyEntries.Text = Text("NoEntriesInView");
+        EmptyNewEntry.Content = Text("TbNewEntry");
         foreach (var (control, key) in new (Control, string)[]
         {
             (LoginTheme, "MenuToggleTheme"), (VaultTheme, "MenuToggleTheme"), (RecentVaultButton, "RecentVaults"),
@@ -76,7 +77,8 @@ public sealed partial class VaultWindow
 
         Entries.ContextMenu = ContextActions(NewEntryCommand, EditEntryCommand, CopyUser, CopyPassword, OpenUrlCommand,
             AutoTypeEntry, DuplicateEntry, MoveEntryCommand, RestoreEntry, DeleteEntry);
-        Groups.ContextMenu = ContextActions(CreateFolder, RenameFolder, MoveFolder, MoveFolderToRoot, MoveFolderUp, MoveFolderDown, DeleteFolder);
+        Groups.ContextMenu = ContextActions(NewEntryCommand, CreateFolder, RenameFolder, MoveFolder, MoveFolderToRoot,
+            MoveFolderUp, MoveFolderDown, DeleteFolder, EmptyRecycleBin);
         QueueBackupBadge();
     }
 

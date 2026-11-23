@@ -386,8 +386,12 @@
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
                             </ListBox>
-                            <TextBlock x:Name="EmptyEntries" Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       Foreground="{DynamicResource WorkspaceMuted}" Margin="16" TextWrapping="Wrap" IsHitTestVisible="False" />
+                            <StackPanel x:Name="EmptyEntryPanel" Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                        Margin="16" Spacing="10" IsVisible="False">
+                                <TextBlock x:Name="EmptyEntries" Foreground="{DynamicResource WorkspaceMuted}"
+                                           TextAlignment="Center" TextWrapping="Wrap" IsHitTestVisible="False" />
+                                <Button x:Name="EmptyNewEntry" Classes="accent" HorizontalAlignment="Center" Click="AddEntry_Click" />
+                            </StackPanel>
                         </Grid>
                     </Border>
                     <Border x:Name="EntryPreview" Grid.Row="2" CornerRadius="8" Padding="12,8" IsVisible="False"

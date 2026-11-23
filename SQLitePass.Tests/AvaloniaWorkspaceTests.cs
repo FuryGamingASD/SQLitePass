@@ -64,6 +64,20 @@ public sealed partial class AvaloniaVaultTests
                     Assert.True(window.FindControl<WrapPanel>("VaultToolbar")!.IsVisible);
 
                     var tree = window.FindControl<TreeView>("Groups")!;
+                    var emptyCreate = window.FindControl<Button>("EmptyNewEntry")!;
+                    var addCommand = window.FindControl<MenuItem>("NewEntryCommand")!;
+                    var emptyTrashCommand = window.FindControl<MenuItem>("EmptyRecycleBin")!;
+                    var context = tree.ContextMenu!.Items.OfType<MenuItem>().ToArray();
+                    Assert.Contains(context, item => Equals(item.Header, addCommand.Header));
+                    Assert.Contains(context, item => Equals(item.Header, emptyTrashCommand.Header));
+                    Assert.False(emptyCreate.IsEffectivelyVisible);
+                    await window.SelectGroupAsync(window.FolderChoices.Single(group => group.IsRecycleBin));
+                    Assert.False(emptyCreate.IsEffectivelyVisible);
+                    Assert.True(emptyTrashCommand.IsEnabled);
+                    await window.SelectGroupAsync(window.FolderChoices.Single(group => group.Caption == "General"));
+                    Assert.True(emptyCreate.IsEffectivelyVisible);
+                    Assert.True(emptyCreate.IsEffectivelyEnabled);
+
                     var parent = window.FolderChoices.Single(group => group.Caption == "General");
                     var nested = Assert.Single(parent.Children);
                     Assert.Equal("Nested group", nested.Caption);

@@ -36,7 +36,7 @@
   "MenuDeleteGroup": "Supprimer le groupe",
   "MenuMoveGroupUp": "Monter",
   "MenuMoveGroupDown": "Descendre",
-  "MenuMoveGroupToRoot": "Déplacer au niveau supérieur",
+  "MenuMoveGroupToRoot": "Déplacer à la racine",
   "MoveEntryToFolder": "Déplacer l’entrée vers un dossier…",
   "MoveFolderToFolder": "Déplacer le dossier…",
   "MoveDestination": "Choisissez le dossier de destination.",
