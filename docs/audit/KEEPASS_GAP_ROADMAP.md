@@ -17,6 +17,7 @@
 | 2026-11-23 | Grid read design | Use a separate grid projection with password presence and scalar lengths. Keep the existing byte budget and sort keys so the displayed page can still be reloaded for an explicit reveal. Password sorting continues to require reading the password temporarily. |
 | 2026-11-23 | Grid implementation | Avalonia uses the reduced page. The normal grid read tracks the decoded lengths of passwords and Auto-Type sequences for the existing page budget. The password-sort path removes plaintext from the selected records before returning them to the workspace. |
 | 2026-11-23 | Grid verification on Windows | All 173 Release tests passed. The new paging cases compare normal grid and explicit reveal boundaries at the same byte limit with escaped Unicode data. The workspace test exercises revealing and hiding the password column and copying a password from a masked row. The legacy WPF Release project built with zero warnings or errors. |
+| 2026-11-23 | Grid verification on Linux | On FuryUbuntu x64, `39d5fb7` passed locked restore and all 173 Release tests using SDK 10.0.404. The source startup probe passed under Xvfb. Package and native input probes remain pending. |
 
 ## Order of work
 
