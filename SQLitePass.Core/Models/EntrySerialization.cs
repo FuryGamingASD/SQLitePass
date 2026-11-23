@@ -16,6 +16,12 @@ public static class EntrySerialization
         MaxDepth = 32
     };
     internal static readonly JsonSerializerOptions OverviewOptions = WithProperties(IsOverviewProperty);
+    internal static readonly JsonSerializerOptions EditorOptions = WithProperties(
+        name => name is not (nameof(PwEntry.Attachments) or nameof(PwEntry.History)));
+    internal static readonly JsonSerializerOptions AttachmentOptions = Only(
+        nameof(PwEntry.Id), nameof(PwEntry.GroupId), nameof(PwEntry.Revision), nameof(PwEntry.Attachments));
+    internal static readonly JsonSerializerOptions HistoryOptions = Only(
+        nameof(PwEntry.Id), nameof(PwEntry.GroupId), nameof(PwEntry.Revision), nameof(PwEntry.History));
     internal static readonly JsonSerializerOptions GridOptions = GridProjection(sortByPassword: false);
     internal static readonly JsonSerializerOptions PasswordSortedGridOptions = GridProjection(sortByPassword: true);
     internal static readonly JsonSerializerOptions UserNameOptions = Only(

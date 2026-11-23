@@ -31,6 +31,9 @@
 | 2026-11-23 | Legacy verifier repair | The session test still constructed a cursor with a sort value after the paging change. Updated the fixture to use the ID-only cursor and retained the assertion that locking clears pagination state. The full legacy WPF solution built with zero warnings or errors. Its isolated `--session-only` verifier passed the lock and editing checks. |
 | 2026-11-23 | Editor verification on Windows | All 181 Release tests passed. Coverage includes cleanup on discard and during cancellation, a conflict before loading the original revision, and preservation of the authenticated original revision with its attachment in saved history. |
 | 2026-11-23 | Editor verification on Linux | On FuryUbuntu x64, `a49252c` passed locked restore and all 181 Release tests with SDK 10.0.404. Source startup passed under Xvfb. Package and native desktop retesting remain pending. |
+| 2026-11-23 | Deferred editor detail design | Open the editor and read-only viewer with scalar credentials and custom fields. Load attachments and history independently from the original revision. Save must recover any unvisited collection before writing. Restoring a complete history snapshot replaces the attachment collection even if its tab was unopened. |
+| 2026-11-23 | Deferred editor detail implementation | The Attachments and History tabs request independent authenticated projections. The draft takes ownership of loaded collections and restores unvisited ones from the original revision during save preparation. Partial models stay blocked from storage writes. |
+| 2026-11-23 | Deferred editor detail verification on Windows | All 184 Release tests passed. Coverage includes independent tab loads, preservation of unopened collections, replacement via a restored snapshot, rejection of stale loads, and an unchanged save without visiting the detail tabs. The legacy WPF solution built with zero warnings or errors. |
 
 ## Order of work
 
@@ -42,4 +45,4 @@
 - [ ] Prepare a scoped independent review of the format, credential rotation, backup, import and update packages. Record the reviewed commit and follow-up findings.
 - [ ] Evaluate machine-level configuration for locking, export and Auto-Type when deployment requirements are available.
 
-Grid reads still decrypt whole authenticated records temporarily and materialize the fields needed for display, filtering and ordering. Explicit password sorting temporarily uses the plaintext value. The Avalonia edit model still needs the editable credentials, attachments and existing history. The next memory pass should evaluate whether heavy history and attachment data can be loaded on demand without changing save and restore behavior.
+Grid and editor reads still decrypt whole authenticated records temporarily. Explicit password sorting uses the plaintext value during sorting. Each visited editor tab retains its collection until close, and save preparation can temporarily hold both versions. The next verification pass should cover system lock during a dialog or operation, Windows clipboard history and sync, and interrupted recovery on isolated fixtures.

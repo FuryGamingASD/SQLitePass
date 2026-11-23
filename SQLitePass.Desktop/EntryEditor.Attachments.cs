@@ -24,6 +24,8 @@ public sealed partial class EntryEditor
 
     internal Task AddAttachmentAsync(Func<CancellationToken, Task<string?>> chooseFile) => RunEditorOperationAsync(async token =>
     {
+        await _editDraft.LoadAttachmentsAsync(token);
+        token.ThrowIfCancellationRequested();
         var path = await chooseFile(token);
         token.ThrowIfCancellationRequested();
         if (path == null) return;

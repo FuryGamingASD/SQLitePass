@@ -60,13 +60,11 @@ public sealed partial class VaultWindow
             : RunOperationAsync(async token =>
             {
                 if (_session is not { } session) return;
-                var entry = await session.Storage.LoadEntryAsync(row.Id, session.Crypto, row.Revision, token);
-                try
-                {
-                    token.ThrowIfCancellationRequested();
-                    await ShowOwnedAsync(new EntryEditor(entry, Text, session.Storage.FilePath, readOnly: true));
-                }
-                finally { entry.ClearSecrets(); }
+                using var draft = await session.Storage.OpenEntryDraftAsync(row.Id, session.Crypto, row.Revision, token);
+                token.ThrowIfCancellationRequested();
+                var editor = new EntryEditor(draft, Text, session.Storage.FilePath, readOnly: true);
+                await ShowOwnedAsync(editor);
+                await editor.WaitForOperationsAsync();
             });
 
     private async void OpenUrl_Click(object? sender, RoutedEventArgs e)

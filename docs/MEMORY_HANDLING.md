@@ -179,7 +179,9 @@ Copying the username reads that field from the selected revision. Copying the pa
 
 Revealing the password column reads only the passwords of entries displayed on the current page in one authenticated transaction. An outdated snapshot or entry revision leaves the entire column masked, including on the first page. The preview remains capped at 512 UTF-16 code units per entry. Each requested password can exist as a temporary managed string before that cap is applied.
 
-While the Avalonia editor is open, its draft owns the loaded entry without retaining a second serialized copy of the original. Saving an existing entry rereads its authenticated revision to compare changes and, when needed, append a complete history snapshot. Closing or locking before Save disposes the draft without another read. Cancellation during save preparation clears any original model already reloaded. The draft still retains the editable fields and existing history while open. Serialization during save can create temporary managed strings.
+The Avalonia editor and read-only viewer initially materialize credentials and custom fields. Opening the Attachments or History tab materializes that collection from the same authenticated revision. The decoded collection stays in the draft until close or lock. The vault format encrypts an entry as one record, so each projection still decrypts that record into a temporary buffer and clears it after parsing.
+
+Saving an existing entry rereads its authenticated revision to compare changes, fill unvisited collections and, when needed, append a complete history snapshot. The draft keeps no second serialized original while the editor is open. The save path can temporarily materialize both versions and their details. Closing or locking before Save disposes the draft without a save-time read. Cancellation during save preparation clears any original model already reloaded.
 
 ---
 

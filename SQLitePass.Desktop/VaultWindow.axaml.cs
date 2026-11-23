@@ -374,23 +374,11 @@ public sealed partial class VaultWindow : Window
             draft = EntryEditDraft.Create(new PwEntry { GroupId = groupId });
         }
         else
-        {
-            var entry = await session.Storage.LoadEntryAsync(row.Id, session.Crypto, row.Revision, token);
-            try
-            {
-                draft = EntryEditDraft.TakeStoredEntry(entry,
-                    cancellation => session.Storage.LoadEntryAsync(row.Id, session.Crypto, row.Revision, cancellation));
-            }
-            catch
-            {
-                entry.ClearSecrets();
-                throw;
-            }
-        }
+            draft = await session.Storage.OpenEntryDraftAsync(row.Id, session.Crypto, row.Revision, token);
         using (draft)
         {
             token.ThrowIfCancellationRequested();
-            var editor = new EntryEditor(draft.Current, Text, session.Storage.FilePath,
+            var editor = new EntryEditor(draft, Text, session.Storage.FilePath,
                 () => CreatePasswordGenerator(token, allowUse: true));
             var saved = await ShowOwnedAsync(editor);
             await editor.WaitForOperationsAsync();

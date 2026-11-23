@@ -152,6 +152,75 @@ public partial class VaultSecurityTests
     }
 
     [Fact]
+    public async Task DeferredDraftLoadsEachDetailIndependentlyAndPreservesUnvisitedCollections()
+    {
+        using var vault = await TestVault.Create();
+        var original = await DetailedEntry(vault);
+        using var draft = await vault.Storage.OpenEntryDraftAsync(original.Id, vault.Crypto, original.Revision);
+        Assert.False(draft.Current.HasLoadedDetails);
+        Assert.Single(draft.Current.CustomFields);
+        Assert.Empty(draft.Current.Attachments);
+        Assert.Empty(draft.Current.History);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => vault.Storage.SaveEntryAsync(draft.Current, vault.Crypto));
+        using (var preview = await vault.Storage.OpenEntryDraftAsync(original.Id, vault.Crypto, original.Revision))
+        {
+            await preview.LoadAttachmentsAsync();
+            Assert.Single(preview.Current.Attachments);
+            Assert.Empty(preview.Current.History);
+        }
+
+        await draft.LoadHistoryAsync();
+        Assert.Single(draft.Current.History);
+        Assert.Empty(draft.Current.Attachments);
+        draft.Current.Notes = "Saved without visiting attachments";
+        Assert.True(await draft.PrepareForSaveAsync());
+        Assert.True(draft.Current.HasLoadedDetails);
+        await vault.Storage.SaveEntryAsync(draft.Current, vault.Crypto);
+        var saved = await vault.Storage.LoadEntryAsync(original.Id, vault.Crypto);
+        try
+        {
+            Assert.Equal(original.Attachments[0].Data, Assert.Single(saved.Attachments).Data);
+            Assert.Equal(2, saved.History.Count);
+            Assert.Contains(saved.History, revision => revision.Id == original.History[0].Id);
+        }
+        finally { saved.ClearSecrets(); }
+    }
+
+    [Fact]
+    public async Task DeferredDraftKeepsRestoredAttachmentsAndRejectsStaleDetailLoads()
+    {
+        using var vault = await TestVault.Create();
+        var original = await DetailedEntry(vault);
+        var replacement = new PwEntry();
+        replacement.Attachments.Add(new PwAttachment { EntryId = original.Id, FileName = "restored.bin", FileSize = 1, Data = [9] });
+        using var draft = await vault.Storage.OpenEntryDraftAsync(original.Id, vault.Crypto, original.Revision);
+        using var stale = await vault.Storage.OpenEntryDraftAsync(original.Id, vault.Crypto, original.Revision);
+        draft.ReplaceAttachmentsFrom(replacement);
+        await draft.LoadAttachmentsAsync();
+        Assert.True(await draft.PrepareForSaveAsync());
+        Assert.Equal("restored.bin", Assert.Single(draft.Current.Attachments).FileName);
+        Assert.Equal(2, draft.Current.History.Count);
+        await vault.Storage.SaveEntryAsync(draft.Current, vault.Crypto);
+
+        await Assert.ThrowsAsync<VaultConflictException>(() => stale.LoadAttachmentsAsync());
+        await Assert.ThrowsAsync<VaultConflictException>(() => stale.LoadHistoryAsync());
+        Assert.False(stale.Current.HasLoadedDetails);
+        Assert.Empty(stale.Current.Attachments);
+        Assert.Empty(stale.Current.History);
+    }
+
+    [Fact]
+    public async Task UnchangedDeferredDraftWithoutVisitedTabsRemainsUnchanged()
+    {
+        using var vault = await TestVault.Create();
+        var original = await DetailedEntry(vault);
+        using var draft = await vault.Storage.OpenEntryDraftAsync(original.Id, vault.Crypto, original.Revision);
+        Assert.False(await draft.PrepareForSaveAsync());
+        Assert.Equal(original.History[0].Id, Assert.Single(draft.Current.History).Id);
+        Assert.Equal(original.Attachments[0].Id, Assert.Single(draft.Current.Attachments).Id);
+    }
+
+    [Fact]
     public async Task StreamedKeyRotationPreservesEveryEntryAndItsChildren()
     {
         using var vault = await TestVault.Create(); var first = await DetailedEntry(vault); var second = await DetailedEntry(vault);

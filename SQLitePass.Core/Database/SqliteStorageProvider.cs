@@ -416,6 +416,25 @@ public sealed partial class SqliteStorageProvider : IDisposable
     public Task<PwEntry> LoadEntryOverviewAsync(Guid entryId, CryptoEngine crypto, long expectedRevision,
         CancellationToken cancellationToken = default) => LoadEntryAsync(entryId, crypto, expectedRevision, EntrySerialization.OverviewOptions, cancellationToken);
 
+    public async Task<EntryEditDraft> OpenEntryDraftAsync(Guid entryId, CryptoEngine crypto, long expectedRevision,
+        CancellationToken cancellationToken = default)
+    {
+        var entry = await LoadEntryAsync(entryId, crypto, expectedRevision, EntrySerialization.EditorOptions, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return EntryEditDraft.TakeDeferredEntry(entry,
+                token => LoadEntryAsync(entryId, crypto, expectedRevision, token),
+                token => LoadEntryAsync(entryId, crypto, expectedRevision, EntrySerialization.AttachmentOptions, token),
+                token => LoadEntryAsync(entryId, crypto, expectedRevision, EntrySerialization.HistoryOptions, token));
+        }
+        catch
+        {
+            entry.ClearSecrets();
+            throw;
+        }
+    }
+
     public Task<string> LoadEntryUserNameAsync(Guid entryId, CryptoEngine crypto, long expectedRevision,
         CancellationToken cancellationToken = default) => LoadEntryCredentialAsync(entryId, crypto, expectedRevision, password: false, cancellationToken);
 

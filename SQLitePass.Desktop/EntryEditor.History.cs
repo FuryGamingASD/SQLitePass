@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Security.Cryptography;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -53,11 +52,8 @@ public sealed partial class EntryEditor
                 foreach (var field in _draft.CustomFields) field.Value = "";
                 _draft.CustomFields.Clear();
                 foreach (var field in snapshot.CustomFields) _draft.CustomFields.Add(field);
-                foreach (var attachment in _draft.Attachments) CryptographicOperations.ZeroMemory(attachment.Data);
-                _draft.Attachments.Clear();
-                foreach (var attachment in snapshot.Attachments) _draft.Attachments.Add(attachment);
+                _editDraft.ReplaceAttachmentsFrom(snapshot);
                 snapshot.CustomFields.Clear();
-                snapshot.Attachments.Clear();
             }
             EntryTitle.Text = history.Title;
             UserName.Text = history.UserName;
@@ -73,6 +69,7 @@ public sealed partial class EntryEditor
 
     internal Task ClearHistoryAsync() => RunEditorOperationAsync(async token =>
     {
+        if (!_editDraft.HistoryLoaded) await LoadHistoryAsync(token);
         if (!await ConfirmHistoryAsync(_text("ClearHistory", []), _text("ClearHistoryConfirm", []), token)) return;
         token.ThrowIfCancellationRequested();
         foreach (var revision in _draft.History)

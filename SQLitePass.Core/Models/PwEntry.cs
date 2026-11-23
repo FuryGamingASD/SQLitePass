@@ -29,6 +29,7 @@ namespace SQLitePass.Core.Models
         [System.Text.Json.Serialization.JsonIgnore]
         public bool HasLoadedDetails { get; private set; } = true;
         internal void MarkAsOverview() => HasLoadedDetails = false;
+        internal void MarkDetailsLoaded() => HasLoadedDetails = true;
         internal int? GridPasswordLength { get; set; }
         internal int? GridAutoTypeSequenceLength { get; set; }
         [System.Text.Json.Serialization.JsonIgnore]

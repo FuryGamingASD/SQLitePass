@@ -72,11 +72,18 @@ public sealed partial class AvaloniaVaultTests
                     var copyEvent = new RoutedEventArgs(TextBox.CopyingToClipboardEvent);
                     passwordField.RaiseEvent(copyEvent);
                     Assert.True(copyEvent.Handled);
-                    editor.FindControl<TabControl>("Sections")!.SelectedIndex = 2;
+                    var sections = editor.FindControl<TabControl>("Sections")!;
+                    var attachments = editor.FindControl<ListBox>("Attachments")!;
+                    var history = editor.FindControl<ListBox>("History")!;
+                    Assert.Empty(attachments.Items);
+                    Assert.Empty(history.Items);
+                    sections.SelectedItem = editor.FindControl<TabItem>("AttachmentsTab");
+                    await editor.WaitForOperationsAsync();
                     Assert.False(passwordField.RevealPassword);
+                    Assert.Single(attachments.Items);
+                    Assert.Empty(history.Items);
 
                     await editor.AddAttachmentAsync(_ => Task.FromResult<string?>(attachmentPath));
-                    var attachments = editor.FindControl<ListBox>("Attachments")!;
                     var draftAttachment = attachments.Items.OfType<PwAttachment>().Single(item => item.FileName == "fixture.txt");
                     await editor.ExportAttachmentAsync(draftAttachment, (_, _) => Task.FromResult<string?>(path));
                     Assert.Contains("failed", editor.FindControl<TextBlock>("ValidationMessage")!.Text, StringComparison.OrdinalIgnoreCase);
@@ -85,7 +92,10 @@ public sealed partial class AvaloniaVaultTests
                     editor.RemoveSelectedAttachment();
                     Assert.All(draftAttachment.Data, value => Assert.Equal(0, value));
 
-                    editor.FindControl<ListBox>("History")!.SelectedIndex = 0;
+                    sections.SelectedItem = editor.FindControl<TabItem>("HistoryTab");
+                    await editor.WaitForOperationsAsync();
+                    Assert.Single(history.Items);
+                    history.SelectedIndex = 0;
                     await ConfirmAsync(editor, editor.RestoreSelectedHistoryAsync(), true, timeout.Token);
                     Assert.Equal("Earlier entry", editor.FindControl<TextBox>("EntryTitle")!.Text);
                     Assert.Equal(expiry, editor.FindControl<DatePicker>("Expiry")!.SelectedDate!.Value.Date);

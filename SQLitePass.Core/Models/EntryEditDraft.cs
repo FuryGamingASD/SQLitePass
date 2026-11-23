@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+
 namespace SQLitePass.Core.Models;
 
 public sealed class EntryEditDraft : IDisposable
@@ -6,16 +8,23 @@ public sealed class EntryEditDraft : IDisposable
     public PwEntryHistory Original => _original ?? throw new InvalidOperationException("The original revision is loaded on save.");
     private readonly PwEntryHistory? _original;
     private readonly Func<CancellationToken, Task<PwEntry>>? _loadOriginal;
-    private readonly Guid[] _originalHistory;
+    private Func<CancellationToken, Task<PwEntry>>? _loadAttachments;
+    private Func<CancellationToken, Task<PwEntry>>? _loadHistory;
+    private readonly Guid[]? _originalHistory;
+    public bool AttachmentsLoaded => _loadAttachments == null;
+    public bool HistoryLoaded => _loadHistory == null;
     private bool? _prepared;
     public bool? IsSaveRequired => _prepared;
     private bool _disposed;
-    private EntryEditDraft(PwEntry current, PwEntryHistory? original, Func<CancellationToken, Task<PwEntry>>? loadOriginal = null)
+    private EntryEditDraft(PwEntry current, PwEntryHistory? original, Func<CancellationToken, Task<PwEntry>>? loadOriginal = null,
+        Func<CancellationToken, Task<PwEntry>>? loadAttachments = null, Func<CancellationToken, Task<PwEntry>>? loadHistory = null)
     {
         Current = current;
         _original = original;
         _loadOriginal = loadOriginal;
-        _originalHistory = current.History.Select(item => item.Id).ToArray();
+        _loadAttachments = loadAttachments;
+        _loadHistory = loadHistory;
+        _originalHistory = loadHistory == null ? current.History.Select(item => item.Id).ToArray() : null;
     }
 
     public static EntryEditDraft Create(PwEntry source)
@@ -35,6 +44,45 @@ public sealed class EntryEditDraft : IDisposable
         return new(entry, original: null, loadOriginal);
     }
 
+    internal static EntryEditDraft TakeDeferredEntry(PwEntry entry, Func<CancellationToken, Task<PwEntry>> loadOriginal,
+        Func<CancellationToken, Task<PwEntry>> loadAttachments, Func<CancellationToken, Task<PwEntry>> loadHistory) =>
+        new(entry, original: null, loadOriginal, loadAttachments, loadHistory);
+
+    public Task LoadAttachmentsAsync(CancellationToken token = default) => LoadDetailsAsync(_loadAttachments, ReplaceAttachmentsFrom, token);
+    public Task LoadHistoryAsync(CancellationToken token = default) => LoadDetailsAsync(_loadHistory, AdoptHistory, token);
+
+    private async Task LoadDetailsAsync(Func<CancellationToken, Task<PwEntry>>? load, Action<PwEntry> adopt, CancellationToken token)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (load == null) return;
+        var details = await load(token);
+        try
+        {
+            token.ThrowIfCancellationRequested();
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            adopt(details);
+        }
+        finally { details.ClearSecrets(); }
+    }
+
+    public void ReplaceAttachmentsFrom(PwEntry source)
+    {
+        foreach (var attachment in Current.Attachments) CryptographicOperations.ZeroMemory(attachment.Data);
+        Current.Attachments.Clear();
+        foreach (var attachment in source.Attachments) Current.Attachments.Add(attachment);
+        source.Attachments.Clear();
+        _loadAttachments = null;
+        if (HistoryLoaded) Current.MarkDetailsLoaded();
+    }
+
+    private void AdoptHistory(PwEntry source)
+    {
+        foreach (var revision in source.History) Current.History.Add(revision);
+        source.History.Clear();
+        _loadHistory = null;
+        if (AttachmentsLoaded) Current.MarkDetailsLoaded();
+    }
+
     // Compare on a worker, then update on the caller's context: collections may be bound to a UI.
     // Preparation finalizes this draft; the editor must not modify it afterwards.
     public async Task<bool> PrepareForSaveAsync(CancellationToken cancellationToken = default)
@@ -45,27 +93,31 @@ public sealed class EntryEditDraft : IDisposable
         PwEntry? storedOriginal = null;
         try
         {
+            PwEntryHistory original;
+            Guid[]? originalHistory = _originalHistory;
             if (_loadOriginal != null)
             {
                 storedOriginal = await _loadOriginal(cancellationToken);
                 if (storedOriginal.Id != Current.Id || storedOriginal.Revision != Current.Revision)
                     throw new VaultConflictException("The entry changed while it was being edited.");
+                original = await Task.Run(storedOriginal.CreateHistorySnapshot, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+                ObjectDisposedException.ThrowIf(_disposed, this);
+                if (_prepared.HasValue) return _prepared.Value;
+                originalHistory ??= storedOriginal.History.Select(item => item.Id).ToArray();
+                if (!AttachmentsLoaded) ReplaceAttachmentsFrom(storedOriginal);
+                if (!HistoryLoaded) AdoptHistory(storedOriginal);
             }
-            var changes = await Task.Run(() =>
-            {
-                var original = storedOriginal?.CreateHistorySnapshot() ?? Original;
-                return (
-                    Original: original,
-                    Content: EntrySerialization.Serialize(Current, includeHistory: false) != original.SnapshotJson,
-                    History: !_originalHistory.SequenceEqual(Current.History.Select(item => item.Id)));
-            }, cancellationToken);
+            else original = Original;
+            var changes = await Task.Run(() => (
+                Content: EntrySerialization.Serialize(Current, includeHistory: false) != original.SnapshotJson,
+                History: !originalHistory!.SequenceEqual(Current.History.Select(item => item.Id))), cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             ObjectDisposedException.ThrowIf(_disposed, this);
             if (_prepared.HasValue) return _prepared.Value;
             if (Current.Revision > 0 && !changes.Content && !changes.History) return (_prepared = false).Value;
             if (Current.Revision > 0 && changes.Content)
             {
-                var original = changes.Original;
                 Current.History.Add(new PwEntryHistory
                 {
                     EntryId = Current.Id, Title = original.Title, UserName = original.UserName, Password = original.Password,
