@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using Avalonia.Controls;
 using Avalonia.Input.Platform;
 
 namespace SQLitePass.Desktop.Services;
@@ -9,12 +10,14 @@ internal static class NativeClipboardVerification
 {
     private const string InitialText = "SQLitePass clipboard fixture Ω 🎛";
     private const string ReplacementText = "Synthetic clipboard from another application";
+    private static bool InspectWindowsHistory => OperatingSystem.IsWindows() &&
+        Environment.GetEnvironmentVariable("SQLITEPASS_VERIFY_WINDOWS_CLIPBOARD_HISTORY") == "1";
     private static bool UseWaylandPeer => OperatingSystem.IsLinux() &&
         Environment.GetEnvironmentVariable("SQLITEPASS_VERIFY_WAYLAND_CLIPBOARD") == "1";
 
     internal static async Task VerifyAsync(VaultWindow window)
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(32));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(InspectWindowsHistory ? 120 : 32));
         var token = timeout.Token;
         var clipboard = window.NativeClipboard ?? throw new InvalidOperationException("Native clipboard backend unavailable.");
         var read = window.Clipboard ?? throw new InvalidOperationException("Native clipboard reader unavailable.");
@@ -23,7 +26,7 @@ internal static class NativeClipboardVerification
         clipboard.Expired += OnExpired;
         try
         {
-            if (!await clipboard.CopyAsync(InitialText, TimeSpan.FromSeconds(18), token))
+            if (!await clipboard.CopyAsync(InitialText, TimeSpan.FromSeconds(InspectWindowsHistory ? 100 : 18), token))
                 throw new InvalidOperationException("The native clipboard rejected a synthetic copy.");
             string copied = await ReadFromPeerAsync(token);
             while (UseWaylandPeer && copied.Length == 0)
@@ -34,6 +37,13 @@ internal static class NativeClipboardVerification
             if (copied != InitialText)
                 throw new InvalidOperationException("An external process did not receive the copied text intact.");
             await VerifyPrivacyFormatsAsync(window, token);
+            if (InspectWindowsHistory)
+            {
+                window.FindControl<TextBlock>("LoginSubtitle")!.Text =
+                    "Clipboard fixture active for 75 seconds. Press Win+V on both Windows PCs and look for: " + InitialText;
+                Console.WriteLine("Windows history probe active for 75 seconds. Check Win+V on both signed-in test PCs for the synthetic fixture.");
+                await Task.Delay(TimeSpan.FromSeconds(75), token);
+            }
             clipboard.ShortenTimeout(TimeSpan.FromSeconds(6));
             var result = await expired.Task.WaitAsync(TimeSpan.FromSeconds(8), token);
             if (result != ClipboardClearResult.Cleared)
