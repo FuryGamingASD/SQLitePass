@@ -2,12 +2,32 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 $root=Join-Path ([IO.Path]::GetTempPath()) ('SQLitePass-release-test-'+[guid]::NewGuid().ToString('N'))
 $savedSha=$env:GITHUB_SHA; $savedRepo=$env:GITHUB_REPOSITORY
+$savedPublicKey=$env:UPDATE_SIGNING_PUBLIC_KEY; $savedPrivateKey=$env:UPDATE_SIGNING_PRIVATE_KEY
 try {
     New-Item -ItemType Directory -Path $root | Out-Null
     $env:GITHUB_SHA='0123456789012345678901234567890123456789'; $env:GITHUB_REPOSITORY='example/release-test'
-    [ordered]@{Version='1.1.3';SourceCommit=$env:GITHUB_SHA;SourceDirty=$false} | ConvertTo-Json | Set-Content (Join-Path $root 'release-provenance.json') -Encoding utf8
-    Set-Content (Join-Path $root 'payload.txt') 'synthetic release bytes' -Encoding utf8
-    @(Get-ChildItem $root -File | ForEach-Object {[ordered]@{File=$_.Name;Hash=(Get-FileHash $_.FullName -Algorithm SHA256).Hash}}) | ConvertTo-Json | Set-Content (Join-Path $root 'checksums.json') -Encoding utf8
+    [ordered]@{Version='1.1.3';PackageId='SQLitePass';SourceCommit=$env:GITHUB_SHA;SourceDirty=$false} |
+        ConvertTo-Json | Set-Content (Join-Path $root 'release-provenance.json') -Encoding utf8
+    function Write-Checksums {
+        @(Get-ChildItem -LiteralPath $root -File | Where-Object Name -ne 'checksums.json' | ForEach-Object {
+            [ordered]@{File=$_.Name;Hash=(Get-FileHash -LiteralPath $_.FullName).Hash}
+        }) | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'checksums.json') -Encoding utf8
+    }
+    foreach ($channel in @('win', 'linux')) {
+        $name = "SQLitePass-1.1.3-$channel-full.nupkg"
+        $path = Join-Path $root $name
+        Set-Content -LiteralPath $path -Value "Synthetic $channel package" -Encoding utf8
+        @{Assets=@(@{PackageId='SQLitePass';Version='1.1.3';Type='Full';FileName=$name;
+            Size=(Get-Item -LiteralPath $path).Length;SHA256=(Get-FileHash -LiteralPath $path).Hash})} |
+            ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $root "releases.$channel.json") -Encoding utf8
+    }
+    Write-Checksums
+    $signer = [System.Security.Cryptography.RSA]::Create(3072)
+    try {
+        $env:UPDATE_SIGNING_PUBLIC_KEY = [Convert]::ToBase64String($signer.ExportSubjectPublicKeyInfo())
+        $env:UPDATE_SIGNING_PRIVATE_KEY = $signer.ExportPkcs8PrivateKeyPem()
+        & (Join-Path $PSScriptRoot 'Sign-AvaloniaUpdateRelease.ps1') -ArtifactDirectory $root
+    } finally { $signer.Dispose() }
     function gh {
         $global:LASTEXITCODE=0
         $state=$global:SQLitePassReleaseTestState
@@ -47,6 +67,22 @@ try {
         return $state
     }
     $publisher=Join-Path $PSScriptRoot 'Publish-GitHubRelease.ps1'
+    $signaturePath = Join-Path $root 'sqlitepass-update-auth.sig'
+    $signature = [IO.File]::ReadAllBytes($signaturePath)
+    $invalidSignature = [byte[]]$signature.Clone()
+    $invalidSignature[0] = $invalidSignature[0] -bxor 1
+    [IO.File]::WriteAllBytes($signaturePath, $invalidSignature)
+    Write-Checksums
+    $global:SQLitePassReleaseTestState=New-State $false $true $false
+    $rejected=$false
+    try { & $publisher -ArtifactDirectory $root } catch {
+        if ($_.Exception.Message -ne 'The update manifest signature is invalid.') { throw }
+        $rejected=$true
+    }
+    if (-not $rejected -or $global:SQLitePassReleaseTestState.Writes.Count -ne 0) { throw 'Invalid signature reached publication.' }
+    [IO.File]::WriteAllBytes($signaturePath, $signature)
+    Write-Checksums
+
     $global:SQLitePassReleaseTestState=New-State $false $true $false
     & $publisher -ArtifactDirectory $root
     if($global:SQLitePassReleaseTestState.Draft -or -not $global:SQLitePassReleaseTestState.Writes.Contains('publish')){throw 'Fresh publication test failed.'}
@@ -76,14 +112,8 @@ try {
     if(-not $rejected -or $global:SQLitePassReleaseTestState.Writes.Count -ne 0){throw 'Missing release notes did not stop publication.'}
 
     $provenance.Version='1.1.3'
-    $provenance | Add-Member -NotePropertyName PackageId -NotePropertyValue 'SQLitePass'
     $provenance | ConvertTo-Json | Set-Content -LiteralPath $provenancePath -Encoding utf8
-    foreach($asset in @('releases.win.json', 'releases.linux.json', 'SQLitePass-win-Setup.exe', 'SQLitePass-linux.AppImage')){
-        Set-Content -LiteralPath (Join-Path $root $asset) -Value "Synthetic $asset" -Encoding utf8
-    }
-    @(Get-ChildItem -LiteralPath $root -File | Where-Object Name -ne 'checksums.json' | ForEach-Object {
-        [ordered]@{File=$_.Name;Hash=(Get-FileHash -LiteralPath $_.FullName).Hash}
-    }) | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root 'checksums.json') -Encoding utf8
+    Write-Checksums
 
     $global:SQLitePassReleaseTestState=New-State $false $true $false
     $global:SQLitePassReleaseTestState.RequireExistingTag=$true
@@ -102,9 +132,10 @@ try {
     $rejected=$false
     try { & $publisher -ArtifactDirectory $root -ExistingTag 'v1.1.3' } catch { $rejected=$true }
     if(-not $rejected -or $global:SQLitePassReleaseTestState.Writes.Count -ne 0){ throw 'A missing channel was not rejected before writing.' }
-    Write-Output 'Eight publication safety scenarios passed using an in-memory CLI.'
+    Write-Output 'Nine publication safety scenarios passed using an in-memory CLI and an ephemeral RSA key.'
 } finally {
     $env:GITHUB_SHA=$savedSha;$env:GITHUB_REPOSITORY=$savedRepo
+    $env:UPDATE_SIGNING_PUBLIC_KEY=$savedPublicKey; $env:UPDATE_SIGNING_PRIVATE_KEY=$savedPrivateKey
     Remove-Variable SQLitePassReleaseTestState -Scope Global -ErrorAction SilentlyContinue
     $resolved=[IO.Path]::GetFullPath($root)
     if(-not $resolved.StartsWith([IO.Path]::GetFullPath([IO.Path]::GetTempPath()),[StringComparison]::OrdinalIgnoreCase) -or -not [IO.Path]::GetFileName($resolved).StartsWith('SQLitePass-release-test-')){throw 'Invalid test cleanup path.'}

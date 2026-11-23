@@ -32,6 +32,29 @@ foreach($entry in $checksums){
     if($entry.File -ne [IO.Path]::GetFileName($entry.File)){throw 'Invalid checksum filename.'}
     if((Get-FileHash (Join-Path $ArtifactDirectory $entry.File) -Algorithm SHA256).Hash -ne $entry.Hash){throw 'Downloaded CI artifact checksum mismatch.'}
 }
+$manifestPath = Join-Path $ArtifactDirectory 'sqlitepass-update-auth.json'
+$signaturePath = Join-Path $ArtifactDirectory 'sqlitepass-update-auth.sig'
+[byte[]]$manifest = [IO.File]::ReadAllBytes((Resolve-Path -LiteralPath $manifestPath).ProviderPath)
+[byte[]]$signature = [IO.File]::ReadAllBytes((Resolve-Path -LiteralPath $signaturePath).ProviderPath)
+if ([string]::IsNullOrWhiteSpace($env:UPDATE_SIGNING_PUBLIC_KEY) -or $manifest.Length -lt 1 -or
+    $manifest.Length -gt 65536 -or $signature.Length -lt 1 -or $signature.Length -gt 1024) {
+    throw 'The update signature or its verification key is unavailable.'
+}
+$rsa = [System.Security.Cryptography.RSA]::Create()
+try {
+    $key = [Convert]::FromBase64String($env:UPDATE_SIGNING_PUBLIC_KEY)
+    $bytesRead = 0
+    $rsa.ImportSubjectPublicKeyInfo($key, [ref]$bytesRead)
+    if ($bytesRead -ne $key.Length -or $rsa.KeySize -lt 3072 -or $rsa.KeySize -gt 8192 -or
+        -not $rsa.VerifyData($manifest, $signature, [System.Security.Cryptography.HashAlgorithmName]::SHA256,
+            [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)) {
+        throw 'The update manifest signature is invalid.'
+    }
+} finally { $rsa.Dispose() }
+$expectedManifest = & (Join-Path $PSScriptRoot 'Get-AvaloniaUpdateManifest.ps1') -ArtifactDirectory $ArtifactDirectory
+if ([Text.Encoding]::UTF8.GetString($manifest) -cne $expectedManifest) {
+    throw 'The signed update manifest does not match the packages, feeds and provenance being published.'
+}
 if($ExistingTag){Assert-ExistingTag}
 $existingText=& gh release view $tag --repo $env:GITHUB_REPOSITORY --json apiUrl,isDraft,targetCommitish 2>$null
 $existing=$null
