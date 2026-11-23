@@ -391,7 +391,7 @@ Dependency monitoring should continue through routine maintenance.
 
 # Release Assessment
 
-The 1.2.2 patch refines the unlock window and folder drop feedback. The release workflow checks the shared suite, native desktop integration and upgrades from public packages on both platforms. [Release evidence and package provenance](releases/RELEASE_OUTCOME_1.2.2.md) · [Feature-parity audit](audit/FEATURE_PARITY_1.2.0.md)
+The updated 1.2.2 packages refine the window controls, the entry editor and folder drop feedback. The release verification covers native desktop integration, upgrades from older releases and reinstalling the revised Windows package over the original version. [Release evidence and package provenance](releases/RELEASE_OUTCOME_1.2.2.md) · [Feature-parity audit](audit/FEATURE_PARITY_1.2.0.md)
 
 The evidence covers internal review and project verification. An independent audit and penetration test remain open. A07 remains a P1 Windows Auto-Type race. The project does not recommend SQLitePass as the sole store for high-value or privileged credentials.
 

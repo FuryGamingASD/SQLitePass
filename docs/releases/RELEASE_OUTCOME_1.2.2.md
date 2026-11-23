@@ -1,10 +1,12 @@
 # SQLitePass 1.2.2 release verification
 
-The patch adjusts the workspace heading, fits the undecorated unlock window to its contents and highlights the folder selected by a drag. [Release notes](../../RELEASE_NOTES.md#sqlitepass-122)
+The updated 1.2.2 packages integrate the window controls into the vault header, keep the entry editor tabs on one row and reserve space for scrolling beside the Credentials fields when needed. They also contain the compact unlock window and the folder drop highlight. [Release notes](../../RELEASE_NOTES.md#sqlitepass-122)
 
 | Platform | Distribution | Update feed |
 | --- | --- | --- |
 | Windows x64 | [Installer](https://github.com/FuryGamingASD/SQLitePass/releases/download/v1.2.2/SQLitePass-win-Setup.exe) · [Portable ZIP](https://github.com/FuryGamingASD/SQLitePass/releases/download/v1.2.2/SQLitePass-win-Portable.zip) | [Windows feed](https://github.com/FuryGamingASD/SQLitePass/releases/download/v1.2.2/releases.win.json) |
 | Linux x64 | [AppImage](https://github.com/FuryGamingASD/SQLitePass/releases/download/v1.2.2/SQLitePass.AppImage) | [Linux feed](https://github.com/FuryGamingASD/SQLitePass/releases/download/v1.2.2/releases.linux.json) |
 
-The desktop preview passed 169 shared tests per platform and checked the actual Windows window frame and drop outline with a synthetic vault. The tagged workflow repeats those tests and verifies upgrades from public 1.2.1 packages and both public update feeds. [Preview verification](https://github.com/FuryGamingASD/SQLitePass/actions/runs/45135297648) · [Tagged workflow](https://github.com/FuryGamingASD/SQLitePass/actions/workflows/verify.yml?query=branch%3Av1.2.2) · [Release provenance](https://github.com/FuryGamingASD/SQLitePass/releases/download/v1.2.2/release-provenance.json) · [SHA-256 checksums](https://github.com/FuryGamingASD/SQLitePass/releases/download/v1.2.2/checksums.json)
+The original 1.2.2 packages came from commit `d4365e8`. The replacement keeps the same version and release page. Existing 1.2.2 installations require a new download. On Windows, close the app and run the new Setup or replace the portable application files. On Linux, close the app and replace the AppImage. Use the same vault path and credentials when reopening the app.
+
+Verification covers the shared test suite, native window controls, folder drop feedback, upgrades from 1.2.1 and installing the revised Windows package over the original 1.2.2. The Windows reinstall probe compares the installed assembly to the candidate package and checks that synthetic user data survives. [Replacement verification runs](https://github.com/FuryGamingASD/SQLitePass/actions/workflows/verify.yml?query=branch%3Acodex%2Fworkspace-controls-compact-editor) · [Release provenance](https://github.com/FuryGamingASD/SQLitePass/releases/download/v1.2.2/release-provenance.json) · [SHA-256 checksums](https://github.com/FuryGamingASD/SQLitePass/releases/download/v1.2.2/checksums.json)

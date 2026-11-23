@@ -2,7 +2,7 @@
 
 SQLitePass is a local password manager for Windows x64 and Linux x64 built with .NET 10, Avalonia and SQLite.
 
-The **1.2.2** update adds a compact unlock window, a consistent SQLitePass heading and a visible folder drop target. SQLitePass provides a Windows installer, a Windows portable build and a Linux AppImage. [Latest stable downloads](https://github.com/FuryGamingASD/SQLitePass/releases/latest) · [Release verification](docs/releases/RELEASE_OUTCOME_1.2.2.md)
+The updated **1.2.2** packages integrate window controls into the vault header and compact the entry editor. The release also includes the compact unlock window and a visible folder drop target. If you already use 1.2.2, download the updated package manually. [Latest stable downloads](https://github.com/FuryGamingASD/SQLitePass/releases/latest) · [Release verification](docs/releases/RELEASE_OUTCOME_1.2.2.md)
 
 - **Windows x64.** Use `SQLitePass-win-Setup.exe` to install or upgrade SQLitePass. The installer is unsigned and Windows may display a publisher or reputation prompt. `SQLitePass-win-Portable.zip` is available for portable use.
 - **Linux x64.** Download `SQLitePass.AppImage`, make it executable with `chmod u+x SQLitePass.AppImage` and launch it with `./SQLitePass.AppImage`. Launch and in-place updates were verified with FUSE. Keep the AppImage in a user-writable directory to apply in-place updates.

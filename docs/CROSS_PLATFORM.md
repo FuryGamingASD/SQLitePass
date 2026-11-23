@@ -35,6 +35,8 @@ Open **Settings** from the unlock screen or vault menu. The shared app uses the 
 
 The browser supports text, exact tag and expiry filters, with paged sorting. The entry editor can save and restore custom fields and attachments, edit expiration and Auto-Type settings, and reveal values temporarily. The password generator is available from the unlock screen, the vault menu and the entry editor. **Use password** puts the result in the entry draft. **Copy** uses the same temporary clipboard as vault entries.
 
+The unlocked window places minimize, maximize, restore and close next to the menus. Drag its SQLitePass header to move it or resize it from an edge. The close button follows the configured tray preference. The entry editor keeps the tabs on one row and reserves separate space for a scrollbar when resized below the height needed for all Credentials fields.
+
 ## Releasing both platforms
 
 Set the shared version in `Directory.Build.props` and add one matching `# SQLitePass X.Y.Z` section to `RELEASE_NOTES.md`. For a version newer than 1.1.3, push its `vX.Y.Z` tag on a commit in `main`. Verify schedules the Windows and Linux builds in parallel. It assembles their verified assets, validates their hashes, and publishes the Windows installer, AppImage and both Velopack feeds in one GitHub release. The Windows package retains the `SQLitePass` package ID, `SQLitePass.exe` apphost and `win` channel. The Linux package uses the `linux` channel. After publication, the workflow compares both public feed files with the verified copies.
@@ -42,6 +44,8 @@ Set the shared version in `Directory.Build.props` and add one matching `# SQLite
 The shared app offers **Check for Updates** on the unlock screen and in the vault menu. Official packages check their platform's channel. A confirmed update downloads while the app is open and locks the vault before restarting. A cancelled download does not trigger automatic installation on the next startup. The Linux upgrade probe runs the checksum-verified public 1.2.1 AppImage against the candidate's local feed. It checks the replacement, restart, and reopening of a synthetic vault.
 
 To rehearse this from a branch, run Verify with the `release_rehearsal` input. This builds with the public package identity and retains the combined bundle as a CI artifact. Publication requires a pushed release tag. The Windows job verifies fresh installation, tray activation, clean shutdown before updating, upgrades from the public 1.1.3, 1.2.0 and 1.2.1 installers, and uninstall with synthetic data outside the installation. It also checks the unlock-window frame, folder drop feedback and global Auto-Type on the isolated Windows desktop.
+
+For a same-version replacement, pass the original public Windows installer checksum in `existing_windows_installer_sha256` during rehearsal. The Windows job installs that build, runs the replacement Setup over it, compares the installed assembly with the candidate package and checks that synthetic user data survives. An existing 1.2.2 installation needs a manual download when the published package is replaced at the same version.
 
 ## Recovery in the shared app
 

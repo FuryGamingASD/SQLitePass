@@ -21,10 +21,11 @@ Security guarantees should always be interpreted according to the current docume
 # SQLitePass 1.2.2
 
 - The workspace heading shows **SQLitePass**. The vault name remains in the group tree.
-- The unlock window fits its contents and uses a draggable app header. The standard window controls return when the vault opens.
+- The unlock window fits its contents and uses a draggable app header. The vault window places minimize, maximize, restore and close next to the File, Edit, View and Tools menus.
 - A visible outline highlights the destination folder while you drag an entry or group over it.
+- The entry editor keeps all five tabs on one row. The Credentials tab fits at the default size. When a smaller window needs to scroll, the scrollbar has its own space beside the fields.
 
-Use **Check for Updates** from SQLitePass 1.2.1. The Windows and Linux packages use the same Vault Format 2 and existing credentials. [Release verification](https://github.com/FuryGamingASD/SQLitePass/blob/v1.2.2/docs/releases/RELEASE_OUTCOME_1.2.2.md)
+These downloads replace the original 1.2.2 packages. If you already use 1.2.2, close SQLitePass and download the updated package manually. Run the new Windows installer, replace the portable app, or replace the Linux AppImage. You can still use **Check for Updates** from 1.2.1. The packages use the same Vault Format 2 and existing credentials. [Release verification](https://github.com/FuryGamingASD/SQLitePass/blob/v1.2.2/docs/releases/RELEASE_OUTCOME_1.2.2.md)
 
 ---
 

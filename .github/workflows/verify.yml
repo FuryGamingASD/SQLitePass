@@ -10,6 +10,9 @@ on:
         description: Build with the public package identity and stage a release bundle
         type: boolean
         default: false
+      existing_windows_installer_sha256:
+        description: SHA-256 of the public same-version installer to test before replacing a release
+        type: string
 permissions:
   contents: read
 concurrency:
@@ -74,7 +77,13 @@ jobs:
         if: needs.release-plan.outputs.package_identity == 'release'
         env:
           CANDIDATE_PATH: ${{ steps.avalonia-win.outputs.candidate_path }}
-        run: ./scripts/Verify-AvaloniaWindowsSetup.ps1 -CandidateDirectory $env:CANDIDATE_PATH
+          EXISTING_WINDOWS_INSTALLER_SHA256: ${{ inputs.existing_windows_installer_sha256 }}
+        run: |
+          $validation = @{ CandidateDirectory = $env:CANDIDATE_PATH }
+          if ($env:EXISTING_WINDOWS_INSTALLER_SHA256) {
+              $validation.ExistingInstallerSha256 = $env:EXISTING_WINDOWS_INSTALLER_SHA256
+          }
+          ./scripts/Verify-AvaloniaWindowsSetup.ps1 @validation
       - name: Preserve Avalonia Windows installation evidence
         if: always() && needs.release-plan.outputs.package_identity == 'release'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

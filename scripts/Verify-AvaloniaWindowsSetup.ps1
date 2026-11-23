@@ -1,4 +1,7 @@
-param([Parameter(Mandatory)][string]$CandidateDirectory)
+param(
+    [Parameter(Mandatory)][string]$CandidateDirectory,
+    [ValidatePattern('^[0-9a-fA-F]{64}$')][string]$ExistingInstallerSha256
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -41,6 +44,7 @@ $previousHashes = [ordered]@{
     '1.2.1' = '63AD97E6BCA08D47295A451D9589358FE9E1CC7458C3D12E7A693B6AF77AD07B'
 }
 if ([version]$manifest.Version -le [version]'1.2.1') { throw 'The candidate must be newer than the public Avalonia baseline.' }
+if ($ExistingInstallerSha256) { $previousHashes[$manifest.Version] = $ExistingInstallerSha256.ToUpperInvariant() }
 $isolated = [IO.Directory]::CreateTempSubdirectory('SQLitePass-Avalonia-package-').FullName
 $logs = (New-Item -ItemType Directory -Path 'artifacts/verification/avalonia-windows-setup' -Force).FullName
 $previousSetups = @{}
@@ -110,7 +114,8 @@ $marker = Join-Path $testProfileDirectory 'isolated-verification.txt'
 Set-Content -LiteralPath $marker -Value 'Synthetic user data outside the installation' -Encoding utf8
 $markerHash = (Get-FileHash -LiteralPath $marker).Hash
 foreach ($previousVersion in @('') + @($previousHashes.Keys)) {
-    $scenario = if ($previousVersion) { "upgrade-$previousVersion" } else { 'fresh' }
+    $sameVersion = $previousVersion -ceq $manifest.Version
+    $scenario = if ($sameVersion) { 'manual-reinstall' } elseif ($previousVersion) { "upgrade-$previousVersion" } else { 'fresh' }
     $installation = Join-Path $isolated $scenario
     $updater = Join-Path $installation 'Update.exe'
     $inputSetup = if ($previousVersion) { $previousSetups[$previousVersion] } else { $setup }
@@ -124,7 +129,24 @@ foreach ($previousVersion in @('') + @($previousHashes.Keys)) {
             if ([Reflection.AssemblyName]::GetAssemblyName($oldPayload).Version.ToString() -cne "$previousVersion.0") {
                 throw 'The public installation did not report the expected version.'
             }
-            Invoke-PackageCommand $updater @('--silent', '--log', (Join-Path $logs "$scenario-apply.log"), 'apply', '--package', $updatePackage, '--norestart')
+            if ($sameVersion) {
+                $before = (Get-FileHash -LiteralPath $oldPayload).Hash
+                $archive = [IO.Compression.ZipFile]::OpenRead($updatePackage)
+                try {
+                    $payload = $archive.GetEntry('lib/app/SQLitePass.Desktop.dll')
+                    if ($null -eq $payload) { throw 'The candidate lacks the Avalonia payload.' }
+                    $stream = $payload.Open()
+                    try { $expected = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($stream)) }
+                    finally { $stream.Dispose() }
+                } finally { $archive.Dispose() }
+                if ($before -ceq $expected) { throw 'The published and candidate applications have identical bytes.' }
+                Invoke-PackageCommand $setup @('--silent', '--installto', $installation, '--log', (Join-Path $logs 'manual-reinstall-apply.log'))
+                if ((Get-FileHash -LiteralPath $oldPayload).Hash -cne $expected) {
+                    throw 'Running Setup again did not replace the same-version application files.'
+                }
+            } else {
+                Invoke-PackageCommand $updater @('--silent', '--log', (Join-Path $logs "$scenario-apply.log"), 'apply', '--package', $updatePackage, '--norestart')
+            }
             if ($previousVersion -eq '1.1.3' -and (Test-Path -LiteralPath $oldPayload)) {
                 throw 'The update left the WPF assembly in the current application directory.'
             }
@@ -151,5 +173,6 @@ foreach ($previousVersion in @('') + @($previousHashes.Keys)) {
 }
 
 $manifest | Add-Member -NotePropertyName InstallerVerified -NotePropertyValue $true
-$manifest | Add-Member -NotePropertyName InstallerUpgradeFrom -NotePropertyValue @($previousHashes.Keys)
+$manifest | Add-Member -NotePropertyName InstallerUpgradeFrom -NotePropertyValue @($previousHashes.Keys | Where-Object { $_ -cne $manifest.Version })
+if ($ExistingInstallerSha256) { $manifest | Add-Member -NotePropertyName InstallerSameVersionReinstallVerified -NotePropertyValue $true }
 $manifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $manifestPath -Encoding utf8

@@ -5,8 +5,9 @@
 ## [1.2.2] - 2026-11-23
 
 - Use SQLitePass as the workspace heading.
-- Fit the unlock window to its contents without a system title bar. Restore the normal window controls when a vault opens.
+- Fit the unlock window to its contents and integrate minimize, maximize, restore and close into the workspace header beside the menus.
 - Highlight the destination folder while dragging an entry or group over it.
+- Keep the entry editor tabs on one row. Fit Credentials at the default size and place any scrollbar beside the fields in smaller windows.
 
 ## [1.2.1] - 2026-11-23
 
