@@ -66,7 +66,7 @@ internal static class SessionVerification
             Require(entries.Count == 1, "Combined UI filters did not return the expired synthetic entry.");
             var loaded = (PwEntry)entries[0]!;
             foreach (string cursor in new[] { "_pageCursor", "_nextPageCursor", "_previousPageCursor" })
-                main.GetType().GetField(cursor, Private)!.SetValue(main, new EntryPageCursor("synthetic sort secret", source.Id, "synthetic", "synthetic"));
+                main.GetType().GetField(cursor, Private)!.SetValue(main, new EntryPageCursor(source.Id, "synthetic", "synthetic"));
             Field<DataGrid>(main, "DgEntries").SelectedItem = loaded;
             new System.Windows.Interop.WindowInteropHelper(main).EnsureHandle();
             var editor = new EntryEditDialog(source) { Owner = main };
@@ -89,7 +89,7 @@ internal static class SessionVerification
             Require(masked.Password.Length == 0 && plain.Text.Length == 0 && user.Text.Length == 0, "Editor controls retain credentials after lock.");
             Require(crypto.IsDisposed && Field<FrameworkElement>(main, "LockedOverlay").IsEnabled, "Key disposal or locked overlay state is incorrect.");
             Require(main.OwnedWindows.Count == 0, "Owned dialogs remain open after lock.");
-            Require(new[] { "_pageCursor", "_nextPageCursor", "_previousPageCursor" }.All(name => main.GetType().GetField(name, Private)!.GetValue(main) == null), "Paging cursors retain session sort values after lock.");
+            Require(new[] { "_pageCursor", "_nextPageCursor", "_previousPageCursor" }.All(name => main.GetType().GetField(name, Private)!.GetValue(main) == null), "Pagination state remains after lock.");
             source.ClearSecrets();
             Require(!Field<SQLitePass.UI.Services.TimedSecretReveal>(main, "_columnReveal").IsRevealed &&
                 Field<TextBox>(main, "TxtTagFilter").Text.Length == 0 && Field<TextBlock>(main, "TxtEntryScope").Text.Length == 0, "Lock retained reveal/filter/breadcrumb state.");
