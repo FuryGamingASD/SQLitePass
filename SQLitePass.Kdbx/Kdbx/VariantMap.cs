@@ -3,6 +3,7 @@ using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Security.Cryptography;
 
 namespace DgNet.Keepass;
 
@@ -17,31 +18,47 @@ public class VariantMap {
 	public static VariantMap Read(byte[] data) {
 		var map = new Dictionary<string, object>();
 		using var reader = new BinaryReader(new MemoryStream(data), Encoding.UTF8);
+		try {
+			ushort version = reader.ReadUInt16();
+			if (version != 0x0100)
+				throw new FormatException($"Unsupported VariantMap version: 0x{version:X4}");
 
-		ushort version = reader.ReadUInt16();
-		if (version != 0x0100)
-			throw new FormatException($"Unsupported VariantMap version: 0x{version:X4}");
+			while (true) {
+				byte type = reader.ReadByte();
+				if (type == 0x00) break;
 
-		while (true) {
-			byte type = reader.ReadByte();
-			if (type == 0x00) break;
+				byte[] keyBytes = ReadLengthPrefixedBytes(reader);
+				byte[]? val = null;
+				bool retained = false;
+				try {
+					string key = Encoding.UTF8.GetString(keyBytes);
+					val = ReadLengthPrefixedBytes(reader);
+					object parsed = type switch {
+						0x04 => BinaryPrimitives.ReadUInt32LittleEndian(val),
+						0x05 => BinaryPrimitives.ReadUInt64LittleEndian(val),
+						0x08 => val[0] != 0,
+						0x0C => BinaryPrimitives.ReadInt32LittleEndian(val),
+						0x0D => BinaryPrimitives.ReadInt64LittleEndian(val),
+						0x18 => Encoding.UTF8.GetString(val),
+						0x42 => val,
+						_ => throw new NotSupportedException($"Unknown variant map type: 0x{type:X2}")
+					};
+					if (type == 0x42) retained = true;
+					if (map.TryGetValue(key, out var previous) && previous is byte[] previousBytes)
+						CryptographicOperations.ZeroMemory(previousBytes);
+					map[key] = parsed;
+				} finally {
+					CryptographicOperations.ZeroMemory(keyBytes);
+					if (!retained && val != null) CryptographicOperations.ZeroMemory(val);
+				}
+			}
 
-			string key = Encoding.UTF8.GetString(ReadLengthPrefixedBytes(reader));
-			byte[] val = ReadLengthPrefixedBytes(reader);
-
-			map[key] = type switch {
-				0x04 => BinaryPrimitives.ReadUInt32LittleEndian(val),  // UInt32
-				0x05 => BinaryPrimitives.ReadUInt64LittleEndian(val),  // UInt64
-				0x08 => val[0] != 0,                                   // Bool
-				0x0C => BinaryPrimitives.ReadInt32LittleEndian(val),   // Int32
-				0x0D => BinaryPrimitives.ReadInt64LittleEndian(val),   // Int64
-				0x18 => Encoding.UTF8.GetString(val),                  // String
-				0x42 => val,                                           // ByteArray
-				_ => throw new NotSupportedException($"Unknown variant map type: 0x{type:X2}")
-			};
+			return new VariantMap(map);
+		} catch {
+			foreach (var value in map.Values)
+				if (value is byte[] bytes) CryptographicOperations.ZeroMemory(bytes);
+			throw;
 		}
-
-		return new VariantMap(map);
 	}
 
 	private static byte[] ReadLengthPrefixedBytes(BinaryReader reader) {
@@ -50,8 +67,10 @@ public class VariantMap {
 		if (length > 1024 * 1024 || length > remaining)
 			throw new InvalidDataException("KDBX variant-map field length is invalid.");
 		byte[] value = reader.ReadBytes((int)length);
-		if (value.Length != length)
+		if (value.Length != length) {
+			CryptographicOperations.ZeroMemory(value);
 			throw new EndOfStreamException("Unexpected end of KDBX variant-map field.");
+		}
 		return value;
 	}
 
@@ -90,6 +109,11 @@ public class VariantMap {
 	}
 
 	public bool TryGetValue(string key, out object? value) => _data.TryGetValue(key, out value);
+
+	internal void ZeroizeByteArrays() {
+		foreach (var value in _data.Values)
+			if (value is byte[] bytes) CryptographicOperations.ZeroMemory(bytes);
+	}
 
 	public object this[string key] => _data[key];
 

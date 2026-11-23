@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
+using System.Security.Cryptography;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
@@ -176,8 +177,11 @@ public class KdbxXmlReader {
 			string value;
 			if (isProtected) {
 				byte[] cipher = Convert.FromBase64String(valEl.Value);
-				byte[] plain  = _ps.Process(cipher);
-				value = Encoding.UTF8.GetString(plain);
+				try {
+					byte[] plain = _ps.Process(cipher);
+					try { value = Encoding.UTF8.GetString(plain); }
+					finally { CryptographicOperations.ZeroMemory(plain); }
+				} finally { CryptographicOperations.ZeroMemory(cipher); }
 			} else {
 				value = valEl.Value;
 			}

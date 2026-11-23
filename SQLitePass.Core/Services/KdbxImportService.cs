@@ -153,19 +153,19 @@ public static class KdbxImportService
             new KdbxReader(database).ReadFrom(sourceStream);
             token.ThrowIfCancellationRequested();
             var usedGroupIds = new HashSet<Guid>();
-            var unsupported = new Dictionary<string, (int? Count, string Description)>(StringComparer.Ordinal);
+            var unsupported = new Dictionary<string, int?>(StringComparer.Ordinal);
             var groupSegments = new List<string>();
             var groupIds = new List<Guid>();
             int groupCount = 0;
             int recycleBinEntries = 0;
             Guid recycleBinId = database.Metadata.RecycleBinUuid;
 
-            void AddUnsupported(string name, int? count, string description)
+            void AddUnsupported(string code, int? count)
             {
                 if (count is <= 0) return;
-                unsupported[name] = unsupported.TryGetValue(name, out var previous)
-                    ? (previous.Count.HasValue && count.HasValue ? previous.Count.Value + count.Value : null, previous.Description)
-                    : (count, description);
+                unsupported[code] = unsupported.TryGetValue(code, out var previous)
+                    ? (previous.HasValue && count.HasValue ? previous.Value + count.Value : null)
+                    : count;
             }
 
             void Walk(KdbxGroup group, int depth, bool root, bool underRecycleBin)
@@ -184,16 +184,11 @@ public static class KdbxImportService
                         throw new InvalidDataException("Il database KeePass contiene un nome di gruppo vuoto o superiore a 256 caratteri.");
                     groupSegments.Add(group.Name);
                     groupIds.Add(group.Uuid);
-                    AddUnsupported("Note dei gruppi", group.Notes.Length == 0 ? 0 : 1,
-                        "Le note dei gruppi non hanno un campo equivalente in SQLitePass.");
-                    AddUnsupported("Regole dei gruppi", group.EnableAutoType.HasValue || group.EnableSearching.HasValue ? 1 : 0,
-                        "Le regole di ricerca e Auto-Type dei gruppi non vengono importate.");
-                    AddUnsupported("Icone personalizzate", group.CustomIconUuid == Guid.Empty ? 0 : 1,
-                        "I riferimenti alle icone personalizzate non sono trasferiti.");
-                    AddUnsupported("Date dei gruppi", group.Times.CreationTime == default && group.Times.LastModificationTime == default ? 0 : 1,
-                        "SQLitePass non conserva le date di creazione e modifica delle cartelle.");
-                    AddUnsupported("Icone predefinite delle cartelle", 1,
-                        "Le cartelle importate usano le icone predefinite di SQLitePass.");
+                    AddUnsupported("KdbxUnsupportedGroupNotes", group.Notes.Length == 0 ? 0 : 1);
+                    AddUnsupported("KdbxUnsupportedGroupRules", group.EnableAutoType.HasValue || group.EnableSearching.HasValue ? 1 : 0);
+                    AddUnsupported("KdbxUnsupportedCustomIcons", group.CustomIconUuid == Guid.Empty ? 0 : 1);
+                    AddUnsupported("KdbxUnsupportedGroupDates", group.Times.CreationTime == default && group.Times.LastModificationTime == default ? 0 : 1);
+                    AddUnsupported("KdbxUnsupportedDefaultFolderIcons", 1);
                 }
 
                 foreach (var entry in group.Entries)
@@ -209,33 +204,22 @@ public static class KdbxImportService
                         catch (Exception error) when (error is InvalidDataException or InvalidOperationException or OverflowException)
                         {
                             converted.AutoTypeEnabled = false;
-                            AddUnsupported("Sequenze Auto-Type non supportate", 1,
-                                "Il testo della sequenza è mantenuto, ma l’Auto-Type viene disattivato perché SQLitePass non può eseguirla in sicurezza.");
+                            AddUnsupported("KdbxUnsupportedAutoTypeSequences", 1);
                         }
                     }
                     entries.Add(converted);
-                    AddUnsupported("Icone personalizzate", entry.CustomIconUuid == Guid.Empty ? 0 : 1,
-                        "I riferimenti alle icone personalizzate non sono trasferiti.");
-                    AddUnsupported("Colori e URL alternativi", string.IsNullOrEmpty(entry.ForegroundColor) &&
-                        string.IsNullOrEmpty(entry.BackgroundColor) && string.IsNullOrEmpty(entry.OverrideUrl) ? 0 : 1,
-                        "I colori e gli URL alternativi delle voci non hanno campi equivalenti in SQLitePass.");
-                    AddUnsupported("Associazioni Auto-Type", entry.AutoType.Associations.Count,
-                        "Le associazioni finestra/titolo dell’Auto-Type non vengono trasferite; le sequenze non supportate vengono mantenute ma disattivate.");
-                    AddUnsupported("Opzioni Auto-Type avanzate", entry.AutoType.DataTransferObfuscation == 0 ? 0 : 1,
-                        "L’opzione di offuscamento del trasferimento Auto-Type non è trasferita.");
-                    AddUnsupported("Indicatori di protezione degli allegati", entry.Binaries.Count(binary => binary.IsProtected),
-                        "Il marcatore KeePass IsProtected non è mantenuto; SQLitePass cifra sempre gli allegati nel vault.");
-                    AddUnsupported("Date degli allegati", entry.Binaries.Count,
-                        "KeePass non assegna date individuali a questi allegati; SQLitePass usa l’ora d’importazione.");
-                    AddUnsupported("Indicatori Protected dei campi standard", entry.Strings.Count(field =>
-                        IsStandardField(field.Key) && field.Value.Protected),
-                        "Il marcatore non viene mantenuto per i campi standard; SQLitePass li cifra sempre nel vault.");
-                    AddUnsupported("Riferimenti KeePass nei campi", entry.Strings.Values.Count(value => value.Value.Contains("{REF:", StringComparison.OrdinalIgnoreCase)),
-                        "I valori testuali sono mantenuti, ma i placeholder REF non vengono risolti in SQLitePass.");
-                    AddUnsupported("Cronologia oltre 50 versioni", Math.Max(0, entry.History.Count - 50),
-                        "SQLitePass conserva al massimo 50 snapshot di cronologia per voce.");
-                    AddUnsupported("Conteggi d’uso e data di spostamento", entry.Times.UsageCount != 0 || entry.Times.LocationChanged != default ? 1 : 0,
-                        "Il conteggio d’uso KeePass e la data di spostamento non sono conservati.");
+                    AddUnsupported("KdbxUnsupportedCustomIcons", entry.CustomIconUuid == Guid.Empty ? 0 : 1);
+                    AddUnsupported("KdbxUnsupportedAlternateColorsAndUrls", string.IsNullOrEmpty(entry.ForegroundColor) &&
+                        string.IsNullOrEmpty(entry.BackgroundColor) && string.IsNullOrEmpty(entry.OverrideUrl) ? 0 : 1);
+                    AddUnsupported("KdbxUnsupportedAutoTypeAssociations", entry.AutoType.Associations.Count);
+                    AddUnsupported("KdbxUnsupportedAdvancedAutoType", entry.AutoType.DataTransferObfuscation == 0 ? 0 : 1);
+                    AddUnsupported("KdbxUnsupportedAttachmentProtectionFlags", entry.Binaries.Count(binary => binary.IsProtected));
+                    AddUnsupported("KdbxUnsupportedAttachmentDates", entry.Binaries.Count);
+                    AddUnsupported("KdbxUnsupportedStandardFieldProtectionFlags", entry.Strings.Count(field =>
+                        IsStandardField(field.Key) && field.Value.Protected));
+                    AddUnsupported("KdbxUnsupportedKeePassReferences", entry.Strings.Values.Count(value => value.Value.Contains("{REF:", StringComparison.OrdinalIgnoreCase)));
+                    AddUnsupported("KdbxUnsupportedHistoryBeyondLimit", Math.Max(0, entry.History.Count - 50));
+                    AddUnsupported("KdbxUnsupportedUsageAndMoveDates", entry.Times.UsageCount != 0 || entry.Times.LocationChanged != default ? 1 : 0);
                 }
 
                 foreach (var child in group.Groups)
@@ -254,36 +238,30 @@ public static class KdbxImportService
             Walk(database.RootGroup, 0, root: true, underRecycleBin: false);
             if (entries.Count == 0) throw new InvalidDataException("Il database KeePass non contiene voci attive da importare.");
             int emptyGroups = groupCount - usedGroupIds.Count;
-            AddUnsupported("Cartelle vuote", emptyGroups,
-                "Le cartelle senza voci attive non possono essere rappresentate dall’attuale importazione.");
-            AddUnsupported("Icone personalizzate", database.Metadata.CustomIcons.Count,
-                "I dati immagine delle icone personalizzate non vengono trasferiti.");
-            AddUnsupported("Cestino KeePass", recycleBinEntries,
-                "Le voci già eliminate in KeePass non vengono attivate nella nuova vault e sono escluse.");
-            AddUnsupported("Metadati e dati estesi del database", null,
-                "Le impostazioni globali, i dati personalizzati/plugin e gli elementi KDBX non riconosciuti non vengono importati.");
-            AddUnsupported("Tag delle cartelle", null,
-                "Il parser non espone i tag KDBX 4.1 delle cartelle e SQLitePass non li importa.");
-            AddUnsupported("UUID KeePass", entries.Count + groupCount,
-                "SQLitePass assegna nuovi identificatori a voci e cartelle.");
+            AddUnsupported("KdbxUnsupportedEmptyGroups", emptyGroups);
+            AddUnsupported("KdbxUnsupportedCustomIcons", database.Metadata.CustomIcons.Count);
+            AddUnsupported("KdbxUnsupportedRecycleBinEntries", recycleBinEntries);
+            AddUnsupported("KdbxUnsupportedDatabaseMetadata", null);
+            AddUnsupported("KdbxUnsupportedFolderTags", null);
+            AddUnsupported("KdbxUnsupportedKeePassUuids", entries.Count + groupCount);
 
             ZeroSourceBinaries(database);
 
-            var unsupportedItems = unsupported.Select(pair => new KdbxUnsupportedData(pair.Key, pair.Value.Count, pair.Value.Description)).ToArray();
+            var unsupportedItems = unsupported.Select(pair => new KdbxUnsupportedData(pair.Key, pair.Value)).ToArray();
             var report = new KdbxImportReport(
                 database.Version.ToString(),
                 usedGroupIds.Count,
                 entries.Count,
                 recycleBinEntries,
                 [
-                    "Gerarchia delle cartelle con voci attive (nomi Unicode inclusi)",
-                    "Titolo, nome utente, password, URL e note",
-                    "Campi aggiuntivi con il relativo marcatore KeePass di protezione",
-                    "Tag, icone predefinite e date delle voci (incluse le scadenze)",
-                    "Nome e contenuto binario degli allegati",
-                    "Fino a 50 snapshot della cronologia per voce",
-                    "Abilitazione Auto-Type e sequenza predefinita quando compatibili",
-                    "Tutti i dati importati vengono cifrati nel nuovo vault SQLitePass"
+                    "KdbxPreservedActiveFolderHierarchy",
+                    "KdbxPreservedStandardEntryFields",
+                    "KdbxPreservedCustomFields",
+                    "KdbxPreservedTagsIconsAndDates",
+                    "KdbxPreservedAttachments",
+                    "KdbxPreservedHistory",
+                    "KdbxPreservedAutoType",
+                    "KdbxPreservedDestinationEncryption"
                 ],
                 unsupportedItems);
             return new KdbxImportPlan(entries, report);

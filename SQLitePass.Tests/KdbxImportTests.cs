@@ -30,7 +30,56 @@ public sealed class KdbxImportTests
     private sealed class InlineProgress(Action<VaultImportProgress> report) : IProgress<VaultImportProgress>
     { public void Report(VaultImportProgress value) => report(value); }
 
+    private sealed class CapturingKdf : IKdf
+    {
+        public byte[]? Input { get; private set; }
+        public byte[] Transform(byte[] rawKey)
+        {
+            Input = rawKey;
+            return SHA256.HashData(rawKey);
+        }
+        public VariantMap Parameters() => throw new NotSupportedException();
+    }
+
     private const string SourcePassword = "synthetic KDBX fixture only";
+
+    [Fact]
+    public void KdbxKeyOwnersClearBuffersWhenDisposedAndDerivationClearsCompositeKeyCopy()
+    {
+        var capturingKdf = new CapturingKdf();
+        var derived = DerivedKey.Derive(new CompositeKey("synthetic lifecycle password"), capturingKdf);
+        Assert.NotNull(capturingKdf.Input);
+        Assert.All(capturingKdf.Input!, value => Assert.Equal((byte)0, value));
+
+        byte[] derivedBytes = derived.GetRawKey();
+        byte[] masterSeed = RandomNumberGenerator.GetBytes(32);
+        var encryption = new EncryptionKey(masterSeed, derived);
+        byte[] encryptionBytes = encryption.GetKey();
+        byte[] hmacBytes = encryption.GetHmacKey();
+        encryption.Dispose();
+        Assert.All(encryptionBytes, value => Assert.Equal((byte)0, value));
+        Assert.All(hmacBytes, value => Assert.Equal((byte)0, value));
+        Assert.Throws<ObjectDisposedException>(() => encryption.GetKey());
+        Assert.Throws<ObjectDisposedException>(() => encryption.GetHmacKey());
+
+        derived.Dispose();
+        Assert.All(derivedBytes, value => Assert.Equal((byte)0, value));
+        Assert.Throws<ObjectDisposedException>(() => derived.GetRawKey());
+
+        byte[] streamKey = RandomNumberGenerator.GetBytes(64);
+        var protectedStream = new ProtectedStream(ProtectedStreamAlgorithm.ChaCha20, streamKey);
+        protectedStream.Dispose();
+        Assert.All(streamKey, value => Assert.Equal((byte)0, value));
+        Assert.Throws<ObjectDisposedException>(() => protectedStream.Process([]));
+
+        byte[] cipherKey = RandomNumberGenerator.GetBytes(32);
+        byte[] iv = RandomNumberGenerator.GetBytes(12);
+        var cipher = new SymmetricCipher(CipherAlgorithm.ChaCha20, cipherKey, iv);
+        cipher.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => cipher.CreateDecryptingStream(new MemoryStream()));
+        Assert.Contains(cipherKey, value => value != 0);
+        Assert.Contains(iv, value => value != 0);
+    }
 
     [Fact]
     public async Task ImportsEncryptedKdbx4IntoNewVaultAndReportsPreservedAndUnsupportedData()
@@ -46,10 +95,10 @@ public sealed class KdbxImportTests
         Assert.Equal(1, plan.Report.EntriesImported);
         Assert.Equal(2, plan.Report.GroupsImported);
         Assert.Equal(1, plan.Report.RecycleBinEntriesSkipped);
-        Assert.Contains(plan.Report.PreservedData, item => item.Contains("allegati", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(plan.Report.UnsupportedData, item => item.Feature == "Note dei gruppi" && item.Count == 1);
-        Assert.Contains(plan.Report.UnsupportedData, item => item.Feature == "Cestino KeePass" && item.Count == 1);
-        Assert.Contains(plan.Report.UnsupportedData, item => item.Feature == "Icone personalizzate" && item.Count > 0);
+        Assert.Contains("KdbxPreservedAttachments", plan.Report.PreservedData);
+        Assert.Contains(plan.Report.UnsupportedData, item => item.TextKey == "KdbxUnsupportedGroupNotes" && item.Count == 1);
+        Assert.Contains(plan.Report.UnsupportedData, item => item.TextKey == "KdbxUnsupportedRecycleBinEntries" && item.Count == 1);
+        Assert.Contains(plan.Report.UnsupportedData, item => item.TextKey == "KdbxUnsupportedCustomIcons" && item.Count > 0);
 
         using var destinationMaster = new MasterKey("new synthetic SQLitePass password");
         var created = await KdbxImportService.CreateNewVaultAsync(plan, System.IO.Path.Combine(scratch.Path, "imported.kpd"),

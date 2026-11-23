@@ -132,10 +132,16 @@ public class KdbxXmlWriter {
 		foreach (var (key, entryStr) in entry.Strings) {
 			XElement valEl;
 			if (entryStr.Protected) {
-				byte[] plain  = Encoding.UTF8.GetBytes(entryStr.Value);
-				byte[] cipher = _ps.Process(plain);
-				valEl = new XElement("Value", Convert.ToBase64String(cipher));
-				valEl.SetAttributeValue("Protected", "True");
+				byte[] plain = Encoding.UTF8.GetBytes(entryStr.Value);
+				byte[]? cipher = null;
+				try {
+					cipher = _ps.Process(plain);
+					valEl = new XElement("Value", Convert.ToBase64String(cipher));
+					valEl.SetAttributeValue("Protected", "True");
+				} finally {
+					System.Security.Cryptography.CryptographicOperations.ZeroMemory(plain);
+					if (cipher != null) System.Security.Cryptography.CryptographicOperations.ZeroMemory(cipher);
+				}
 			} else {
 				valEl = new XElement("Value", entryStr.Value);
 			}

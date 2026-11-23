@@ -114,7 +114,7 @@ public class KdbxHeader : IHeader {
 
 		bool v4 = h.Version.Major == 4;
 
-		while (true) {
+		try { while (true) {
 			var fieldId = (FieldId)reader.ReadByte();
 			uint encodedLength = v4 ? reader.ReadUInt32() : reader.ReadUInt16();
 			if (encodedLength > MaxHeaderFieldBytes ||
@@ -122,24 +122,51 @@ public class KdbxHeader : IHeader {
 				throw new InvalidDataException("KDBX header field length is invalid or exceeds the supported limit.");
 			int length = (int)encodedLength;
 			byte[] data = reader.ReadBytes(length);
-			if (data.Length != length)
+			if (data.Length != length) {
+				CryptographicOperations.ZeroMemory(data);
 				throw new EndOfStreamException("Unexpected end of KDBX header field.");
+			}
 
-			switch (fieldId) {
+			bool retained = false;
+			try { switch (fieldId) {
 				case FieldId.EndOfHeader:         return h;
 				case FieldId.CipherId:            h.CipherId            = GuidRfc4122.FromBytes(data); break;
 				case FieldId.CompressionFlags:    h.IsCompressed        = BinaryPrimitives.ReadUInt32LittleEndian(data) != 0; break;
-				case FieldId.MasterSeed:          h.MasterSeed          = data; break;
-				case FieldId.TransformSeed:       h.TransformSeed       = data; break;
+				case FieldId.MasterSeed:
+					CryptographicOperations.ZeroMemory(h.MasterSeed);
+					h.MasterSeed = data;
+					retained = true;
+					break;
+				case FieldId.TransformSeed:
+					if (h.TransformSeed != null) CryptographicOperations.ZeroMemory(h.TransformSeed);
+					h.TransformSeed = data;
+					retained = true;
+					break;
 				case FieldId.TransformRounds:     h.TransformRounds     = BinaryPrimitives.ReadUInt64LittleEndian(data); break;
-				case FieldId.EncryptionIV:        h.EncryptionIV        = data; break;
-				case FieldId.ProtectedStreamKey:  h.ProtectedStreamKey  = data; break;
-				case FieldId.StreamStartBytes:    h.StreamStartBytes    = data; break;
+				case FieldId.EncryptionIV:
+					CryptographicOperations.ZeroMemory(h.EncryptionIV);
+					h.EncryptionIV = data;
+					retained = true;
+					break;
+				case FieldId.ProtectedStreamKey:
+					if (h.ProtectedStreamKey != null) CryptographicOperations.ZeroMemory(h.ProtectedStreamKey);
+					h.ProtectedStreamKey = data;
+					retained = true;
+					break;
+				case FieldId.StreamStartBytes:
+					if (h.StreamStartBytes != null) CryptographicOperations.ZeroMemory(h.StreamStartBytes);
+					h.StreamStartBytes = data;
+					retained = true;
+					break;
 				case FieldId.InnerRandomStreamId: h.InnerRandomStreamId = (ProtectedStreamAlgorithm)BinaryPrimitives.ReadUInt32LittleEndian(data); break;
-				case FieldId.KdfParameters:       h.KdfParameters       = VariantMap.Read(data); break;
+				case FieldId.KdfParameters:
+					h.KdfParameters?.ZeroizeByteArrays();
+					h.KdfParameters = VariantMap.Read(data);
+					break;
 				// Comment and PublicCustomData are ignored
 			}
-		}
+			} finally { if (!retained) CryptographicOperations.ZeroMemory(data); }
+		} } catch { h.ZeroizeSensitiveData(); throw; }
 	}
 
 	// ── IHeader ───────────────────────────────────────────────────────────────
@@ -148,7 +175,7 @@ public class KdbxHeader : IHeader {
 		if (!IsVersion4) {
 			if (TransformSeed == null)
 				throw new InvalidOperationException("TransformSeed missing from header.");
-			return new AesKdf(TransformSeed, TransformRounds);
+			return new AesKdf((byte[])TransformSeed.Clone(), TransformRounds);
 		}
 
 		if (KdfParameters == null || !KdfParameters.TryGetValue("$UUID", out var uuidBytes))
@@ -157,7 +184,7 @@ public class KdbxHeader : IHeader {
 		var kdfId = GuidRfc4122.FromBytes((byte[])uuidBytes!);
 
 		if (kdfId == Argon2Kdf.Argon2dUuid || kdfId == Argon2Kdf.Argon2idUuid) {
-			var salt        = (byte[])KdfParameters["S"];
+			var salt        = ((byte[])KdfParameters["S"]).ToArray();
 			var parallelism = (int)(uint)KdfParameters["P"];
 			var memoryKib   = (int)((ulong)KdfParameters["M"] / 1024); // M is stored as bytes in KDBX
 			var iterations  = (int)(ulong)KdfParameters["I"];
@@ -166,12 +193,21 @@ public class KdbxHeader : IHeader {
 		}
 
 		if (kdfId == AesKdf.Uuid) {
-			var seed   = (byte[])KdfParameters["S"];
+			var seed   = ((byte[])KdfParameters["S"]).ToArray();
 			var rounds = (ulong)KdfParameters["R"];
 			return new AesKdf(seed, rounds);
 		}
 
 		throw new NotSupportedException($"Unknown KDF UUID: {kdfId}");
+	}
+
+	internal void ZeroizeSensitiveData() {
+		CryptographicOperations.ZeroMemory(MasterSeed);
+		CryptographicOperations.ZeroMemory(EncryptionIV);
+		if (TransformSeed != null) CryptographicOperations.ZeroMemory(TransformSeed);
+		if (ProtectedStreamKey != null) CryptographicOperations.ZeroMemory(ProtectedStreamKey);
+		if (StreamStartBytes != null) CryptographicOperations.ZeroMemory(StreamStartBytes);
+		KdfParameters?.ZeroizeByteArrays();
 	}
 
 	public SymmetricCipher CreateCipher(byte[] key)

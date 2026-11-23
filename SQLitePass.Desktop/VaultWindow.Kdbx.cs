@@ -40,9 +40,9 @@ public sealed partial class VaultWindow
 
             var report = plan.Report;
             string summary = Text("KdbxImportCounts", report.EntriesImported, report.GroupsImported, report.RecycleBinEntriesSkipped);
-            string preserved = string.Join("\n", report.PreservedData.Select(item => "• " + item));
+            string preserved = string.Join("\n", report.PreservedData.Select(key => "• " + Text(key)));
             string unsupported = string.Join("\n", report.UnsupportedData.Select(item =>
-                "• " + item.Feature + " (" + (item.Count?.ToString() ?? Text("KdbxUnknownCount")) + "): " + item.Description));
+                "• " + (item.Count?.ToString() ?? Text("KdbxUnknownCount")) + " — " + Text(item.TextKey)));
             string review = summary + "\n\n" + Text("KdbxPreservedHeading") + "\n" + preserved +
                 "\n\n" + Text("KdbxUnsupportedHeading") + "\n" + unsupported;
             if (!await ConfirmAsync(Text("KdbxImportReviewTitle"), review)) return;

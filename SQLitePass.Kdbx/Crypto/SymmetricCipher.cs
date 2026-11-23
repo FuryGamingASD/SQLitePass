@@ -1,6 +1,8 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
+using System.Threading;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.Engines;
 using Org.BouncyCastle.Crypto.Modes;
@@ -11,7 +13,7 @@ namespace DgNet.Keepass;
 
 public enum CipherAlgorithm { Aes128Cbc, Aes256Cbc, ChaCha20, Twofish256Cbc }
 
-public class SymmetricCipher {
+public sealed class SymmetricCipher : IDisposable {
 
 	// CipherID UUIDs from the KDBX header (RFC 4122 big-endian, converted via ReadUuid)
 	// Reference: https://github.com/keepassxreboot/keepassxc/blob/develop/src/format/KeePass2.cpp
@@ -23,11 +25,18 @@ public class SymmetricCipher {
 	private readonly CipherAlgorithm _algorithm;
 	private readonly byte[] _key;
 	private readonly byte[] _iv;
+	private int _disposed;
 
 	public SymmetricCipher(CipherAlgorithm algorithm, byte[] key, byte[] iv) {
 		_algorithm = algorithm;
-		_key = key;
-		_iv  = iv;
+		_key = key.ToArray();
+		_iv  = iv.ToArray();
+	}
+
+	public void Dispose() {
+		if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
+		CryptographicOperations.ZeroMemory(_key);
+		CryptographicOperations.ZeroMemory(_iv);
 	}
 
 	public static CipherAlgorithm FromUuid(Guid uuid) {
@@ -49,32 +58,55 @@ public class SymmetricCipher {
 	public Stream CreateDecryptingStream(Stream source) => CreateStream(source, encrypt: false);
 	public Stream CreateEncryptingStream(Stream target) => CreateStream(target, encrypt: true);
 
-	private Stream CreateStream(Stream inner, bool encrypt) => _algorithm switch {
-		CipherAlgorithm.Aes128Cbc     => CreateAes128Stream(inner, encrypt),
-		CipherAlgorithm.Aes256Cbc     => CreateAes256Stream(inner, encrypt),
-		CipherAlgorithm.ChaCha20      => CreateChaCha20Stream(inner, encrypt),
-		CipherAlgorithm.Twofish256Cbc => CreateTwofishStream(inner, encrypt),
-		_ => throw new NotSupportedException()
-	};
+	private Stream CreateStream(Stream inner, bool encrypt) {
+		ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
+		return _algorithm switch {
+			CipherAlgorithm.Aes128Cbc     => CreateAes128Stream(inner, encrypt),
+			CipherAlgorithm.Aes256Cbc     => CreateAes256Stream(inner, encrypt),
+			CipherAlgorithm.ChaCha20      => CreateChaCha20Stream(inner, encrypt),
+			CipherAlgorithm.Twofish256Cbc => CreateTwofishStream(inner, encrypt),
+			_ => throw new NotSupportedException()
+		};
+	}
 
 	private Stream CreateAes128Stream(Stream inner, bool encrypt) {
 		var aes = Aes.Create();
-		aes.Mode    = CipherMode.CBC;
-		aes.Padding = PaddingMode.PKCS7;
-		aes.Key     = _key[..16];
-		aes.IV      = _iv;
-		var transform = encrypt ? aes.CreateEncryptor() : aes.CreateDecryptor();
-		return new CryptoStream(inner, transform, encrypt ? CryptoStreamMode.Write : CryptoStreamMode.Read);
+		byte[] key = _key[..16];
+		ICryptoTransform? transform = null;
+		try {
+			aes.Mode    = CipherMode.CBC;
+			aes.Padding = PaddingMode.PKCS7;
+			aes.Key     = key;
+			aes.IV      = _iv;
+			transform = encrypt ? aes.CreateEncryptor() : aes.CreateDecryptor();
+			aes.Dispose();
+			var stream = new CryptoStream(inner, transform, encrypt ? CryptoStreamMode.Write : CryptoStreamMode.Read);
+			transform = null;
+			return stream;
+		} finally {
+			transform?.Dispose();
+			aes.Dispose();
+			CryptographicOperations.ZeroMemory(key);
+		}
 	}
 
 	private Stream CreateAes256Stream(Stream inner, bool encrypt) {
 		var aes = Aes.Create();
-		aes.Mode    = CipherMode.CBC;
-		aes.Padding = PaddingMode.PKCS7;
-		aes.Key     = _key;
-		aes.IV      = _iv;
-		var transform = encrypt ? aes.CreateEncryptor() : aes.CreateDecryptor();
-		return new CryptoStream(inner, transform, encrypt ? CryptoStreamMode.Write : CryptoStreamMode.Read);
+		ICryptoTransform? transform = null;
+		try {
+			aes.Mode    = CipherMode.CBC;
+			aes.Padding = PaddingMode.PKCS7;
+			aes.Key     = _key;
+			aes.IV      = _iv;
+			transform = encrypt ? aes.CreateEncryptor() : aes.CreateDecryptor();
+			aes.Dispose();
+			var stream = new CryptoStream(inner, transform, encrypt ? CryptoStreamMode.Write : CryptoStreamMode.Read);
+			transform = null;
+			return stream;
+		} finally {
+			transform?.Dispose();
+			aes.Dispose();
+		}
 	}
 
 	private Stream CreateChaCha20Stream(Stream inner, bool encrypt) {
@@ -112,15 +144,19 @@ public class SymmetricCipher {
 
 		public override int Read(byte[] buffer, int offset, int count) {
 			var tmp = new byte[count];
-			int n = _inner.Read(tmp, 0, count);
-			if (n > 0) _cipher.ProcessBytes(tmp, 0, n, buffer, offset);
-			return n;
+			try {
+				int n = _inner.Read(tmp, 0, count);
+				if (n > 0) _cipher.ProcessBytes(tmp, 0, n, buffer, offset);
+				return n;
+			} finally { CryptographicOperations.ZeroMemory(tmp); }
 		}
 
 		public override void Write(byte[] buffer, int offset, int count) {
 			var output = new byte[count];
-			_cipher.ProcessBytes(buffer, offset, count, output, 0);
-			_inner.Write(output, 0, count);
+			try {
+				_cipher.ProcessBytes(buffer, offset, count, output, 0);
+				_inner.Write(output, 0, count);
+			} finally { CryptographicOperations.ZeroMemory(output); }
 		}
 
 		public override void Flush()                               => _inner.Flush();
@@ -143,6 +179,7 @@ public class SymmetricCipher {
 		private readonly bool                    _encrypt;
 		private readonly MemoryStream            _writeBuffer;
 		private MemoryStream?                    _readBuffer;
+		private byte[]?                          _readPlaintextBuffer;
 		private bool                             _disposed;
 
 		public TwoFishCipherStream(Stream inner, PaddedBufferedBlockCipher cipher, bool encrypt) {
@@ -166,11 +203,19 @@ public class SymmetricCipher {
 				// Decrypt all ciphertext at once to handle PKCS7 padding correctly.
 				using var ms = new MemoryStream();
 				_inner.CopyTo(ms);
-				byte[] ct  = ms.ToArray();
-				byte[] out_ = new byte[_cipher.GetOutputSize(ct.Length)];
-				int n = _cipher.ProcessBytes(ct, 0, ct.Length, out_, 0);
-				n    += _cipher.DoFinal(out_, n);
-				_readBuffer = new MemoryStream(out_, 0, n);
+				byte[] ct = ms.ToArray();
+				try {
+					byte[] out_ = new byte[_cipher.GetOutputSize(ct.Length)];
+					try {
+						int n = _cipher.ProcessBytes(ct, 0, ct.Length, out_, 0);
+						n += _cipher.DoFinal(out_, n);
+						_readPlaintextBuffer = out_;
+						_readBuffer = new MemoryStream(out_, 0, n);
+					} catch {
+						CryptographicOperations.ZeroMemory(out_);
+						throw;
+					}
+				} finally { CryptographicOperations.ZeroMemory(ct); }
 			}
 			return _readBuffer.Read(buffer, offset, count);
 		}
@@ -189,12 +234,19 @@ public class SymmetricCipher {
 					// Encrypt all buffered data with PKCS7 padding.
 					byte[] input  = _writeBuffer.ToArray();
 					byte[] output = new byte[_cipher.GetOutputSize(input.Length)];
-					int n = _cipher.ProcessBytes(input, 0, input.Length, output, 0);
-					n    += _cipher.DoFinal(output, n);
-					_inner.Write(output, 0, n);
+					try {
+						int n = _cipher.ProcessBytes(input, 0, input.Length, output, 0);
+						n += _cipher.DoFinal(output, n);
+						_inner.Write(output, 0, n);
+					} finally {
+						CryptographicOperations.ZeroMemory(input);
+						CryptographicOperations.ZeroMemory(output);
+					}
 				}
+				if (_writeBuffer.TryGetBuffer(out var writeBuffer)) CryptographicOperations.ZeroMemory(writeBuffer.AsSpan(0, checked((int)_writeBuffer.Length)));
 				_writeBuffer.Dispose();
 				_readBuffer?.Dispose();
+				if (_readPlaintextBuffer != null) CryptographicOperations.ZeroMemory(_readPlaintextBuffer);
 				_inner.Dispose();
 			}
 			base.Dispose(disposing);

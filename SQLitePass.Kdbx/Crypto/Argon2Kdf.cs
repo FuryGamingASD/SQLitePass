@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Security.Cryptography;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Crypto.Generators;
 
@@ -6,7 +7,7 @@ namespace DgNet.Keepass;
 
 public enum Argon2Type { D, Id }
 
-public class Argon2Kdf : IKdf {
+public class Argon2Kdf : IKdf, System.IDisposable {
 
 	public static readonly System.Guid Argon2dUuid  = new("ef636ddf-8c29-444b-91f7-a9a403e30a0c");
 	public static readonly System.Guid Argon2idUuid = new("9e298b19-6db4-4830-bda5-57f0f7ca20c7");
@@ -42,13 +43,20 @@ public class Argon2Kdf : IKdf {
 		gen.Init(parameters);
 
 		byte[] result = new byte[32];
-		gen.GenerateBytes(rawKey, result);
-		return result;
+		try {
+			gen.GenerateBytes(rawKey, result);
+			return result;
+		} catch {
+			System.Security.Cryptography.CryptographicOperations.ZeroMemory(result);
+			throw;
+		}
 	}
+
+	public void Dispose() => CryptographicOperations.ZeroMemory(Salt);
 
 	public VariantMap Parameters() => new(new Dictionary<string, object> {
 		["$UUID"] = GuidRfc4122.ToBytes(Type == Argon2Type.Id ? Argon2idUuid : Argon2dUuid),
-		["S"]     = Salt,
+		["S"]     = (byte[])Salt.Clone(),
 		["P"]     = (uint)Parallelism,
 		["M"]     = (ulong)(MemoryKib * 1024L), // stored as bytes in KDBX
 		["I"]     = (ulong)Iterations,

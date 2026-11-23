@@ -28,7 +28,9 @@ public class CompositeKey {
 	}
 
 	public CompositeKey AddPassword(string password) {
-		_components.Add(SHA256.HashData(Encoding.UTF8.GetBytes(password)));
+		byte[] passwordBytes = Encoding.UTF8.GetBytes(password);
+		try { _components.Add(SHA256.HashData(passwordBytes)); }
+		finally { CryptographicOperations.ZeroMemory(passwordBytes); }
 		return this;
 	}
 
@@ -46,7 +48,7 @@ public class CompositeKey {
 
 	internal void Zeroize() {
 		foreach (var c in _components)
-			Array.Clear(c);
+			CryptographicOperations.ZeroMemory(c);
 		_components.Clear();
 	}
 
@@ -55,21 +57,27 @@ public class CompositeKey {
 			throw new InvalidOperationException("CompositeKey has no components.");
 
 		var buffer = new byte[_components.Count * 32];
-		int offset = 0;
-		foreach (var c in _components) {
-			c.CopyTo(buffer, offset);
-			offset += 32;
+		try {
+			int offset = 0;
+			foreach (var c in _components) {
+				c.CopyTo(buffer, offset);
+				offset += 32;
+			}
+			return SHA256.HashData(buffer);
 		}
-		return SHA256.HashData(buffer);
+		finally { CryptographicOperations.ZeroMemory(buffer); }
 	}
 
 	private static byte[] ReadKeyFile(ReadOnlySpan<byte> data) {
 		if (TryParseXmlKeyFile(data, out var xmlKey))
 			return xmlKey!;
+		if (xmlKey != null) CryptographicOperations.ZeroMemory(xmlKey);
 
 		// 64 ASCII hex chars → 32 bytes
-		if (data.Length == 64 && TryParseHex(data, out var hexKey))
+		byte[]? hexKey = null;
+		if (data.Length == 64 && TryParseHex(data, out hexKey))
 			return hexKey!;
+		if (hexKey != null) CryptographicOperations.ZeroMemory(hexKey);
 
 		// Raw 32-byte binary key
 		if (data.Length == 32)

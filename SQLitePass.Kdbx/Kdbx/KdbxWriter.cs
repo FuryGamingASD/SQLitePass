@@ -20,15 +20,18 @@ public class KdbxWriter {
 
 	public void WriteTo(Stream stream) {
 		var header = _db.Settings.ToHeader();
-		var psKey  = RandomNumberGenerator.GetBytes(64);
-		var ps     = new ProtectedStream(_db.Settings.InnerStreamAlgorithm, psKey);
+		try {
+			var psKey = RandomNumberGenerator.GetBytes(64);
+			using var ps = new ProtectedStream(_db.Settings.InnerStreamAlgorithm, psKey);
 
-		var kdf     = header.CreateKdf();
-		var derived = DerivedKey.Derive(_db.Key, kdf);
-		var encKey  = new EncryptionKey(header.MasterSeed, derived);
+			var kdf = header.CreateKdf();
+			using var kdfLifetime = kdf as IDisposable;
+			using var derived = DerivedKey.Derive(_db.Key, kdf);
+			using var encKey = new EncryptionKey(header.MasterSeed, derived);
 
-		if (header.IsVersion4) WriteV4(stream, header, encKey, ps);
-		else                   WriteV3(stream, header, encKey, ps);
+			if (header.IsVersion4) WriteV4(stream, header, encKey, ps);
+			else                   WriteV3(stream, header, encKey, ps);
+		} finally { header.ZeroizeSensitiveData(); }
 	}
 
 	// ── KDBX 3.x ─────────────────────────────────────────────────────────────
@@ -46,21 +49,34 @@ public class KdbxWriter {
 		// V3: binary pool is written into <Meta><Binaries> by KdbxXmlWriter
 		new KdbxXmlWriter(_db, ps, isV4: false).WriteTo(xmlMs);
 		byte[] xml = xmlMs.ToArray();
-		if (header.IsCompressed) xml = CompressGzip(xml);
-
-		// Build plaintext: StreamStartBytes + HashedBlocks
 		using var plainMem = new MemoryStream();
-		plainMem.Write(header.StreamStartBytes!);
-		WriteHashedBlocks(plainMem, xml);
-		byte[] plaintext = plainMem.ToArray();
+		byte[]? plaintext = null;
+		try {
+			if (header.IsCompressed) {
+				byte[] compressed = CompressGzip(xml);
+				CryptographicOperations.ZeroMemory(xml);
+				xml = compressed;
+			}
+			// Build plaintext: StreamStartBytes + HashedBlocks
+			plainMem.Write(header.StreamStartBytes!);
+			WriteHashedBlocks(plainMem, xml);
+			plaintext = plainMem.ToArray();
 
-		// Encrypt into a buffer, then copy to output stream
-		var cipher = header.CreateCipher(encKey.GetKey());
-		using var cipherMem = new MemoryStream();
-		using (var encStream = cipher.CreateEncryptingStream(cipherMem)) {
-			encStream.Write(plaintext);
+			// Encrypt into a buffer, then copy to output stream
+			using var cipher = header.CreateCipher(encKey.GetKey());
+			using var cipherMem = new MemoryStream();
+			using (var encStream = cipher.CreateEncryptingStream(cipherMem)) {
+				encStream.Write(plaintext);
+			}
+			byte[] ciphertext = cipherMem.ToArray();
+			try { stream.Write(ciphertext); }
+			finally { CryptographicOperations.ZeroMemory(ciphertext); }
+		} finally {
+			CryptographicOperations.ZeroMemory(xml);
+			if (plaintext != null) CryptographicOperations.ZeroMemory(plaintext);
+			if (plainMem.TryGetBuffer(out var plainBuffer)) CryptographicOperations.ZeroMemory(plainBuffer.AsSpan(0, checked((int)plainMem.Length)));
+			if (xmlMs.TryGetBuffer(out var xmlBuffer)) CryptographicOperations.ZeroMemory(xmlBuffer.AsSpan(0, checked((int)xmlMs.Length)));
 		}
-		stream.Write(cipherMem.ToArray());
 	}
 
 	// ── KDBX 4.x ─────────────────────────────────────────────────────────────
@@ -73,36 +89,50 @@ public class KdbxWriter {
 		header.Write(headerWriter);
 		headerWriter.Flush();
 		byte[] headerBytes = headerMs.ToArray();
+		try {
+			stream.Write(headerBytes);
+			byte[] headerHash = SHA256.HashData(headerBytes);
+			try { stream.Write(headerHash); }
+			finally { CryptographicOperations.ZeroMemory(headerHash); }
 
-		stream.Write(headerBytes);
-		stream.Write(SHA256.HashData(headerBytes));
+			byte[] headerHmacKey = BlockKey(ulong.MaxValue, encKey.GetHmacKey());
+			try {
+				using var h = new HMACSHA256(headerHmacKey);
+				byte[] headerHmac = h.ComputeHash(headerBytes);
+				try { stream.Write(headerHmac); }
+				finally { CryptographicOperations.ZeroMemory(headerHmac); }
+			} finally { CryptographicOperations.ZeroMemory(headerHmacKey); }
 
-		byte[] headerHmacKey = BlockKey(ulong.MaxValue, encKey.GetHmacKey());
-		using (var h = new HMACSHA256(headerHmacKey)) {
-			stream.Write(h.ComputeHash(headerBytes));
+			// Build payload: [InnerHeader][XML], then optionally compress.
+			var xmlWriter = new KdbxXmlWriter(_db, ps, isV4: true);
+			using var payloadMs = new MemoryStream();
+			try {
+				WriteInnerHeader(payloadMs, ps.Algorithm, ps.Key, xmlWriter.BinaryPool);
+				xmlWriter.WriteTo(payloadMs);
+				byte[] payload = payloadMs.ToArray();
+				try {
+					if (header.IsCompressed) {
+						byte[] compressed = CompressGzip(payload);
+						CryptographicOperations.ZeroMemory(payload);
+						payload = compressed;
+					}
+
+					using var cipher = header.CreateCipher(encKey.GetKey());
+					using var cipherMs = new MemoryStream();
+					using (var encStream = cipher.CreateEncryptingStream(cipherMs)) encStream.Write(payload);
+					byte[] ciphertext = cipherMs.ToArray();
+					try { WriteHmacBlocks(stream, ciphertext, encKey.GetHmacKey()); }
+					finally { CryptographicOperations.ZeroMemory(ciphertext); }
+				} finally { CryptographicOperations.ZeroMemory(payload); }
+			} finally {
+				if (payloadMs.TryGetBuffer(out var payloadBuffer))
+					CryptographicOperations.ZeroMemory(payloadBuffer.AsSpan(0, checked((int)payloadMs.Length)));
+			}
+		} finally {
+			CryptographicOperations.ZeroMemory(headerBytes);
+			if (headerMs.TryGetBuffer(out var headerBuffer))
+				CryptographicOperations.ZeroMemory(headerBuffer.AsSpan(0, checked((int)headerMs.Length)));
 		}
-
-		// Build payload: [InnerHeader][XML], then optionally compress
-		// The XML writer pre-scans all entries to build the binary pool first,
-		// so we can write the inner header (which includes binaries) before the XML.
-		var xmlWriter = new KdbxXmlWriter(_db, ps, isV4: true);
-
-		using var payloadMs = new MemoryStream();
-		WriteInnerHeader(payloadMs, ps.Algorithm, ps.Key, xmlWriter.BinaryPool);
-		xmlWriter.WriteTo(payloadMs);
-		byte[] payload = payloadMs.ToArray();
-
-		if (header.IsCompressed) payload = CompressGzip(payload);
-
-		// Encrypt
-		var cipher = header.CreateCipher(encKey.GetKey());
-		using var cipherMs = new MemoryStream();
-		using (var encStream = cipher.CreateEncryptingStream(cipherMs)) {
-			encStream.Write(payload);
-		}
-
-		// Write as HMAC-authenticated blocks
-		WriteHmacBlocks(stream, cipherMs.ToArray(), encKey.GetHmacKey());
 	}
 
 	// ── HashedBlockStream (KDBX 3.x) ─────────────────────────────────────────
@@ -117,11 +147,16 @@ public class KdbxWriter {
 		while (offset < data.Length) {
 			int    size  = Math.Min(BlockSize, data.Length - offset);
 			byte[] block = data[offset..(offset + size)];
-
-			writer.Write((uint)blockIndex);
-			writer.Write(SHA256.HashData(block));
-			writer.Write((uint)size);
-			writer.Write(block);
+			byte[] hash = SHA256.HashData(block);
+			try {
+				writer.Write((uint)blockIndex);
+				writer.Write(hash);
+				writer.Write((uint)size);
+				writer.Write(block);
+			} finally {
+				CryptographicOperations.ZeroMemory(block);
+				CryptographicOperations.ZeroMemory(hash);
+			}
 
 			offset += size;
 			blockIndex++;
@@ -147,22 +182,32 @@ public class KdbxWriter {
 			int    size     = Math.Min(BlockSize, data.Length - offset);
 			byte[] block    = data[offset..(offset + size)];
 			byte[] blockKey = BlockKey(blockIndex, hmacKey64);
-			byte[] hmac     = BlockHmac(blockIndex, size, block, blockKey);
-
-			writer.Write(hmac);
-			writer.Write(size);
-			writer.Write(block);
+			try {
+				byte[] hmac = BlockHmac(blockIndex, size, block, blockKey);
+				try {
+					writer.Write(hmac);
+					writer.Write(size);
+					writer.Write(block);
+				} finally { CryptographicOperations.ZeroMemory(hmac); }
+			} finally {
+				CryptographicOperations.ZeroMemory(blockKey);
+				CryptographicOperations.ZeroMemory(block);
+			}
 
 			offset += size;
 			blockIndex++;
 		}
 
 		// Terminator block (HMAC-verified empty block)
-		byte[] termKey  = BlockKey(blockIndex, hmacKey64);
-		byte[] termHmac = BlockHmac(blockIndex, 0, [], termKey);
-		writer.Write(termHmac);
-		writer.Write(0); // size = 0
-		writer.Flush();
+		byte[] termKey = BlockKey(blockIndex, hmacKey64);
+		try {
+			byte[] termHmac = BlockHmac(blockIndex, 0, [], termKey);
+			try {
+				writer.Write(termHmac);
+				writer.Write(0); // size = 0
+				writer.Flush();
+			} finally { CryptographicOperations.ZeroMemory(termHmac); }
+		} finally { CryptographicOperations.ZeroMemory(termKey); }
 	}
 
 	// ── Inner header (KDBX 4.x) ──────────────────────────────────────────────
@@ -177,10 +222,12 @@ public class KdbxWriter {
 
 		// 0x01: InnerRandomStreamId
 		var algoBytes = new byte[4];
-		BinaryPrimitives.WriteUInt32LittleEndian(algoBytes, (uint)algo);
-		writer.Write((byte)0x01);
-		writer.Write((uint)algoBytes.Length);
-		writer.Write(algoBytes);
+		try {
+			BinaryPrimitives.WriteUInt32LittleEndian(algoBytes, (uint)algo);
+			writer.Write((byte)0x01);
+			writer.Write((uint)algoBytes.Length);
+			writer.Write(algoBytes);
+		} finally { CryptographicOperations.ZeroMemory(algoBytes); }
 
 		// 0x02: InnerRandomStreamKey
 		writer.Write((byte)0x02);
@@ -191,11 +238,13 @@ public class KdbxWriter {
 		// Format: [flags (1)][data]  —  flags bit0 = isProtected
 		foreach (var (isProtected, data) in binaries) {
 			var payload = new byte[1 + data.Length];
-			payload[0] = isProtected ? (byte)0x01 : (byte)0x00;
-			data.CopyTo(payload, 1);
-			writer.Write((byte)0x03);
-			writer.Write((uint)payload.Length);
-			writer.Write(payload);
+			try {
+				payload[0] = isProtected ? (byte)0x01 : (byte)0x00;
+				data.CopyTo(payload, 1);
+				writer.Write((byte)0x03);
+				writer.Write((uint)payload.Length);
+				writer.Write(payload);
+			} finally { CryptographicOperations.ZeroMemory(payload); }
 		}
 
 		// 0x00: EndOfHeader
@@ -209,9 +258,11 @@ public class KdbxWriter {
 	// blockKey = SHA512(blockIndex_LE64 ∥ hmacKey64)
 	private static byte[] BlockKey(ulong blockIndex, byte[] hmacKey64) {
 		var buf = new byte[8 + hmacKey64.Length];
-		BinaryPrimitives.WriteUInt64LittleEndian(buf, blockIndex);
-		hmacKey64.CopyTo(buf, 8);
-		return SHA512.HashData(buf);
+		try {
+			BinaryPrimitives.WriteUInt64LittleEndian(buf, blockIndex);
+			hmacKey64.CopyTo(buf, 8);
+			return SHA512.HashData(buf);
+		} finally { CryptographicOperations.ZeroMemory(buf); }
 	}
 
 	// blockHmac = HMAC-SHA256(blockIndex_LE64 ∥ blockSize_LE32 ∥ data, blockKey)
@@ -220,17 +271,23 @@ public class KdbxWriter {
 		BinaryPrimitives.WriteUInt64LittleEndian(msg, blockIndex);
 		BinaryPrimitives.WriteInt32LittleEndian(msg.AsSpan(8), blockSize);
 		data.CopyTo(msg, 12);
-		using var hmac = new HMACSHA256(blockKey);
-		return hmac.ComputeHash(msg);
+		try {
+			using var hmac = new HMACSHA256(blockKey);
+			return hmac.ComputeHash(msg);
+		} finally { CryptographicOperations.ZeroMemory(msg); }
 	}
 
 	// ── Utilities ─────────────────────────────────────────────────────────────
 
 	private static byte[] CompressGzip(byte[] data) {
 		using var output = new MemoryStream();
-		using (var gzip = new GZipStream(output, CompressionMode.Compress, leaveOpen: true)) {
-			gzip.Write(data);
+		try {
+			using (var gzip = new GZipStream(output, CompressionMode.Compress, leaveOpen: true)) {
+				gzip.Write(data);
+			}
+			return output.ToArray();
+		} finally {
+			if (output.TryGetBuffer(out var buffer)) CryptographicOperations.ZeroMemory(buffer.AsSpan(0, checked((int)output.Length)));
 		}
-		return output.ToArray();
 	}
 }

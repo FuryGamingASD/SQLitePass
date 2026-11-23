@@ -1,6 +1,6 @@
 namespace SQLitePass.Core.Models;
 
-public sealed record KdbxUnsupportedData(string Feature, int? Count, string Description);
+public sealed record KdbxUnsupportedData(string TextKey, int? Count);
 
 public sealed record KdbxImportReport(
     string FormatVersion,
