@@ -119,17 +119,13 @@ public sealed partial class VaultWindow
             Entries.SelectedItem is not EntryRow { HasPassword: true } row) return;
 
         SetPreviewQuality(null);
-        var overview = await session.Storage.LoadEntryOverviewAsync(row.Id, session.Crypto, row.Revision, token);
-        try
-        {
-            token.ThrowIfCancellationRequested();
-            if (!ReferenceEquals(_session, session) || !ReferenceEquals(Entries.SelectedItem, row)) return;
-            if (overview.Password.Length > 512)
-                StatusText.Text = Text("QualityNotEstimated");
-            else if (overview.Password.Length > 0)
-                SetPreviewQuality(PasswordGenerator.CalculateEntropy(overview.Password));
-        }
-        finally { overview.ClearSecrets(); }
+        string password = await session.Storage.LoadEntryPasswordAsync(row.Id, session.Crypto, row.Revision, token);
+        token.ThrowIfCancellationRequested();
+        if (!ReferenceEquals(_session, session) || !ReferenceEquals(Entries.SelectedItem, row)) return;
+        if (password.Length > 512)
+            StatusText.Text = Text("QualityNotEstimated");
+        else if (password.Length > 0)
+            SetPreviewQuality(PasswordGenerator.CalculateEntropy(password));
     });
 
     private async void PreviewReveal_Click(object? sender, RoutedEventArgs e)
@@ -144,17 +140,13 @@ public sealed partial class VaultWindow
             if (_session is not { } session || _query.OnlyRecycleBin ||
                 Entries.SelectedItem is not EntryRow { HasPassword: true } row) return;
             int request = ++_previewRequest;
-            var overview = await session.Storage.LoadEntryOverviewAsync(row.Id, session.Crypto, row.Revision, token);
-            try
-            {
-                token.ThrowIfCancellationRequested();
-                if (request != _previewRequest || !ReferenceEquals(Entries.SelectedItem, row)) return;
-                PreviewSecret.Text = overview.Password;
-                PreviewRevealIcon.Kind = AppIconKind.EyeOff;
-                LabelAction(PreviewReveal, "HidePassword");
-                _previewRevealTimer.Start();
-            }
-            finally { overview.ClearSecrets(); }
+            string password = await session.Storage.LoadEntryPasswordAsync(row.Id, session.Crypto, row.Revision, token);
+            token.ThrowIfCancellationRequested();
+            if (request != _previewRequest || !ReferenceEquals(_session, session) || !ReferenceEquals(Entries.SelectedItem, row)) return;
+            PreviewSecret.Text = password;
+            PreviewRevealIcon.Kind = AppIconKind.EyeOff;
+            LabelAction(PreviewReveal, "HidePassword");
+            _previewRevealTimer.Start();
         });
     }
 

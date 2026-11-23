@@ -18,6 +18,10 @@ public static class EntrySerialization
     internal static readonly JsonSerializerOptions OverviewOptions = WithProperties(IsOverviewProperty);
     internal static readonly JsonSerializerOptions GridOptions = GridProjection(sortByPassword: false);
     internal static readonly JsonSerializerOptions PasswordSortedGridOptions = GridProjection(sortByPassword: true);
+    internal static readonly JsonSerializerOptions UserNameOptions = Only(
+        nameof(PwEntry.Id), nameof(PwEntry.GroupId), nameof(PwEntry.Revision), nameof(PwEntry.UserName));
+    internal static readonly JsonSerializerOptions PasswordOptions = Only(
+        nameof(PwEntry.Id), nameof(PwEntry.GroupId), nameof(PwEntry.Revision), nameof(PwEntry.Password));
     internal static readonly JsonSerializerOptions AutoTypeMatchOptions = Only(
         nameof(PwEntry.Id), nameof(PwEntry.GroupId), nameof(PwEntry.Revision),
         nameof(PwEntry.Title), nameof(PwEntry.Url), nameof(PwEntry.AutoTypeEnabled));

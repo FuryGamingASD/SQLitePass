@@ -401,18 +401,37 @@ public sealed partial class SqliteStorageProvider : IDisposable
     public Task<List<PwEntry>> LoadEntriesAsync(Guid? groupId, CryptoEngine crypto)
     { CheckCrypto(crypto); return ReadAsync((c, tx, key, m) => ReadEntries(c, tx, key, m, groupId)); }
     public Task<PwEntry> LoadEntryAsync(Guid entryId, CryptoEngine crypto, long? expectedRevision = null,
-        CancellationToken cancellationToken = default) => LoadEntryAsync(entryId, crypto, expectedRevision, includeDetails: true, cancellationToken);
+        CancellationToken cancellationToken = default) => LoadEntryAsync(entryId, crypto, expectedRevision, projection: null, cancellationToken);
 
     public Task<PwEntry> LoadEntryOverviewAsync(Guid entryId, CryptoEngine crypto, long expectedRevision,
-        CancellationToken cancellationToken = default) => LoadEntryAsync(entryId, crypto, expectedRevision, includeDetails: false, cancellationToken);
+        CancellationToken cancellationToken = default) => LoadEntryAsync(entryId, crypto, expectedRevision, EntrySerialization.OverviewOptions, cancellationToken);
 
-    private Task<PwEntry> LoadEntryAsync(Guid entryId, CryptoEngine crypto, long? expectedRevision, bool includeDetails,
-        CancellationToken cancellationToken = default)
+    public Task<string> LoadEntryUserNameAsync(Guid entryId, CryptoEngine crypto, long expectedRevision,
+        CancellationToken cancellationToken = default) => LoadEntryCredentialAsync(entryId, crypto, expectedRevision, password: false, cancellationToken);
+
+    public Task<string> LoadEntryPasswordAsync(Guid entryId, CryptoEngine crypto, long expectedRevision,
+        CancellationToken cancellationToken = default) => LoadEntryCredentialAsync(entryId, crypto, expectedRevision, password: true, cancellationToken);
+
+    private async Task<string> LoadEntryCredentialAsync(Guid entryId, CryptoEngine crypto, long expectedRevision,
+        bool password, CancellationToken cancellationToken)
+    {
+        var projection = password ? EntrySerialization.PasswordOptions : EntrySerialization.UserNameOptions;
+        var entry = await LoadEntryAsync(entryId, crypto, expectedRevision, projection, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return (password ? entry.Password : entry.UserName) ?? string.Empty;
+        }
+        finally { entry.ClearSecrets(); }
+    }
+
+    private Task<PwEntry> LoadEntryAsync(Guid entryId, CryptoEngine crypto, long? expectedRevision,
+        JsonSerializerOptions? projection, CancellationToken cancellationToken)
     {
         CheckCrypto(crypto);
         return ReadAsync((c, tx, key, m) =>
         {
-            var entry = ReadEntries(c, tx, key, m, includeDetails: includeDetails, entryId: entryId, cancellationToken: cancellationToken).SingleOrDefault()
+            var entry = ReadEntries(c, tx, key, m, entryId: entryId, cancellationToken: cancellationToken, projection: projection).SingleOrDefault()
                 ?? throw new VaultConflictException("La voce non esiste più. Aggiornare il vault.");
             if (expectedRevision.HasValue && entry.Revision != expectedRevision.Value)
             { entry.ClearSecrets(); throw new VaultConflictException("La voce è cambiata in un'altra sessione. Aggiornare e riprovare."); }

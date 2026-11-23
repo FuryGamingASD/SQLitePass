@@ -28,17 +28,15 @@ public sealed partial class VaultWindow
     {
         var row = target ?? Entries.SelectedItem as EntryRow;
         if (_session is not { } session || _clipboard is not { } clipboard || _query.OnlyRecycleBin || row == null) return;
-        var overview = await session.Storage.LoadEntryOverviewAsync(row.Id, session.Crypto, row.Revision, token);
-        try
-        {
-            string value = password ? overview.Password : overview.UserName;
-            if (value.Length == 0) return;
-            int seconds = Math.Clamp(_settings.ClipboardClearSeconds, 3, 300);
-            bool copied = await clipboard.CopyAsync(value, TimeSpan.FromSeconds(seconds), token);
-            token.ThrowIfCancellationRequested();
-            ClipboardStatus.Text = copied ? Text("ClipboardCopiedFor", Text(password ? "ColPassword" : "ColUserName"), seconds) : Text("ClipboardBusy");
-        }
-        finally { overview.ClearSecrets(); }
+        string value = password
+            ? await session.Storage.LoadEntryPasswordAsync(row.Id, session.Crypto, row.Revision, token)
+            : await session.Storage.LoadEntryUserNameAsync(row.Id, session.Crypto, row.Revision, token);
+        token.ThrowIfCancellationRequested();
+        if (value.Length == 0 || !ReferenceEquals(_session, session)) return;
+        int seconds = Math.Clamp(_settings.ClipboardClearSeconds, 3, 300);
+        bool copied = await clipboard.CopyAsync(value, TimeSpan.FromSeconds(seconds), token);
+        token.ThrowIfCancellationRequested();
+        ClipboardStatus.Text = copied ? Text("ClipboardCopiedFor", Text(password ? "ColPassword" : "ColUserName"), seconds) : Text("ClipboardBusy");
     });
 
     private async void ClearClipboard_Click(object? sender, RoutedEventArgs e) => await RunOperationAsync(async _ =>

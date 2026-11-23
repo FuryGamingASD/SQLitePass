@@ -122,7 +122,14 @@ public sealed partial class AvaloniaVaultTests
                     estimate.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                     await WaitAsync(() => quality.IsVisible && entries.IsEnabled, timeout.Token);
                     Assert.Equal(PasswordGenerator.CalculateEntropy(entrySecret), quality.Value);
-                    Assert.Equal(row.PasswordMask, window.FindControl<TextBlock>("PreviewSecret")!.Text);
+                    var preview = window.FindControl<TextBlock>("PreviewSecret")!;
+                    var reveal = window.FindControl<Button>("PreviewReveal")!;
+                    Assert.Equal(row.PasswordMask, preview.Text);
+                    Assert.Null(backend.Text);
+                    reveal.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    await WaitAsync(() => preview.Text == entrySecret && entries.IsEnabled, timeout.Token);
+                    reveal.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    Assert.Equal(row.PasswordMask, preview.Text);
                     Assert.Null(backend.Text);
                     entries.SelectedItem = null;
                     Assert.False(quality.IsVisible);

@@ -18,6 +18,9 @@
 | 2026-11-23 | Grid implementation | Avalonia uses the reduced page. The normal grid read tracks the decoded lengths of passwords and Auto-Type sequences for the existing page budget. The password-sort path removes plaintext from the selected records before returning them to the workspace. |
 | 2026-11-23 | Grid verification on Windows | All 173 Release tests passed. The new paging cases compare normal grid and explicit reveal boundaries at the same byte limit with escaped Unicode data. The workspace test exercises revealing and hiding the password column and copying a password from a masked row. The legacy WPF Release project built with zero warnings or errors. |
 | 2026-11-23 | Grid verification on Linux | On FuryUbuntu x64, `39d5fb7` passed locked restore and all 173 Release tests using SDK 10.0.404. The source startup probe passed under Xvfb. Package and native input probes remain pending. |
+| 2026-11-23 | Selected credential read design | Replace the Avalonia scalar overview reads for copy, single-entry reveal and scoring with authenticated reads for the selected username or password. Reuse the existing identity and revision checks. |
+| 2026-11-23 | Selected credential reads | Copy, preview reveal and quality estimation now request the specific username or password. The Core authenticates the vault, checks the record identity and revision, and clears the decrypted payload buffer. |
+| 2026-11-23 | Credential verification on Windows | All 175 Release tests passed. Coverage includes the two projections, escaped Unicode values, an empty password, cancellation, stale revisions, full-vault authentication, and the Avalonia copy, reveal and score actions. The legacy WPF Release project built with zero warnings or errors. |
 
 ## Order of work
 
@@ -29,4 +32,4 @@
 - [ ] Prepare a scoped independent review of the format, credential rotation, backup, import and update packages. Record the reviewed commit and follow-up findings.
 - [ ] Evaluate machine-level configuration for locking, export and Auto-Type when deployment requirements are available.
 
-Grid reads still decrypt whole authenticated records temporarily and materialize the fields needed for display, filtering and ordering. Explicit password sorting temporarily uses the plaintext value. The next memory pass should narrow the selected-entry reads used for copying, revealing and scoring, which still obtain the full scalar overview.
+Grid reads still decrypt whole authenticated records temporarily and materialize the fields needed for display, filtering and ordering. Explicit password sorting temporarily uses the plaintext value. The full-column reveal still reloads the scalar overview for the page. The next memory pass should read just the passwords and revisions of the visible rows for that action.

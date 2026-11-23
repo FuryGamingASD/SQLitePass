@@ -175,6 +175,8 @@ In the Avalonia desktop app, the shield in the entry preview estimates the selec
 
 Page cursors carry the boundary entry ID, snapshot and query stamps, and navigation flags. The Core reads the boundary sort value inside the authenticated transaction for the next page. Sorting by password or another sensitive field can expose its value in memory during that operation.
 
+Copying the username reads that field from the selected revision. Copying the password, revealing the selected password and estimating its quality each read the password from the selected revision. These reads authenticate the vault and zero the decrypted record buffer. The requested string may remain in managed memory until garbage collection.
+
 ---
 
 ## Entry Cleanup
