@@ -666,11 +666,11 @@ Ensure that an update package was authorized by the SQLitePass publisher indepen
 
 ### Current Checks
 
-SQLitePass uses HTTPS, checks the Velopack application/package identity, asks the user before download and application, and verifies package hashes supplied by the feed. These checks detect inconsistent downloads but the feed hash is not an independent publisher signature: an attacker able to replace both feed and package can supply a matching pair.
+The Avalonia updater verifies a detached RSA/SHA-256 signature against a public key pinned in the client. The signed manifest binds the package identity, channel, version, source commit, filename, byte length and SHA-256 digest. The client verifies downloaded packages and cached packages before Velopack can extract or apply them, uses fixed HTTPS GitHub release URLs, rejects redirects outside approved hosts, disables delta packages and requires user confirmation. A release with a missing or mismatched signing key fails closed. Synthetic tests cover package tampering, invalid signatures, cache substitution and replay/rollback behavior.
 
 ### Residual Risk
 
-High/P1. If a user accepts a substituted update, its code runs with the user's privileges and may access an unlocked vault. Add a detached signature verified by a public key pinned in the client, with the signing private key held separately from normal release credentials. Test feed/package tampering, invalid signatures and replay or rollback before treating updates as authenticated. This finding is based on source review of commit `5019be7`; no malicious update was executed. Velopack maintainers describe feed hashes as download-integrity checks rather than publisher authentication in [issue #105](https://github.com/velopack/velopack/issues/105).
+The signature prevents an attacker with only release-feed or asset-upload access from replacing both the feed and package with a matching unsigned pair. The signing key is currently designed to come from a GitHub Actions secret in the same repository security domain. A repository administrator or actor able to change the signing workflow, secret or repository settings could still sign or publish a malicious package. No production key pair is provisioned, so release signing and publication fail closed until that setup is completed. Existing clients that predate signature verification cannot authenticate the first transition update. A stale but still newer signed release can be replayed; preventing this freeze requires a persistent trusted version floor or a separate freshness service. The independent review finding is mitigated for release-host-only compromise, but remains open for production key custody, transition planning and freshness. No malicious update was executed. Velopack maintainers describe feed hashes as download-integrity checks rather than publisher authentication in [issue #105](https://github.com/velopack/velopack/issues/105).
 
 ---
 
@@ -685,7 +685,7 @@ High/P1. If a user accepts a substituted update, its code runs with the user's p
 | Clipboard Exposure | Timed Clipboard Cleanup |
 | Window Capture | Screen Capture Protection |
 | Auto-Type Hijack | Per-event Validation; Residual Global-Input Race |
-| Update Feed Tampering | HTTPS and feed identity/hash checks; independent publisher signature pending |
+| Update Feed Tampering | Pinned publisher signature and package hash verification; production key custody and freshness remain open |
 | User Error | Recovery Snapshots |
 | Failed Rekey | Pre-Rekey Backup |
 | Failed Migration | Migration Backup |
