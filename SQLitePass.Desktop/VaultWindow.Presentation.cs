@@ -14,13 +14,14 @@ public sealed partial class VaultWindow
     private void ApplyLoginLayout()
     {
         var screen = Screens.ScreenFromWindow(this) ?? Screens.Primary;
-        Width = screen != null ? Math.Min(510, screen.WorkingArea.Width / screen.Scaling) : 510;
-        MaxHeight = screen != null ? screen.WorkingArea.Height / screen.Scaling : double.PositiveInfinity;
         MinWidth = MinHeight = 0;
-        Height = double.NaN;
+        MaxWidth = screen != null ? Math.Min(510, screen.WorkingArea.Width / screen.Scaling) : 510;
+        MaxHeight = screen != null ? screen.WorkingArea.Height / screen.Scaling : double.PositiveInfinity;
         CanResize = false;
         WindowDecorations = WindowDecorations.None;
         SizeToContent = SizeToContent.Height;
+        Width = MaxWidth;
+        Height = double.NaN;
     }
 
     private void LoginHeader_PointerPressed(object? sender, PointerPressedEventArgs e)
@@ -39,7 +40,7 @@ public sealed partial class VaultWindow
         SizeToContent = SizeToContent.Manual;
         WindowDecorations = WindowDecorations.Full;
         CanResize = true;
-        MaxHeight = double.PositiveInfinity;
+        MaxWidth = MaxHeight = double.PositiveInfinity;
         MinWidth = 620;
         MinHeight = 460;
         Width = 1100;

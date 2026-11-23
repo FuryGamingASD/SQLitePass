@@ -52,6 +52,7 @@ public sealed partial class AvaloniaVaultTests
                     Assert.True(window.FindControl<Button>("LoginTheme")!.IsVisible);
                     VerifyCompactUnlock();
                     var useKey = window.FindControl<CheckBox>("UseKeyFile")!;
+                    double compactWidth = window.Bounds.Width;
                     double compactHeight = window.Bounds.Height;
                     useKey.IsChecked = true;
                     await WaitAsync(() => window.Bounds.Height > compactHeight, timeout.Token);
@@ -133,6 +134,7 @@ public sealed partial class AvaloniaVaultTests
                     Assert.Empty(entries.Items);
                     Assert.Empty(tree.Items);
                     Assert.False(window.FindControl<Border>("EntryPreview")!.IsVisible);
+                    await WaitAsync(() => window.Bounds.Width == compactWidth, timeout.Token);
                     VerifyCompactUnlock();
 
                     void DoubleClick(string name)

@@ -4,7 +4,7 @@
         x:Class="SQLitePass.Desktop.VaultWindow"
         Title="SQLitePass" Icon="avares://SQLitePass.Desktop/Resources/app.ico"
         Background="{DynamicResource WorkspaceCanvas}" Foreground="{DynamicResource WorkspaceText}"
-        WindowStartupLocation="CenterScreen" WindowDecorations="None" CanResize="False" SizeToContent="Height" Width="510">
+        WindowStartupLocation="CenterScreen" WindowDecorations="None" CanResize="False" SizeToContent="Height">
     <Window.Styles>
         <Style Selector="Button.icon-tool">
             <Setter Property="MinWidth" Value="36" />
