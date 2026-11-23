@@ -9,7 +9,7 @@ SQLitePass uses modern authenticated cryptographic primitives designed to provid
 - Resistance to offline attacks
 - Protection against credential theft from stolen vault files
 
-Cryptographic operations run on the client device. Windows x64 and Linux x64 use the same Vault Format 2 and Core implementation in SQLitePass 1.2.0.
+Vault cryptography runs on the client device. Windows x64 and Linux x64 use the same Vault Format 2 and Core implementation. The RSA update signing key authenticates release packages independently of vault encryption. [Update package authentication](UPDATE_SIGNING.md)
 
 No encryption keys, passwords or derived secrets are transmitted to external services.
 

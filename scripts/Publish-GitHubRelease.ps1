@@ -19,7 +19,7 @@ function Assert-ExistingTag {
 }
 $checksums=@(Get-Content (Join-Path $ArtifactDirectory 'checksums.json') -Raw | ConvertFrom-Json)
 foreach($required in @('sqlitepass-update-auth.json','sqlitepass-update-auth.sig','sqlitepass-update-freshness.json')){
-    if($required -notin @($checksums | ForEach-Object File)){throw 'The release is missing a signed update manifest; run the protected signing workflow step first.'}
+    if($required -notin @($checksums | ForEach-Object File)){throw 'The release is missing signed update metadata. Sign the approved bundle offline first.'}
     if(-not (Test-Path -LiteralPath (Join-Path $ArtifactDirectory $required) -PathType Leaf)){throw "Missing signed update asset: $required"}
 }
 if($ExistingTag){

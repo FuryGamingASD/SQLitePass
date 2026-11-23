@@ -1,8 +1,10 @@
 # Disaster Recovery
 
-Updated on 22 November 2026 for SQLitePass 1.2.0.
+Updated on 23 November 2026 for SQLitePass 1.3.0.
 
 This guide describes how to preserve and recover a SQLitePass vault after data loss, corruption, a failed migration, a credential change or device loss. Recovery depends on having a valid vault or backup and the credential factors used to protect it.
+
+For a KeePass import, keep the original `.kdbx` and its credential factors until you have checked the imported `.kpd` and backed it up. For recovery on a new device, prepare a trusted installation before opening any vault. [Import guidance](DATA_PROTECTION.md#import-and-export-privacy) · [First installation and update trust](UPDATE_SIGNING.md#transition-for-existing-installations)
 
 ## Recovery expectations
 

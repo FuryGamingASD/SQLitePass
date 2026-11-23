@@ -104,7 +104,7 @@ Sul piano dell'accessibilità, i glifi testuali basati su emoji sono stati sosti
 - `dotnet list SQLitePass.slnx package --vulnerable --include-transitive --format json`: nessuna segnalazione nel catalogo NuGet consultato, su tutti e cinque i progetti.
 - Packaging locale Windows x64 self-contained con tool Velopack fissato, test obbligatori e modalità `-AllowUnsigned`. Il packaging non installa né pubblica il prodotto.
 
-Risultati dettagliati locali e ignorati da Git: `artifacts/verification/`. La copertura automatica non dimostra completezza della sicurezza e non comprende un percorso manuale delle finestre WPF. Non sono stati aperti, migrati o alterati vault reali dell'utente.
+I risultati dettagliati sono in `artifacts/verification/`, directory locale ignorata da Git. Le prove automatiche hanno usato soltanto vault sintetici. I percorsi manuali WPF e una verifica di sicurezza completa richiedono collaudi separati.
 
 ## Pacchetto locale verificato
 
@@ -128,7 +128,7 @@ Il [consuntivo della 1.1.3](../releases/RELEASE_OUTCOME_1.1.3.md) dettaglia la p
 
 ## Prosecuzione del 17 novembre 2026
 
-Il [rapporto storico della candidata 1.1.0](../releases/RELEASE_READINESS_2026-11-17.md) dettaglia ripristino dal cestino, cancellazioni con controllo revisione, esportazione CSV atomica/cancellabile, patch runtime, test, rendering WPF, misure di contrasto, prove installer/updater e limiti ancora aperti. Per i residui attuali consultare lo [stato dell'audit](../AUDIT_STATUS.md). La firma resta esclusa per decisione dell'utente.
+Il rapporto storico della candidata 1.1.0 dettaglia ripristino dal cestino, cancellazioni con controllo revisione, esportazione CSV atomica e annullabile, patch runtime, test, rendering WPF, misure di contrasto, prove installer e updater e limiti ancora aperti. La firma era fuori dal perimetro della release. [Rapporto della candidata](../releases/RELEASE_READINESS_2026-11-17.md) · [Stato dell'audit](../AUDIT_STATUS.md)
 
 
 ## Quinta tranche: pagine limitate e migrazione streaming

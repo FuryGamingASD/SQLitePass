@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-23
+
+- Import KeePass KDBX 4.0 and 4.1 into a new encrypted vault with a migration report.
+- Use optional machine policy to enforce vault locking and restrict exports or Auto-Type.
+- Reduce plaintext retention in entry grids, the editor and selected credential operations.
+- Block credential copying when Windows clipboard roaming, Windows build 26300 or incompatible Linux clipboard managers make retention controls unreliable.
+- Authenticate updates using an independently held publisher key and a signed freshness checkpoint. Install 1.3.0 manually to establish trust in the publisher key.
+
 ## [1.2.2] - 2026-11-23
 
 - Use SQLitePass as the workspace heading.
@@ -59,7 +67,7 @@
 - Treat only malformed or unauthentic canary data as an invalid credential; propagate unexpected engine errors.
 - Retry concurrent application settings updates with bounded backoff under file-lock contention.
 
-Vault format and user data are unchanged. The package remains unsigned as previously agreed. The audit's native workflow, accessibility, durability and independent-review limitations remain documented in the 1.1.2 readiness report.
+Vault format and user data are unchanged. The package is unsigned. The 1.1.2 readiness report documents the open native workflow, accessibility, durability and independent-review checks.
 
 ## [1.1.1] - 2026-11-17
 
@@ -68,7 +76,7 @@ Vault format and user data are unchanged. The package remains unsigned as previo
 - Keep a hidden tray instance responsive to a new launch request by opening its unlock window.
 - Ask a running instance to close and wait for it before Velopack updates or uninstalls, so the process and tray icon do not linger.
 
-Vault format and user data are unchanged. Authenticode remains waived as previously agreed.
+Vault format and user data are unchanged. Authenticode signing was outside the scope of this release.
 
 ## [1.1.0] - 2026-11-17
 

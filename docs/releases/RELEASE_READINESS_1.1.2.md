@@ -36,7 +36,7 @@ La CI del codice di release ha superato la suite da 161 test e i gate Windows su
 - [ ] Provare copia da controlli, scadenza clipboard, Win+V e cronologia/cloud di Windows.
 - [ ] Provare Auto-Type con cambi di focus, modificatori, finestre elevate e match ambiguo; confermare anche il comportamento dichiarato della protezione screenshot.
 
-I test automatici usano vault sintetici e adattatori finti. La conferma di avvio è un riscontro dell’utente; non equivale alla verifica dei singoli flussi della checklist. In questa sessione non è stata fatta automazione desktop dell’applicazione.
+I test automatici usano vault sintetici e adattatori simulati. Il collaudo manuale ha riguardato l’avvio. Per completare la checklist restava da verificare il comportamento dell’app durante i singoli flussi sul desktop.
 
 ## Residui degli audit da chiudere o accettare esplicitamente
 
@@ -52,7 +52,7 @@ I test automatici usano vault sintetici e adattatori finti. La conferma di avvio
 | Restyle e accessibilità Windows | D03, D05–D07 | Rendering e contrasto sono stati simulati; mancano prove native di DPI 100–200%, schermi piccoli, testo ingrandito, tastiera, Narrator e high contrast. Il restyle e l’overflow comandi non sono uniformati completamente. |
 | Revisione indipendente e resistenza ai guasti | A04, A11, E04 | Il formato 2 e migrazione/recovery non hanno revisione crittografica/penetration test indipendente; guasti fisici non attestati; provenienza licenze non equivale a certificazione legale. |
 
-La firma Authenticode (E03) è **esclusa esplicitamente dall’utente** e non va riaperta come requisito per questa release. I pacchetti restano NotSigned.
+La firma Authenticode (E03) era fuori dal perimetro di questa release. I pacchetti sono `NotSigned`.
 
 La tabella originale dei 49 rilievi e i limiti dettagliati restano in [remediation](../audit/REMEDIATION_2026-11-16.md), [readiness 1.1.0 del 17 novembre](RELEASE_READINESS_2026-11-17.md), [esito 1.1.1](RELEASE_OUTCOME_2026-11-17_1.1.1.md) e [benchmark](../PERFORMANCE_2026-11-16.md). Questi documenti sono storici; questo riepilogo aggiorna lo stato dei merge e della CI, senza riclassificare i rilievi non provati come risolti.
 

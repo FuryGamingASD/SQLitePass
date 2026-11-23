@@ -430,13 +430,12 @@ Logs remain operational data and should still be protected appropriately.
 
 ## Supported Imports
 
-Examples:
-
+- KeePass KDBX 4.0 and 4.1 into a new vault
 - KeePass CSV
 - Browser CSV
 - Bitwarden JSON
 
-Imported plaintext files should be considered sensitive and protected accordingly.
+CSV and JSON import files can contain plaintext credentials. KeePass KDBX files are encrypted. From the unlock screen, enter the intended new vault credentials and choose **Import KeePass KDBX into a new vault**. Provide the source credentials when asked, review the preserved and unsupported data, and choose a new `.kpd` path. The import reads the source without changing it. Keep the source until you have verified the new vault and made a backup. [Import memory handling](MEMORY_HANDLING.md) · [KeePass migration evidence](audit/KEEPASS_GAP_ROADMAP.md)
 
 ---
 

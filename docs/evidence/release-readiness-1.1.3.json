@@ -81,7 +81,7 @@
       "realVaultOpened": false,
       "matchingApplicationOrGraphicsEventsInRunWindow": 0,
       "outputDirectory": "artifacts/verification/1.1.3-crash-repro-20261118-230846/ (ignored by Git)",
-      "limitation": "This reproduces hidden synthetic WPF layout verification only. It does not exercise normal SQLitePass startup, native window presentation, a real vault, or the user's original crash trigger; the original crash cause remains unknown."
+      "limitation": "This run covers hidden WPF layout with synthetic data. Normal startup, native window presentation, a real vault and the original crash trigger were outside its scope. The cause of the crash remains unknown."
     },
     "hostedCiRun": {
       "result": "passed",
@@ -143,7 +143,7 @@
       "dependencyNotices": 11,
       "applicationSignature": "NotSigned",
       "setupSignature": "NotSigned",
-      "signingWaivedByUser": true,
+      "signingWaivedForRelease": true,
       "sourceCommit": "c5d539f4777666aa6553109f486e7c36755e1fcf",
       "sourceIsPullRequestMergeCommit": true
     },
@@ -174,7 +174,7 @@
   "nativeWindowsChecklist": "partial; interactive Windows checks remain open",
   "releasePublished": false,
   "knownReleaseBlockers": [
-    "Auto-Type is retained per user direction; the P1 check-to-global-SendInput race remains documented and native target checks are pending.",
+    "Auto-Type remains available with the documented P1 race between target validation and global SendInput. Native target checks are pending.",
     "The verified package must come from main. The public release workflow and feed verification are pending.",
     "Interactive Windows checks remain open, including session locking, vault workflows, accessibility, clipboard history and account sync. The reported crash remains unreproduced."
   ],
@@ -208,7 +208,7 @@
     "automaticShutdownAfterSeconds": 5,
     "exitCode": 0,
     "originalCrashReproduced": false,
-    "limitation": "The source entry point visibly rendered its unlock window in an isolated host. This did not launch the packaged executable, exercise install/update integration or explain the user-reported crash.",
+    "limitation": "The source entry point rendered its unlock window in an isolated host. The packaged executable and install and update integration were outside the scope of this check. The reported crash remains unexplained.",
     "evidence": "artifacts/verification/1.1.3-startup-smoke-20261118/startup-smoke.json (ignored by Git)"
   },
   "hostedNativeClipboard": {

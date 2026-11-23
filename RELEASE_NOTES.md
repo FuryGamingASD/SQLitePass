@@ -26,7 +26,7 @@ Security guarantees should always be interpreted according to the current docume
 - Apply the new clipboard safeguards on Windows and Linux. Credential copying is unavailable on Windows build 26300, when Windows clipboard roaming is enabled, and when an incompatible Linux clipboard manager is detected.
 - Verify update packages with the pinned publisher key and require a current, signed latest-release checkpoint. Manage signing outside GitHub Actions.
 
-For the first installation of a client with the publisher key, use the verified Windows installer or Linux AppImage and follow the manual transition. Existing vault files and credentials remain compatible. [Update signing and transition](docs/UPDATE_SIGNING.md#transition-for-existing-installations)
+For the first installation of a client with the publisher key, use the verified Windows installer or Linux AppImage and follow the manual transition. Existing vault files and credentials remain compatible. The Windows installer has no Authenticode signature. The application verifies subsequent updates using the pinned SQLitePass signing key. [Update signing and transition](docs/UPDATE_SIGNING.md#transition-for-existing-installations)
 
 ---
 
@@ -521,14 +521,14 @@ Introduced:
 
 ## Supported Releases
 
-```text
-1.1.x
-```
+- 1.3.x is the current Windows x64 and Linux x64 release line.
+- 1.2.x is the previous Windows x64 and Linux x64 line. Install the current version manually to establish trust in the update signing key.
+- 1.1.x is the legacy Windows-only line.
 
 ## Historical Releases
 
 ```text
-1.0.x
+1.0.x and earlier
 ```
 
 Historically documented but no longer recommended for new deployments.

@@ -2,7 +2,7 @@
 
 > Questo documento descrive la candidata locale 1.1.0 prima della pubblicazione ed è storico. La release è pubblicata: vedere lʼ[esito definitivo](RELEASE_OUTCOME_2026-11-17.md). Per la versione corrente e i residui consultare lo [stato dell'audit](../AUDIT_STATUS.md).
 
-Data: 17 novembre 2026. Prosecuzione della richiesta di completare [AUDIT_2026-11-16.md](../audit/AUDIT_2026-11-16.md); **la firma Authenticode è lʼunica esclusione concordata**. Le precedenti regressioni di compilazione e Auto-Type sono corrette. [STATUS_2026-11-17.md](../archive/STATUS_2026-11-17.md) conserva la verifica storica delle 02:19 e non descrive lʼultimo stato.
+Verifica del 17 novembre 2026 sugli interventi dell’audit per la 1.1.0. L’unica esclusione dal perimetro era la firma Authenticode. A questa data risultavano corrette le regressioni di compilazione e Auto-Type. [Audit del 16 novembre](../audit/AUDIT_2026-11-16.md) · [Stato precedente delle 02:19](../archive/STATUS_2026-11-17.md)
 
 **Lʼintero audit non è ancora chiuso.** I risultati qui sotto descrivono una candidata locale pre-pubblicazione e restano utili come evidenze tecniche. La release pubblicata è tracciata nel report di esito. Rimangono i collaudi Windows nativi, parte del rework e le raccomandazioni elencate sotto. Nessun vault reale è stato aperto o modificato.
 
@@ -41,7 +41,7 @@ Data: 17 novembre 2026. Prosecuzione della richiesta di completare [AUDIT_2026-1
 | Aggiornamento locale 1.0.2 → 1.1.0 | Superato con Update.exe, senza riavvio dellʼapp |
 | Disinstallazione di entrambe le copie | Superata; registrazione e collegamenti rimossi |
 | Preferenze utente durante le prove installer | Hash invariato; app mai avviata, nessun vault aperto |
-| Firma applicazione/setup | NotSigned/NotSigned, esclusione concordata |
+| Firma applicazione/setup | `NotSigned` per entrambi, firma fuori dal perimetro di release |
 
 Le finestre del verificatore non vengono mostrate, attivate o comandate tramite input desktop. Il verificatore esegue ora un dispatcher STA senza Application.Run: carica davvero dal provider in modo asincrono e controlla filtri combinati, percorso selezionato, editor modificato con reveal e pulizia al blocco. Non mostra finestre, non avvia il login del prodotto e non verifica Win+L o un flusso desktop completo. Un clock finto prova il limite del reveal senza attendere 15 secondi; le verifiche native restano distinte. Le scale raster non equivalgono al cambio DPI nativo. Le 105 coppie non certificano ogni stato e ogni controllo dellʼinterfaccia. In seguito, il workflow GitHub sul commit/tag definitivo è terminato con successo; i dettagli sono nel report di esito.
 
@@ -85,4 +85,4 @@ Prerequisito: SDK .NET 10.0.404 come indicato in global.json.
     .\build-installer.ps1 -Version 1.1.0 -AllowUnsigned
     .\scripts\Verify-ReleaseArtifacts.ps1 -BuildId 1.1.0-25a2ca09f51e45f8a9a981328b6790ea
 
-Lo script Verify-ReleaseArtifacts richiede i JSON/TRX nelle posizioni documentate. La prova Verify-WindowsPackage è mutante e destinata a una macchina di verifica: rifiuta installazioni/processi/collegamenti esistenti, installa solo proprie copie temporanee e le disinstalla. In questa sessione lʼSDK è temporaneo, verificato tramite SHA-512 ufficiale; nessun SDK o PATH globale è stato riconfigurato.
+Lo script Verify-ReleaseArtifacts richiede i JSON/TRX nelle posizioni documentate. La prova Verify-WindowsPackage è mutante e destinata a una macchina di verifica: rifiuta installazioni/processi/collegamenti esistenti, installa solo proprie copie temporanee e le disinstalla. La verifica ha usato un SDK temporaneo con SHA-512 verificato contro il valore ufficiale. L’SDK e il PATH globali sono rimasti invariati.

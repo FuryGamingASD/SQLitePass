@@ -33,7 +33,7 @@ Il digest degli asset coincide con quello esposto dalla release GitHub; il manif
 
 ## Limiti e lavoro successivo
 
-- Applicazione e installer sono `NotSigned`, come concordato. Gli utenti Windows potrebbero vedere avvisi di provenienza o reputazione; la firma Authenticode richiede una release successiva con certificato autorizzato.
+- Applicazione e installer sono `NotSigned`. Windows può mostrare avvisi di provenienza o reputazione. Per firmare i pacchetti in una release successiva serve un certificato Authenticode autorizzato.
 - Nessuna prova interattiva nativa è attestata: flussi di sblocco/migrazione/rekey, Win+L, clipboard e cloud clipboard, Auto-Type con focus/modificatori/app elevate, tastiera/Narrator, DPI e protezione cattura. I rendering e i test automatizzati non sostituiscono questi collaudi.
 - Nessuna revisione indipendente del formato/migrazione/recovery o prova di guasto hardware è stata effettuata. C13 resta parziale; il costo di scansione/autenticazione è O(N), i dati scalari di pagina restano residenti e scritture/backup completi. Restano inoltre il rework di architettura e il restyle sistematico descritti nellʼ[audit](../audit/AUDIT_2026-11-16.md).
 - Il workflow ha emesso avvisi di manutenzione perché alcune action fissate usano ancora target Node.js 20 mentre GitHub annuncia il passaggio forzato a Node.js 24. Non ha bloccato i job; aggiornare e riverificare i pin delle action.

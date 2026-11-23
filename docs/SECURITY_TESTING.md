@@ -13,7 +13,7 @@ Its objectives are to:
 - Validate recovery workflows
 - Reduce the likelihood of introducing vulnerabilities
 
-Automated security checks run in development and release workflows. Their scope varies by feature and release. The [1.2.0 release outcome](releases/RELEASE_OUTCOME_1.2.0.md) records the package, automated desktop and VM results. The [audit status](AUDIT_STATUS.md) lists remaining limits.
+Automated security checks run in development and release workflows. The 1.3.0 suite adds KDBX import, machine-policy and signed-update regressions, including invalid signatures, mismatched packages and expired checkpoints. Native release gates exercise installation, upgrade and reopening a synthetic vault on both platforms. [Verification roadmap](audit/KEEPASS_GAP_ROADMAP.md) · [Audit status](AUDIT_STATUS.md)
 
 Testing improves confidence but does not guarantee the absence of vulnerabilities.
 
