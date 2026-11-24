@@ -21,7 +21,7 @@
     <PackageReference Include="Avalonia.Desktop" Version="12.2.0" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.6" />
     <PackageReference Include="Microsoft.Windows.CsWinRT" Version="2.2.0" />
-    <PackageReference Include="Microsoft.Win32.SystemEvents" Version="10.0.15" />
+    <PackageReference Include="Microsoft.Win32.SystemEvents" Version="11.0.0" />
     <PackageReference Include="Tmds.DBus.Protocol" Version="0.94.1" />
     <PackageReference Include="Velopack" Version="1.2.161" />
     <Compile Include="../SQLitePass.UI/Services/TranslationCatalog.cs" Link="Localization/TranslationCatalog.cs" />
