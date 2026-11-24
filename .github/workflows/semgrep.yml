@@ -1,0 +1,85 @@
+name: Semgrep
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '43 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: semgrep-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  scan:
+    name: Semgrep SAST
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    container:
+      image: semgrep/semgrep:1.186.0
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Scan with Semgrep
+        id: semgrep
+        continue-on-error: true
+        env:
+          SEMGREP_SEND_METRICS: 'off'
+        run: semgrep scan --config auto --sarif --output semgrep.sarif
+
+      - name: Publish Semgrep findings to GitHub code scanning
+        if: always() && steps.semgrep.outcome == 'success' && github.ref == 'refs/heads/main'
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
+
+      - name: Enforce a successful, clean Semgrep scan
+        if: always()
+        env:
+          SEMGREP_OUTCOME: ${{ steps.semgrep.outcome }}
+        run: |
+          if [ "$SEMGREP_OUTCOME" != "success" ]; then
+            echo "::error::Semgrep failed to complete successfully."
+            exit 1
+          fi
+          if [ ! -s semgrep.sarif ]; then
+            echo "::error::Semgrep did not produce a SARIF report."
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json
+          import sys
+
+          with open("semgrep.sarif", encoding="utf-8") as report_file:
+              report = json.load(report_file)
+
+          findings = [
+              result
+              for run in report.get("runs", [])
+              for result in run.get("results", [])
+          ]
+
+          for finding in findings:
+              location = finding.get("locations", [{}])[0].get("physicalLocation", {})
+              path = location.get("artifactLocation", {}).get("uri", "unknown file")
+              line = location.get("region", {}).get("startLine", "?")
+              rule = finding.get("ruleId", "unknown rule")
+              print(json.dumps({"path": path, "line": line, "rule": rule}, ensure_ascii=True))
+
+          if findings:
+              print(f"Semgrep reported {len(findings)} finding(s).")
+              sys.exit(1)
+
+          print("Semgrep completed with no findings.")
+          PY
