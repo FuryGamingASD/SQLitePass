@@ -10,9 +10,10 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Core regression tests failed.' }
 
     $resultsPath = [IO.Path]::GetFullPath($ResultsDirectory, $root)
-    $coverageReports = if (Test-Path -LiteralPath $resultsPath -PathType Container) {
-        @(Get-ChildItem -LiteralPath $resultsPath -Recurse -File -Filter 'coverage.cobertura.xml')
-    } else { @() }
+    $coverageReports = @()
+    if (Test-Path -LiteralPath $resultsPath -PathType Container) {
+        $coverageReports = @(Get-ChildItem -LiteralPath $resultsPath -Recurse -File -Filter 'coverage.cobertura.xml')
+    }
     $coverageWarnings = [Collections.Generic.List[string]]::new()
 
     [long]$linesCovered = 0
