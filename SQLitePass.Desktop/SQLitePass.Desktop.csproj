@@ -19,7 +19,7 @@
     <InternalsVisibleTo Include="SQLitePass.Tests" />
     <ProjectReference Include="../SQLitePass.Core/SQLitePass.Core.csproj" />
     <PackageReference Include="Avalonia.Desktop" Version="12.2.0" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.6" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.2.0" />
     <PackageReference Include="Microsoft.Windows.CsWinRT" Version="2.2.0" />
     <PackageReference Include="Microsoft.Win32.SystemEvents" Version="11.0.0" />
     <PackageReference Include="Tmds.DBus.Protocol" Version="0.94.1" />
