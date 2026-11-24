@@ -257,8 +257,8 @@
       },
       "Microsoft.Win32.SystemEvents": {
         "type": "Transitive",
-        "resolved": "10.0.15",
-        "contentHash": "kisX7LaeY4exvIgeyRfIp+xUmz2JoL+2n7pZv4W6na115P8659zw6vfB7IxD4sk6g9YZHwJ+vMzgS3Y5GMJqkA=="
+        "resolved": "11.0.0",
+        "contentHash": "cI7p6SRuPcNTsgoryUpb367r1DhE+69l5XZeAS1UmyU293gwkguh2LPMiCg0YlZUZxBx0CPfXqI59Q/20Dlnvg=="
       },
       "Microsoft.Windows.CsWinRT": {
         "type": "Transitive",
@@ -392,7 +392,7 @@
         "dependencies": {
           "Avalonia.Desktop": "[12.2.0, )",
           "Avalonia.Themes.Fluent": "[12.1.6, )",
-          "Microsoft.Win32.SystemEvents": "[10.0.15, )",
+          "Microsoft.Win32.SystemEvents": "[11.0.0, )",
           "Microsoft.Windows.CsWinRT": "[2.2.0, )",
           "SQLitePass.Core": "[1.3.0, )",
           "Tmds.DBus.Protocol": "[0.94.1, )",
@@ -443,8 +443,8 @@
       },
       "Microsoft.Win32.SystemEvents": {
         "type": "Transitive",
-        "resolved": "10.0.15",
-        "contentHash": "kisX7LaeY4exvIgeyRfIp+xUmz2JoL+2n7pZv4W6na115P8659zw6vfB7IxD4sk6g9YZHwJ+vMzgS3Y5GMJqkA=="
+        "resolved": "11.0.0",
+        "contentHash": "cI7p6SRuPcNTsgoryUpb367r1DhE+69l5XZeAS1UmyU293gwkguh2LPMiCg0YlZUZxBx0CPfXqI59Q/20Dlnvg=="
       },
       "SkiaSharp.NativeAssets.Linux": {
         "type": "Transitive",
