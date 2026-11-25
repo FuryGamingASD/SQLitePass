@@ -12,6 +12,12 @@ public sealed partial class VaultWindow
 
     private async void ImportKdbx_Click(object? sender, RoutedEventArgs e) => await RunOperationAsync(async token =>
     {
+        if (string.IsNullOrEmpty(MasterPassword.Text) && string.IsNullOrWhiteSpace(KeyFilePath.Text))
+        {
+            StatusText.Text = Text("KdbxDestinationCredentialRequired");
+            return;
+        }
+
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             Title = Text("KdbxImportTitle"),
@@ -27,6 +33,11 @@ public sealed partial class VaultWindow
         var sourceCredential = await credentialDialog.ShowDialog<KdbxCredentialResult?>(this);
         token.ThrowIfCancellationRequested();
         if (sourceCredential == null) return;
+        if (string.IsNullOrEmpty(sourceCredential.Password) && string.IsNullOrWhiteSpace(sourceCredential.KeyFilePath))
+        {
+            StatusText.Text = Text("KdbxSourceCredentialRequired");
+            return;
+        }
 
         string sourcePassword = sourceCredential.Password;
         string? sourceKeyFilePath = sourceCredential.KeyFilePath;
