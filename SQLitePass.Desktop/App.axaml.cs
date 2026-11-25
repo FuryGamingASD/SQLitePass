@@ -10,6 +10,8 @@ namespace SQLitePass.Desktop;
 
 public sealed partial class App : Application
 {
+    internal static TaskCompletionSource<bool>? UnexpectedErrorRecoveryProbe { get; set; }
+
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
     public override void OnFrameworkInitializationCompleted()
@@ -139,18 +141,23 @@ public sealed partial class App : Application
         {
             if (recovering) return;
             recovering = true;
+            bool recovered = false;
             try
             {
                 AppLogger.LogError("Unexpected desktop error", error);
-                if (await window.LockAfterUnexpectedErrorAsync()) return;
+                recovered = await window.LockAfterUnexpectedErrorAsync();
             }
             catch (Exception lockError)
             {
                 AppLogger.LogError("Could not lock the vault after an unexpected desktop error", lockError);
             }
-            finally { recovering = false; }
+            finally
+            {
+                recovering = false;
+                UnexpectedErrorRecoveryProbe?.TrySetResult(recovered);
+            }
 
-            desktop.Shutdown(1);
+            if (!recovered) desktop.Shutdown(1);
         }
     }
 }
