@@ -540,6 +540,7 @@ public sealed partial class VaultWindow : Window
             {
                 UnauthorizedAccessException => "ErrorAccess",
                 CryptographicException => "ErrorCredential",
+                NotSupportedException => "ErrorUnsupportedFormat",
                 FileNotFoundException or DirectoryNotFoundException => "ErrorMissingFile",
                 InvalidDataException or FormatException => "ErrorIntegrity",
                 VaultConflictException => "ErrorConflict",

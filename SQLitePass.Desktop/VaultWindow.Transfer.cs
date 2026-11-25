@@ -37,7 +37,12 @@ public sealed partial class VaultWindow
                 StatusText.Text = Text("ImportNoEntries");
                 return;
             }
-            string note = Text(format == VaultImportFormat.BitwardenJson ? "ImportBitwardenNote" : "ImportCsvNote");
+            string note = Text(format switch
+            {
+                VaultImportFormat.BitwardenJson => "ImportBitwardenNote",
+                VaultImportFormat.KeePassCsv => "ImportKeePassCsvNote",
+                _ => "ImportBrowserCsvNote"
+            });
             if (format == VaultImportFormat.BitwardenJson)
                 note += "\n\n" + Text("ImportTypesSummary", imported.Count(entry => entry.SourceItemType == 1),
                     imported.Count(entry => entry.SourceItemType == 2), imported.Count(entry => entry.SourceItemType is not (1 or 2)));

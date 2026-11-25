@@ -61,15 +61,31 @@ public sealed partial class VaultWindow
             });
             token.ThrowIfCancellationRequested();
             if (file == null) return;
+            string destinationPath = RequireLocalFile(file);
+            if (File.Exists(destinationPath) || Directory.Exists(destinationPath))
+            {
+                StatusText.Text = Text("KdbxDestinationExists");
+                return;
+            }
 
             using var destinationMaster = await ReadCredentialAsync(token);
             StatusText.Text = Text("KdbxImportWriting");
-            var result = await KdbxImportService.CreateNewVaultAsync(plan, RequireLocalFile(file), destinationMaster,
+            var result = await KdbxImportService.CreateNewVaultAsync(plan, destinationPath, destinationMaster,
                 _settings, Text("DefaultGeneralGroup"), Text("RecycleBin"), token,
                 new Progress<VaultImportProgress>(value => ReportTransferProgress(token, Text("ImportProgress", value.Completed, value.Total))));
             VaultPath.Text = result.Session.Storage.FilePath;
-            await PresentSessionAsync(result.Session, CancellationToken.None);
-            if (!_closing) StatusText.Text = Text("KdbxImportCompleted", report.EntriesImported, report.GroupsImported);
+            try
+            {
+                await PresentSessionAsync(result.Session, CancellationToken.None);
+            }
+            catch (Exception error)
+            {
+                AppLogger.LogError("The imported vault was saved but could not be opened in the current window", error);
+                if (!_closing) StatusText.Text = Text("KdbxImportSavedOpenFailed", result.Session.Storage.FilePath);
+                return;
+            }
+            if (!_closing) StatusText.Text = Text("KdbxImportCompleted", report.EntriesImported, report.GroupsImported,
+                result.Session.Storage.FilePath);
         }
         finally
         {

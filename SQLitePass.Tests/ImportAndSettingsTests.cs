@@ -30,11 +30,88 @@ public class ImportAndSettingsTests
     public void MalformedCsvIsRejected(string input) => Assert.Throws<InvalidDataException>(() => ImportExportService.ParseCsvRecords(input));
     [Fact]
     public void UnknownColumnsAreNotGuessed() => Assert.Throws<InvalidDataException>(() => ImportExportService.ImportFromBrowserCsv("first,second,third\na,b,c", Guid.NewGuid()));
-    [Theory]
-    [InlineData("Group,Title,Password,Username,URL,Notes\ng,t,secret,user,https://example.invalid,n")]
-    [InlineData("Group,Title,Username,Password,URL,Other\ng,t,user,secret,https://example.invalid,n")]
-    public void KeePassColumnsMustMatchTheDeclaredOrder(string input) =>
-        Assert.Throws<InvalidDataException>(() => ImportExportService.ImportFromKeePassCsv(input, Guid.NewGuid()));
+    [Fact]
+    public void ImportsOfficialKeePass1CsvFormat()
+    {
+        const string input = "\"Account\",\"Login Name\",\"Password\",\"Web Site\",\"Comments\"\r\n\"Mail\",\"fixture\",\"synthetic secret\",\"https://example.invalid\",\"fixture note\"\r\n";
+        var entry = Assert.Single(ImportExportService.ImportFromKeePassCsv(input, Guid.NewGuid()));
+        Assert.Equal("Mail", entry.Title);
+        Assert.Equal("fixture", entry.UserName);
+        Assert.Equal("synthetic secret", entry.Password);
+        Assert.Equal("https://example.invalid", entry.Url);
+        Assert.Equal("fixture note", entry.Notes);
+        Assert.Equal("", entry.SourceGroupPath);
+    }
+
+    [Fact]
+    public void KeePassCsvDecodesBackslashEscapedQuotesAndBackslashes()
+    {
+        const string input = """
+            "Account","Login Name","Password","Web Site","Comments"
+            "Mail","fixture","Pass\,word\\path\"quoted","https://example.invalid","first line
+            second line"
+            """;
+
+        var entry = Assert.Single(ImportExportService.ImportFromKeePassCsv(input, Guid.NewGuid()));
+        Assert.Equal("Pass,word\\path\"quoted", entry.Password);
+        Assert.Equal("first line\nsecond line", entry.Notes);
+    }
+
+    [Fact]
+    public void KeePassGroupedCsvDecodesEscapedGroupPathSeparators()
+    {
+        const string input = """
+            "Group","Account","Login Name","Password","Web Site","Comments"
+            "Group A\\Group B","Mail","fixture","synthetic secret","https://example.invalid","fixture note"
+            """;
+
+        var entry = Assert.Single(ImportExportService.ImportFromKeePassCsv(input, Guid.NewGuid()));
+        Assert.Equal("Group A\\Group B", entry.SourceGroupPath);
+    }
+
+    [Fact]
+    public void KeePassCsvMapsReorderedSemicolonColumnsAndPreservesExtraFields()
+    {
+        const string input = "Password;Folder;Name;Login Name;Website;Comments;TOTP\nsecret;Accounts/Email;Mail;fixture;https://example.invalid;notes;synthetic-seed\n";
+        var entry = Assert.Single(ImportExportService.ImportFromKeePassCsv(input, Guid.NewGuid()));
+        Assert.Equal("Mail", entry.Title);
+        Assert.Equal("fixture", entry.UserName);
+        Assert.Equal("secret", entry.Password);
+        Assert.Equal("Accounts/Email", entry.SourceGroupPath);
+        var extra = Assert.Single(entry.CustomFields);
+        Assert.Equal("TOTP", extra.Key);
+        Assert.Equal("synthetic-seed", extra.Value);
+        Assert.True(extra.IsProtected);
+    }
+
+    [Fact]
+    public void SQLitePassCsvRoundTripsBackslashesAndQuotesWithoutChangingThem()
+    {
+        var entry = new SQLitePass.Core.Models.PwEntry
+        {
+            Title = "Fixture",
+            UserName = "fixture-user",
+            Password = "first\\\\second\\\"quoted\"",
+            Url = "https://example.invalid",
+            Notes = "line one\\\\line two"
+        };
+        var groupId = Guid.NewGuid();
+        entry.GroupId = groupId;
+        string csv = ImportExportService.ExportToKeePassCsv([entry], new Dictionary<Guid, string> { [groupId] = "General" });
+
+        var imported = Assert.Single(ImportExportService.ImportFromKeePassCsv(csv, Guid.NewGuid()));
+        Assert.Equal(entry.Password, imported.Password);
+        Assert.Equal(entry.Notes, imported.Notes);
+    }
+
+    [Fact]
+    public void AmbiguousKeePassCsvAliasesAreRejected() =>
+        Assert.Throws<InvalidDataException>(() => ImportExportService.ImportFromKeePassCsv(
+            "Group,Title,Account,Username,Password,URL,Notes\ng,t,a,u,p,url,n", Guid.NewGuid()));
+
+    [Fact]
+    public void CsvParserDetectsTabSeparatedRecords() =>
+        Assert.Equal(new[] { "a", "b" }, Assert.Single(ImportExportService.ParseCsvRecords("a\tb\nc\td")));
     [Theory]
     [InlineData("url,username,password,pwd\nhttps://example.invalid,user,one,two")]
     [InlineData("url,username,login,password\nhttps://example.invalid,one,two,secret")]
