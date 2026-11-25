@@ -262,8 +262,8 @@
       },
       "Microsoft.Windows.CsWinRT": {
         "type": "Transitive",
-        "resolved": "2.2.0",
-        "contentHash": "R8MDVawukHrKgYCFgYaoLfbAna/FrImEFRxDK9k8ITbrXv3KLE5uN6tRqrNV83H4MFdqJ/uiA/hg1cSsXkl0vw=="
+        "resolved": "2.3.1",
+        "contentHash": "ojoYrj8m8mAx6LVxofQXgfvsReDTv2LQFeDgXt5Lw99r5fv7dCR19ybd1JN0OueaWvL+BNqv0E7zZCgqptP9zA=="
       },
       "SkiaSharp": {
         "type": "Transitive",
@@ -393,7 +393,7 @@
           "Avalonia.Desktop": "[12.2.0, )",
           "Avalonia.Themes.Fluent": "[12.2.0, )",
           "Microsoft.Win32.SystemEvents": "[11.0.0, )",
-          "Microsoft.Windows.CsWinRT": "[2.2.0, )",
+          "Microsoft.Windows.CsWinRT": "[2.3.1, )",
           "SQLitePass.Core": "[1.3.0, )",
           "Tmds.DBus.Protocol": "[0.95.2, )",
           "Velopack": "[1.2.161, )"
