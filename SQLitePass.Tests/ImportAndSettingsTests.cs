@@ -54,7 +54,7 @@ public class ImportAndSettingsTests
 
         var entry = Assert.Single(ImportExportService.ImportFromKeePassCsv(input, Guid.NewGuid()));
         Assert.Equal("Pass,word\\path\"quoted", entry.Password);
-        Assert.Equal("first line\nsecond line", entry.Notes);
+        Assert.Equal("first line\r\nsecond line", entry.Notes);
     }
 
     [Fact]
@@ -110,8 +110,13 @@ public class ImportAndSettingsTests
             "Group,Title,Account,Username,Password,URL,Notes\ng,t,a,u,p,url,n", Guid.NewGuid()));
 
     [Fact]
-    public void CsvParserDetectsTabSeparatedRecords() =>
-        Assert.Equal(new[] { "a", "b" }, Assert.Single(ImportExportService.ParseCsvRecords("a\tb\nc\td")));
+    public void CsvParserDetectsTabSeparatedRecords()
+    {
+        var records = ImportExportService.ParseCsvRecords("a\tb\nc\td");
+        Assert.Equal(2, records.Count);
+        Assert.Equal(new[] { "a", "b" }, records[0]);
+        Assert.Equal(new[] { "c", "d" }, records[1]);
+    }
     [Theory]
     [InlineData("url,username,password,pwd\nhttps://example.invalid,user,one,two")]
     [InlineData("url,username,login,password\nhttps://example.invalid,one,two,secret")]
