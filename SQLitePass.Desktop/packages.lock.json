@@ -33,15 +33,15 @@
       },
       "Microsoft.Windows.CsWinRT": {
         "type": "Direct",
-        "requested": "[2.2.0, )",
-        "resolved": "2.2.0",
-        "contentHash": "R8MDVawukHrKgYCFgYaoLfbAna/FrImEFRxDK9k8ITbrXv3KLE5uN6tRqrNV83H4MFdqJ/uiA/hg1cSsXkl0vw=="
+        "requested": "[2.3.1, )",
+        "resolved": "2.3.1",
+        "contentHash": "ojoYrj8m8mAx6LVxofQXgfvsReDTv2LQFeDgXt5Lw99r5fv7dCR19ybd1JN0OueaWvL+BNqv0E7zZCgqptP9zA=="
       },
       "Tmds.DBus.Protocol": {
         "type": "Direct",
-        "requested": "[0.94.1, )",
-        "resolved": "0.94.1",
-        "contentHash": "11YMr7FnAbL83bQmVxlhbIKHvSLxjO81D12Ej0QMSGXMDTxNA9MTOa4MQxx43nv5el/efuPHwzyrj6a5ha2gug=="
+        "requested": "[0.95.2, )",
+        "resolved": "0.95.2",
+        "contentHash": "4zlJSYYZGCKnF5xE1L5VEm5YsfjLTz5jlWBgvBxHA7yk8Lnys/6WWpeD+CWmNm4QmawR+x0xIbGGZNcMxcy8nQ=="
       },
       "Velopack": {
         "type": "Direct",
@@ -434,15 +434,15 @@
       },
       "Microsoft.Windows.CsWinRT": {
         "type": "Direct",
-        "requested": "[2.2.0, )",
-        "resolved": "2.2.0",
-        "contentHash": "R8MDVawukHrKgYCFgYaoLfbAna/FrImEFRxDK9k8ITbrXv3KLE5uN6tRqrNV83H4MFdqJ/uiA/hg1cSsXkl0vw=="
+        "requested": "[2.3.1, )",
+        "resolved": "2.3.1",
+        "contentHash": "ojoYrj8m8mAx6LVxofQXgfvsReDTv2LQFeDgXt5Lw99r5fv7dCR19ybd1JN0OueaWvL+BNqv0E7zZCgqptP9zA=="
       },
       "Tmds.DBus.Protocol": {
         "type": "Direct",
-        "requested": "[0.94.1, )",
-        "resolved": "0.94.1",
-        "contentHash": "11YMr7FnAbL83bQmVxlhbIKHvSLxjO81D12Ej0QMSGXMDTxNA9MTOa4MQxx43nv5el/efuPHwzyrj6a5ha2gug=="
+        "requested": "[0.95.2, )",
+        "resolved": "0.95.2",
+        "contentHash": "4zlJSYYZGCKnF5xE1L5VEm5YsfjLTz5jlWBgvBxHA7yk8Lnys/6WWpeD+CWmNm4QmawR+x0xIbGGZNcMxcy8nQ=="
       },
       "Velopack": {
         "type": "Direct",

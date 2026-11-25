@@ -81,4 +81,4 @@ The package script copies published dependencies' license and notice files from 
 | --- | --- |
 | `Avalonia-LICENSE.txt` | [Avalonia 12.2.0](https://github.com/AvaloniaUI/Avalonia/blob/5d9e6d1b0e87337f74f233bead580db186412357/licence.md) |
 | `MicroCom-LICENSE.txt` | [MicroCom.Runtime 0.11.7](https://github.com/kekekeks/MicroCom/blob/cd2fa3c89525fbe7b46bd13f9ec8c77bd829e815/LICENSE) |
-| `Tmds.DBus-LICENSE.txt` | [Tmds.DBus.Protocol 0.94.1](https://github.com/tmds/Tmds.DBus/blob/b4a7fed0b878f74cb54f7cca84d2889af4e596ba/COPYING) |
+| `Tmds.DBus-LICENSE.txt` | [Tmds.DBus.Protocol 0.95.2](https://www.nuget.org/packages/Tmds.DBus.Protocol/0.95.2) · [MIT license](https://licenses.nuget.org/MIT) |

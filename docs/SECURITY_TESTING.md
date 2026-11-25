@@ -13,7 +13,7 @@ Its objectives are to:
 - Validate recovery workflows
 - Reduce the likelihood of introducing vulnerabilities
 
-Automated checks run in development and release workflows. The Verify workflow performs locked restore, shared Release tests, a NuGet advisory audit, platform-specific native desktop checks, and candidate packaging on Windows and Linux. Separate CodeQL v4 and Semgrep workflows analyze C# on pull requests to `main`, pushes to `main`, scheduled runs and manual dispatch. Semgrep findings are uploaded to GitHub code scanning; the workflow fails if scanning or SARIF validation fails, not simply because findings were reported. The 1.3.0 suite adds KDBX import, machine-policy and signed-update regressions, including invalid signatures, mismatched packages and expired checkpoints. Native release gates exercise installation, upgrade and reopening a synthetic vault on both platforms. [Verification roadmap](audit/KEEPASS_GAP_ROADMAP.md) · [Audit status](AUDIT_STATUS.md)
+Automated security checks run in development and release workflows. The 1.3.0 suite adds KDBX import, machine-policy and signed-update regressions, including invalid signatures, mismatched packages and expired checkpoints. Native release gates exercise installation, upgrade and reopening a synthetic vault on both platforms. The [CI and release verification guide](CI_AND_RELEASE_VERIFICATION.md) records current workflow scope; the [verification roadmap](audit/KEEPASS_GAP_ROADMAP.md) and [audit status](AUDIT_STATUS.md) record evidence and unresolved checks.
 
 Testing improves confidence but does not guarantee the absence of vulnerabilities.
 
@@ -65,6 +65,46 @@ They are considered more trustworthy only after:
 - Review
 - Testing
 - Repeated validation
+
+---
+
+# Automated CI and Static Analysis
+
+The repository's automation is described in [CI and release verification](CI_AND_RELEASE_VERIFICATION.md). The workflow YAML and scripts are authoritative if this summary becomes outdated.
+
+## Verify workflow
+
+The `Verify` workflow runs for pushes to branches, `v*` tags, pull requests and manual dispatch. Its Windows and Linux jobs invoke `scripts/Invoke-Ci.ps1`, which performs:
+
+- A locked restore of `SQLitePass.slnx`.
+- A Release build with warnings treated as errors.
+- The shared `SQLitePass.Tests` suite through `scripts/Invoke-CoreTests.ps1`.
+- A NuGet vulnerability audit over direct and transitive dependencies.
+- Confirmation that every project in the shared solution was covered by the audit.
+
+The platform jobs build Avalonia candidates for `win-x64` and `linux-x64`, preserve verification evidence, and run native launch and desktop integration checks. Public-release rehearsals also cover installation, upgrades and AppImage replacement as applicable.
+
+For public release tags, the candidate assembly creates Windows and Linux CycloneDX SBOMs. A tagged release job creates SLSA provenance attestations for release packages and SBOM attestations for each platform package set. Signing and publication remain separate operator-controlled steps.
+
+## CodeQL
+
+The [CodeQL workflow](../.github/workflows/codeql.yml) uses CodeQL Action v4 and runs on pushes and pull requests to `main`, weekly, and by manual dispatch. It analyzes C# using `build-mode: none` and publishes code-scanning results.
+
+## Semgrep
+
+The [Semgrep workflow](../.github/workflows/semgrep.yml) runs on pushes and pull requests to `main`, weekly, and by manual dispatch. It executes `semgrep scan --config auto --sarif`, validates that the report was produced, and uploads findings to GitHub code scanning for pull requests and `main` scans. Reported findings are triaged in code scanning; their presence alone does not fail a successful scan. The workflow does fail if Semgrep itself or SARIF validation fails.
+
+Static-analysis findings require triage. A finding is not itself evidence that an issue is exploitable.
+
+## Running shared checks locally
+
+With the SDK pinned in `global.json`, run:
+
+```powershell
+./scripts/Invoke-Ci.ps1
+```
+
+This executes shared build, test and dependency checks. Native packaging and platform desktop checks require the Windows or Linux CI environment.
 
 ---
 
@@ -527,7 +567,7 @@ Verify:
 - Window replacement
 - Focus theft scenarios
 
-Expected outcome. Auto-Type stops when a target change is detected. The Windows check-to-input race remains documented.
+Expected outcome: Auto-Type stops when a target change is detected. The Windows check-to-input race remains documented.
 
 ---
 
@@ -549,7 +589,7 @@ Auto-Type is cancelled.
 
 ## Unexpected UI Errors
 
-The Windows and Linux desktop probes inject an exception through the Avalonia dispatcher with a synthetic vault open. They require that the vault view closes, the unlock view becomes available and the password field is empty. The application exits if there is no active vault or cleanup fails. Unobserved task errors schedule the same recovery. The injected dispatcher test exercises the dispatcher path.
+The Windows and Linux desktop probes inject an exception through the Avalonia dispatcher with a synthetic vault open. They require that the vault view closes, the unlock view becomes available and the password field is empty. The application exits if there is no active vault or cleanup fails. Unobserved task errors schedule the same recovery.
 
 ## Manual Lock
 
@@ -584,7 +624,7 @@ Vault locks after configured inactivity period.
 
 ## Desktop Lock and Suspend
 
-Run the Windows Win+L diagnostic in an interactive test session. On Linux, check logind and the desktop locker in the target session and check suspend/resume in a test VM. Use a synthetic vault with the inactivity timeout disabled. The vault must remain closed when the desktop unlocks or wakes. The private D-Bus fixture covers logind, Xfce Screensaver and inactivity fallback in CI. [Commands and recorded scope](CROSS_PLATFORM.md#native-session-results-for-120)
+Run the Windows Win+L diagnostic in an interactive test session. On Linux, check logind and the desktop locker in the target session and check suspend/resume in a test VM. Use a synthetic vault with the inactivity timeout disabled. The vault must remain closed when the desktop unlocks or wakes. The private D-Bus fixture covers logind, Xfce Screensaver and inactivity fallback in CI.
 
 ---
 
@@ -707,6 +747,8 @@ Recommended tools:
 - NuGet Audit
 - Microsoft Defender Vulnerability Management
 
+The Verify workflow's `dotnet list ... --vulnerable --include-transitive` gate is the repository automation for the shared solution; it does not replace human review or external audit.
+
 ---
 
 ## Build Reproducibility
@@ -737,14 +779,13 @@ Before release:
 - Migration tests succeed
 - Rekey tests succeed
 
----
-
 ## Recommended
 
 - Manual security review
 - Dependency review
 - Vulnerability review
 - Artifact verification
+- SBOM and provenance verification for tagged public releases
 
 ---
 
@@ -769,11 +810,13 @@ High-risk modifications should receive additional review.
 Potential future additions:
 
 - Fuzz testing
-- Coverage trend reporting and selected coverage gates; CI currently collects test coverage but does not enforce a project-wide threshold
+- Coverage trend reporting and selected percentage gates; CI currently summarizes Cobertura line and branch coverage but does not enforce a project-wide threshold
 - Dynamic Application Security Testing (DAST)
 - External penetration testing
 - Independent cryptographic review
 - Additional project-specific Semgrep rules and review of findings as the codebase changes
+
+CodeQL and Semgrep are already implemented repository workflows. Dependency scanning automation is also implemented in `Invoke-Ci.ps1` through NuGet audit and should not be classified as future work.
 
 ---
 

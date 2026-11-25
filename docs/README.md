@@ -1,6 +1,6 @@
 # Documentation index
 
-The root [README](../README.md), [security policy](../SECURITY.md), [changelog](../CHANGELOG.md) and [release history](../RELEASE_NOTES.md) describe the current product and published versions. The changelog's Unreleased section tracks changes not yet published. Release outcomes, readiness snapshots and audit findings are retained as evidence of the source and environment they originally reviewed; they are not current-state assertions unless explicitly refreshed. Use the current audit status and platform guide for present behavior.
+The root [README](../README.md), [security policy](../SECURITY.md), [changelog](../CHANGELOG.md) and [release history](../RELEASE_NOTES.md) describe the current product and published versions. The changelog's Unreleased section tracks changes not yet published. Historical audit and release reports retain the scope and conclusions applicable when written; use the current audit status and platform guide for present behavior.
 
 ## Current security and operations guidance
 
@@ -14,6 +14,7 @@ The root [README](../README.md), [security policy](../SECURITY.md), [changelog](
 - [Disaster recovery](DISASTER_RECOVERY.md)
 - [Incident response](INCIDENT_RESPONSE.md)
 - [Security testing strategy](SECURITY_TESTING.md)
+- [CI and release verification](CI_AND_RELEASE_VERIFICATION.md)
 - [Performance measurements and limits](PERFORMANCE_2026-11-16.md)
 - [Third-party notices](THIRD_PARTY_NOTICES.md)
 - [Windows and Linux desktop guide](CROSS_PLATFORM.md)
@@ -51,4 +52,4 @@ The root [README](../README.md), [security policy](../SECURITY.md), [changelog](
 - [1.1.0 readiness snapshot](releases/RELEASE_READINESS_2026-11-17.md).
 - [Archived status snapshot](archive/STATUS_2026-11-17.md).
 
-Release binaries and CI artifacts are not stored in this documentation tree. Release reports link to public GitHub releases and workflow runs; synthetic benchmark JSON is retained here so its measurements remain inspectable.
+Release binaries and CI artifacts are not stored in this documentation tree. Release reports link to public GitHub releases and workflow runs; synthetic benchmark JSON is retained here so its measurement protocol can be reviewed.
