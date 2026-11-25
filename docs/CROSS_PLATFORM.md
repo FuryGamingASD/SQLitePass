@@ -37,6 +37,14 @@ The browser supports text, exact tag and expiry filters, with paged sorting. The
 
 The unlocked window places minimize, maximize, restore and close next to the menus. Drag its SQLitePass header to move it or resize it from an edge. The close button follows the configured tray preference. The entry editor keeps the tabs on one row and reserves separate space for a scrollbar when resized below the height needed for all Credentials fields.
 
+The vault toolbar and browse filters stay on one row; the window enforces a minimum width large enough to contain both toolbars. In the entry grid, drag a separator between **Title**, **Username**, **Password**, **URL**, **Notes** and **Last Modified** to resize adjacent columns. Column proportions are saved per vault. Notes and Last Modified are shown when the window is at least 1000 device-independent pixels wide. New vaults include localized **General** and **Recycle Bin** groups, using the selected application language or the system language when no language is selected; English is the fallback for unsupported locales.
+
+## Importing data
+
+From the unlock screen, choose **Import KDBX**. Enter the KeePass source password or key file, review the migration report, choose a destination path, then set the new SQLitePass vault password and optional key file in the import dialog. The source database is read-only and remains unchanged. Keep it until the new vault has been opened, checked and backed up. KDBX 4.0 and 4.1 are supported; KDBX 3.x is not.
+
+CSV and Bitwarden JSON imports are available in an unlocked vault. CSV import requires a recognized header layout; KeePass 1.x CSV and the SQLitePass grouped CSV variant are supported along with the documented browser exports. Review the import summary and preserve the source file until the result is verified. CSV and JSON exports/import files may contain plaintext credentials. [Import and export privacy](DATA_PROTECTION.md#import-and-export-privacy)
+
 ## Releasing both platforms
 
 Set the shared version in `Directory.Build.props` and add one matching `# SQLitePass X.Y.Z` section to `RELEASE_NOTES.md`. Tag the approved commit on `main`. Verify builds and tests both packages, then retains the verified bundle. The release operator checks the source, signs the approved bundle offline, publishes it and compares both public feeds and the signed metadata with the approved copies. Windows uses the `SQLitePass` package ID, `SQLitePass.exe` apphost and `win` channel. Linux uses the `linux` channel. [Release signing and transition](UPDATE_SIGNING.md)
@@ -55,7 +63,7 @@ On the locked screen, **Restore from .backup** authenticates a backup using the 
 
 ## Desktop clipboard
 
-Copying a user name or password uses the configured clipboard timeout. Foreground apps can paste the value until it expires, is replaced, or the vault locks. Windows requests exclusion from clipboard history and cloud synchronization. SQLitePass blocks credential copying when roaming is enabled and on Windows build 26300, where a paired PC retained clipboard history during a test with roaming disabled. The Linux X11 adapter advertises a password-manager hint and blocks copying when an X11 clipboard-manager selection owner or the Xfce Clipman D-Bus service is detected, and when a configured D-Bus session cannot be queried. Clipman retained a synthetic fixture after expiry and shutdown. An unrecognized manager or one that starts after the check can still retain a copy. Copy commands require a supported clipboard adapter.
+Copying a user name or password uses the configured clipboard timeout. Foreground apps can paste the value until it expires, is replaced, or the vault locks. Windows requests exclusion from clipboard history and cloud synchronization. SQLitePass blocks credential copying whenever roaming is enabled. On Windows build 26300, copying is additionally blocked while Windows reports Clipboard History enabled or its state cannot be queried; when both history and roaming are confirmed disabled, the copy is permitted with per-item exclusion requested. A paired-PC test on this build showed that the API's roaming state alone was insufficient to infer history behavior, so settings are checked independently before copying. The Linux X11 adapter advertises a password-manager hint and blocks copying when an X11 clipboard-manager selection owner or the Xfce Clipman D-Bus service is detected, and when a configured D-Bus session cannot be queried. Clipman retained a synthetic fixture after expiry and shutdown. An unrecognized manager or one that starts after the check can still retain a copy. Copy commands require a supported clipboard adapter.
 
 ## Auto-Type in the shared app
 
@@ -71,6 +79,6 @@ The package script copies published dependencies' license and notice files from 
 
 | File | Source at the pinned package commit |
 | --- | --- |
-| `Avalonia-LICENSE.txt` | [Avalonia 12.1.6](https://github.com/AvaloniaUI/Avalonia/blob/cf8e564674700348947e93ab19105f27afe859a9/licence.md) |
-| `MicroCom-LICENSE.txt` | [MicroCom.Runtime 0.11.6](https://github.com/kekekeks/MicroCom/blob/76785efcafd91b5902fd19dd11145f6dd655b7b4/LICENSE) |
+| `Avalonia-LICENSE.txt` | [Avalonia 12.2.0](https://github.com/AvaloniaUI/Avalonia/blob/5d9e6d1b0e87337f74f233bead580db186412357/licence.md) |
+| `MicroCom-LICENSE.txt` | [MicroCom.Runtime 0.11.7](https://github.com/kekekeks/MicroCom/blob/cd2fa3c89525fbe7b46bd13f9ec8c77bd829e815/LICENSE) |
 | `Tmds.DBus-LICENSE.txt` | [Tmds.DBus.Protocol 0.94.1](https://github.com/tmds/Tmds.DBus/blob/b4a7fed0b878f74cb54f7cca84d2889af4e596ba/COPYING) |

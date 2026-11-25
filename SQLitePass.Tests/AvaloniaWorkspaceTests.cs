@@ -73,7 +73,7 @@ public sealed partial class AvaloniaVaultTests
                     Assert.Equal("SQLitePass", window.FindControl<TextBlock>("WorkspaceTitle")!.Text);
                     Assert.True(window.FindControl<Button>("VaultSettings")!.IsVisible);
                     Assert.True(window.FindControl<Button>("VaultTheme")!.IsVisible);
-                    Assert.True(window.FindControl<WrapPanel>("VaultToolbar")!.IsVisible);
+                    Assert.True(window.FindControl<StackPanel>("VaultToolbar")!.IsVisible);
                     foreach (string name in new[] { "WindowMinimize", "WindowMaximize", "WindowClose" })
                         Assert.True(window.FindControl<Button>(name)!.IsEffectivelyVisible);
 
@@ -110,7 +110,7 @@ public sealed partial class AvaloniaVaultTests
                     await WaitAsync(() => (tree.SelectedItem as GroupChoice)?.Id == nested.Id &&
                         folderPath.Text == nested.Name &&
                         window.FindControl<Grid>("VaultPanel")!.IsEnabled &&
-                        window.FindControl<WrapPanel>("VaultToolbar")!.IsEnabled, timeout.Token);
+                        window.FindControl<StackPanel>("VaultToolbar")!.IsEnabled, timeout.Token);
                     var entries = window.FindControl<ListBox>("Entries")!;
                     var row = Assert.IsType<EntryRow>(Assert.Single(entries.Items));
                     Assert.Equal("••••••••", row.DisplayPassword);

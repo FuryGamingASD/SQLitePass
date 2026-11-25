@@ -43,9 +43,10 @@ internal static class NativeWorkspaceVerification
             if (window.FindControl<TextBlock>("WorkspaceTitle")!.Text != "SQLitePass")
                 throw new InvalidOperationException("The workspace header must identify SQLitePass.");
             var groups = window.FindControl<TreeView>("Groups")!;
-            var toolbar = window.FindControl<WrapPanel>("VaultToolbar")!;
+            var toolbar = window.FindControl<StackPanel>("VaultToolbar")!;
             if (!groups.IsEffectivelyVisible || string.IsNullOrWhiteSpace(AutomationProperties.GetName(groups)) ||
-                !toolbar.IsEffectivelyVisible || string.IsNullOrWhiteSpace(AutomationProperties.GetName(window.FindControl<Button>("VaultSettings")!)))
+                !toolbar.IsEffectivelyVisible || !toolbar.Children.Contains(window.FindControl<Button>("LockVault")!) ||
+                string.IsNullOrWhiteSpace(AutomationProperties.GetName(window.FindControl<Button>("VaultSettings")!)))
                 throw new InvalidOperationException("The workspace did not expose the group tree and settings control.");
 
             window.ShowFromTray();

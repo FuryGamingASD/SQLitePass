@@ -1,5 +1,7 @@
 # DgNet.Keepass
 
+> This file is a retained snapshot of the upstream project's README for the vendored source documented in [NOTICE.md](NOTICE.md). It describes the upstream library API, not the SQLitePass product's supported import/export surface. SQLitePass uses a bounded, read-only KDBX 4.0/4.1 import path; it does not expose KDBX writing or KDBX 3.x import. The test counts and coverage statements below belong to the upstream README snapshot and are not evidence for this repository's current test suite; see [`SQLitePass.Tests`](../SQLitePass.Tests) and the [current audit status](../docs/AUDIT_STATUS.md).
+
 A .NET library for reading and writing KeePass (`.kdbx`) password database files.
 Inspired by [KeePassXC](https://github.com/keepassxreboot/keepassxc), which serves as the reference implementation.
 
@@ -317,7 +319,7 @@ dotnet pack     # Create NuGet package
 
 ## Test coverage
 
-133 passing tests, 1 skipped (manual diagnostic).
+The upstream README snapshot reported 133 passing tests and 1 skipped manual diagnostic for that upstream revision. The corresponding upstream test project is not vendored here, so that count does not verify the SQLitePass copy.
 
 ### Covered ✓
 
@@ -346,7 +348,7 @@ dotnet pack     # Create NuGet package
 
 ### Not covered ✗
 
-*No known uncovered areas.*
+The upstream README snapshot claimed no known uncovered areas. SQLitePass does not treat that historical claim as current coverage evidence.
 
 ## Roadmap
 

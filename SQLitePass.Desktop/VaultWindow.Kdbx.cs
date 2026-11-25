@@ -12,12 +12,6 @@ public sealed partial class VaultWindow
 
     private async void ImportKdbx_Click(object? sender, RoutedEventArgs e) => await RunOperationAsync(async token =>
     {
-        if (string.IsNullOrEmpty(MasterPassword.Text) && string.IsNullOrWhiteSpace(KeyFilePath.Text))
-        {
-            StatusText.Text = Text("KdbxDestinationCredentialRequired");
-            return;
-        }
-
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
             Title = Text("KdbxImportTitle"),
@@ -41,6 +35,8 @@ public sealed partial class VaultWindow
 
         string sourcePassword = sourceCredential.Password;
         string? sourceKeyFilePath = sourceCredential.KeyFilePath;
+        string destinationPassword = string.Empty;
+        string? destinationKeyFilePath = null;
         sourceCredential = null;
         KdbxImportPlan? plan = null;
         try
@@ -59,10 +55,6 @@ public sealed partial class VaultWindow
             if (!await ConfirmAsync(Text("KdbxImportReviewTitle"), review)) return;
             token.ThrowIfCancellationRequested();
 
-            string password = MasterPassword.Text ?? string.Empty;
-            if (password.Length != 0 && !await ConfirmAsync(Text("ConfirmNewVaultTitle"), Text("ConfirmMasterPassword"), password)) return;
-            token.ThrowIfCancellationRequested();
-
             var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
                 Title = Text("KdbxImportDestination"),
@@ -79,7 +71,28 @@ public sealed partial class VaultWindow
                 return;
             }
 
-            using var destinationMaster = await ReadCredentialAsync(token);
+            var destinationDialog = new KdbxCredentialDialog(Text("KdbxDestinationCredentials"),
+                Text("KdbxDestinationPassword"), Text("KdbxDestinationKeyFile"), Text("Browse"),
+                Text("KdbxContinue"), Text("Cancel"), Text("KdbxKeyFileOnlyNote"));
+            ProtectDialog(destinationDialog);
+            var destinationCredential = await destinationDialog.ShowDialog<KdbxCredentialResult?>(this);
+            token.ThrowIfCancellationRequested();
+            if (destinationCredential == null) return;
+            destinationPassword = destinationCredential.Password;
+            destinationKeyFilePath = destinationCredential.KeyFilePath;
+            destinationCredential = null;
+            if (string.IsNullOrEmpty(destinationPassword) && string.IsNullOrWhiteSpace(destinationKeyFilePath))
+            {
+                StatusText.Text = Text("KdbxDestinationCredentialRequired");
+                return;
+            }
+            if (destinationPassword.Length != 0 &&
+                !await ConfirmAsync(Text("ConfirmNewVaultTitle"), Text("ConfirmMasterPassword"), destinationPassword)) return;
+            token.ThrowIfCancellationRequested();
+
+            using var destinationMaster = await Task.Run(() => string.IsNullOrWhiteSpace(destinationKeyFilePath)
+                ? new MasterKey(destinationPassword)
+                : MasterKey.FromFile(destinationPassword, destinationKeyFilePath), token);
             StatusText.Text = Text("KdbxImportWriting");
             var result = await KdbxImportService.CreateNewVaultAsync(plan, destinationPath, destinationMaster,
                 _settings, Text("DefaultGeneralGroup"), Text("RecycleBin"), token,
@@ -102,6 +115,8 @@ public sealed partial class VaultWindow
         {
             sourcePassword = string.Empty;
             sourceKeyFilePath = null;
+            destinationPassword = string.Empty;
+            destinationKeyFilePath = null;
             plan?.Dispose();
         }
     }, canCancel: true);

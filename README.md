@@ -7,7 +7,7 @@ SQLitePass is a local password manager for Windows x64 and Linux x64 built with 
 - **Windows x64.** Use `SQLitePass-win-Setup.exe` to install or upgrade SQLitePass. The installer is unsigned and Windows may display a publisher or reputation prompt. `SQLitePass-win-Portable.zip` is available for portable use.
 - **Linux x64.** Download `SQLitePass.AppImage`, make it executable with `chmod u+x SQLitePass.AppImage` and launch it with `./SQLitePass.AppImage`. Launch and in-place updates were verified with FUSE. Keep the AppImage in a user-writable directory to apply in-place updates.
 - **Upgrading or moving a vault.** Keep an independent backup, close the app before copying the vault and use the existing password and key file. Both platforms use the same Vault Format 2. Keep the vault on a local filesystem with SQLite locking support.
-- **Migrating from KeePass.** Import a KDBX 4.0 or 4.1 database into a new SQLitePass vault. Review the report for fields and features to transfer separately. [Migration and verification](docs/audit/KEEPASS_GAP_ROADMAP.md)
+- **Migrating from KeePass.** Import a KDBX 4.0 or 4.1 database into a new SQLitePass vault. Enter the source credentials when prompted, review the import report, then set credentials for the new vault during the import. Keep the source until you have verified the new vault and made a backup. [Migration and verification](docs/audit/KEEPASS_GAP_ROADMAP.md)
 
 Build `SQLitePass.slnx` with the SDK pinned in `global.json`, or run `scripts/Invoke-Ci.ps1` for the shared build, test and dependency checks. Launch from source with `dotnet run --project SQLitePass.Desktop`. See the [documentation index](docs/README.md) and [cross-platform guide](docs/CROSS_PLATFORM.md) for desktop capabilities and verification. The historical WPF application is retained in `SQLitePass.LegacyWpf.slnx`.
 
@@ -117,7 +117,7 @@ SQLitePass:
 
 Clipboard contents remain accessible to the operating system and other software while present.
 
-SQLitePass blocks credential copying on Windows build 26300 or when clipboard roaming is enabled. On X11 it blocks copies when it detects incompatible clipboard managers or cannot query a configured D-Bus session. [Desktop clipboard behavior](docs/CROSS_PLATFORM.md#desktop-clipboard)
+SQLitePass blocks credential copying on Windows when clipboard roaming is enabled. On build 26300 it also blocks copying while Windows Clipboard History is enabled or cannot be checked; with both history and roaming confirmed disabled, the copy can proceed with per-item exclusions requested. On X11 it blocks copies when it detects incompatible clipboard managers or cannot query a configured D-Bus session. [Desktop clipboard behavior](docs/CROSS_PLATFORM.md#desktop-clipboard)
 
 ---
 

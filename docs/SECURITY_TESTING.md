@@ -13,7 +13,7 @@ Its objectives are to:
 - Validate recovery workflows
 - Reduce the likelihood of introducing vulnerabilities
 
-Automated security checks run in development and release workflows. The 1.3.0 suite adds KDBX import, machine-policy and signed-update regressions, including invalid signatures, mismatched packages and expired checkpoints. Native release gates exercise installation, upgrade and reopening a synthetic vault on both platforms. [Verification roadmap](audit/KEEPASS_GAP_ROADMAP.md) · [Audit status](AUDIT_STATUS.md)
+Automated checks run in development and release workflows. The Verify workflow performs locked restore, shared Release tests, a NuGet advisory audit, platform-specific native desktop checks, and candidate packaging on Windows and Linux. Separate CodeQL v4 and Semgrep workflows analyze C# on pull requests to `main`, pushes to `main`, scheduled runs and manual dispatch. Semgrep findings are uploaded to GitHub code scanning; the workflow fails if scanning or SARIF validation fails, not simply because findings were reported. The 1.3.0 suite adds KDBX import, machine-policy and signed-update regressions, including invalid signatures, mismatched packages and expired checkpoints. Native release gates exercise installation, upgrade and reopening a synthetic vault on both platforms. [Verification roadmap](audit/KEEPASS_GAP_ROADMAP.md) · [Audit status](AUDIT_STATUS.md)
 
 Testing improves confidence but does not guarantee the absence of vulnerabilities.
 
@@ -769,12 +769,11 @@ High-risk modifications should receive additional review.
 Potential future additions:
 
 - Fuzz testing
-- Coverage reporting
-- Static Application Security Testing (SAST)
-- Dependency scanning automation
+- Coverage trend reporting and selected coverage gates; CI currently collects test coverage but does not enforce a project-wide threshold
 - Dynamic Application Security Testing (DAST)
 - External penetration testing
 - Independent cryptographic review
+- Additional project-specific Semgrep rules and review of findings as the codebase changes
 
 ---
 

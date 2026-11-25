@@ -275,7 +275,7 @@ Clipboard protection cannot prevent:
 - Clipboard History or Cloud Clipboard behavior that is not excluded by the current Windows configuration
 - A recipient application retaining data after a paste
 
-Native checks verify expiry, clearing on vault lock and preservation of newer content on both platforms. Windows blocks credential copies on build 26300 and when clipboard roaming is enabled. On X11, SQLitePass blocks copies when it detects an incompatible clipboard manager or cannot query a configured D-Bus session. Other clipboard consumers can still retain the data. [Desktop clipboard behavior](docs/CROSS_PLATFORM.md#desktop-clipboard)
+Native checks verify expiry, clearing on vault lock and preservation of newer content on both platforms. Windows blocks credential copies when clipboard roaming is enabled. On build 26300, copying is also blocked while Windows reports Clipboard History enabled or its state cannot be checked; if history and roaming are both confirmed disabled, SQLitePass requests per-item exclusion and permits the copy. On X11, SQLitePass blocks copies when it detects an incompatible clipboard manager or cannot query a configured D-Bus session. Other clipboard consumers can still retain the data. [Desktop clipboard behavior](docs/CROSS_PLATFORM.md#desktop-clipboard)
 
 SQLitePass is not designed to protect against:
 

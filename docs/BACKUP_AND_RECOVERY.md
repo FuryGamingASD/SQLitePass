@@ -178,6 +178,8 @@ If SQLite reports corruption:
 Backup publication fails
 ```
 
+The integrity check classifies SQLite corruption and a file that is not a SQLite database as integrity failures. Other SQLite errors and filesystem I/O failures are reported as storage errors rather than being relabeled as corruption. A failure to inspect a file does not prove that the vault is damaged; preserve the original and its sidecars while investigating.
+
 ---
 
 ## Metadata Validation

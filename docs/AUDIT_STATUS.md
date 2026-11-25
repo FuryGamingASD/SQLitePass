@@ -1,6 +1,6 @@
 # Audit Status
 
-Updated on 23 November 2026 for SQLitePass 1.3.0. This document summarizes the project's internal evidence. [Release verification](releases/RELEASE_OUTCOME_1.3.0.md)
+Updated on 26 November 2026 for the current source branch following SQLitePass 1.3.0. This document summarizes the project's internal evidence; the published 1.3.0 verification remains a record of that release only. [Release verification](releases/RELEASE_OUTCOME_1.3.0.md)
 
 ## Purpose
 
@@ -22,7 +22,7 @@ It reflects the current state of publicly available evidence.
 
 # Current Assessment
 
-The 1.3.0 review covers KDBX 4 import, machine policy, clipboard guards and update signatures. The results apply to the commits and test environments recorded in the roadmap. An independent cryptographic audit and penetration test remain open. [KeePass migration and hardening roadmap](audit/KEEPASS_GAP_ROADMAP.md)
+The 1.3.0 review covers KDBX 4 import, machine policy, clipboard guards and update signatures. The results apply to the commits and test environments recorded in the roadmap. The 26 November source changes add responsive workspace sizing, per-vault entry-column widths, an in-flow KDBX destination credential dialog, improved missing-file feedback and a more selective Windows 26300 clipboard guard. These changes have not yet received the full cross-platform CI run; the conditional clipboard path has not been exercised by an interactive copy test. An independent cryptographic audit and penetration test remain open. [KeePass migration and hardening roadmap](audit/KEEPASS_GAP_ROADMAP.md)
 
 | Area | Status |
 |---------|---------|
@@ -31,7 +31,7 @@ The 1.3.0 review covers KDBX 4 import, machine policy, clipboard guards and upda
 | Cryptography Review | Internal Review Completed |
 | Backup & Recovery Review | Internal review and software fault tests; hardware durability unverified |
 | Session Security Review | Manual Windows Win+L, Linux logind, Xfce lock-screen and VM suspend passed. Synthetic tests cover dispatcher errors and lock during dialogs and a cancellable operation. |
-| Clipboard Security Review | Native checks cover expiry and clipboard replacement. Interactive Windows 26300 and Xfce Clipman tests reproduced retention and verified that the new guards reject the copy. |
+| Clipboard Security Review | Native checks cover expiry and clipboard replacement. Interactive Windows 26300 and Xfce Clipman tests reproduced retention. The current Windows guard checks roaming and, on build 26300, history independently. Its permitted 26300 path (both disabled) still needs an interactive retest. |
 | Auto-Type Review | Native two-process checks passed on Windows, X11 and XWayland. The Windows P1 race and X11 display trust assumptions remain. |
 | Dependency Review | Completed |
 | Release checklist | Staged 1.3.0 build, offline signing and verification gates cover both platforms. The 1.1.3 WPF-specific V1–V8 evidence remains in its historical checklist. |
@@ -429,7 +429,7 @@ Evidence scope by area (not a security score):
 | Storage | Automated and synthetic integrity/recovery tests; no physical failure testing |
 | Recovery | Software fault tests; hardware durability not established |
 | Session Management | Manual Windows Win+L, Linux logind, Xfce and suspend, plus lock during a dialog and a cancellable operation on both platforms. |
-| Clipboard | Native expiry and replacement tests on both platforms, plus interactive retention and guard verification for Windows 26300 and Xfce Clipman. |
+| Clipboard | Native expiry and replacement tests on both platforms, plus interactive retention tests on Windows 26300 and Xfce Clipman. The latest conditional Windows 26300 allow path is pending native retest. |
 | Auto-Type | Automated regressions and native focus-loss checks. The P1 Windows check-to-input race remains. |
 | UI Hardening | Shared Avalonia workflow tests and Windows capture-affinity flags. Broader native DPI and assistive-technology checks remain open. |
 | Memory Handling | Managed-buffer cleanup reviewed; complete string/runtime zeroization is not guaranteed |

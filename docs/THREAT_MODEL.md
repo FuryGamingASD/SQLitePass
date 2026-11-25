@@ -320,7 +320,7 @@ Reduce clipboard persistence.
 
 ### Residual Risk
 
-Clipboard data remains exposed while present. Windows privacy flags are not reliable on every tested Windows build, so SQLitePass blocks copies on the affected build and whenever sync is enabled. On Linux X11, third-party manager detection covers the standard manager selection and Xfce Clipman; a configured session bus that cannot be queried also blocks copying. An unknown manager or one that starts after the check may still retain a copy.
+Clipboard data remains exposed while present. SQLitePass blocks copies whenever Windows clipboard roaming is enabled. On build 26300 it also blocks while Windows reports Clipboard History enabled or cannot confirm its state; if both history and roaming are disabled, SQLitePass requests per-item exclusions and permits copying. The API's roaming state alone was insufficient in paired-device testing, so the two settings are checked independently. On Linux X11, third-party manager detection covers the standard manager selection and Xfce Clipman; a configured session bus that cannot be queried also blocks copying. An unknown manager or one that starts after the check may still retain a copy.
 
 ---
 

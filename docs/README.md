@@ -1,6 +1,6 @@
 # Documentation index
 
-The root [README](../README.md), [security policy](../SECURITY.md), [changelog](../CHANGELOG.md) and [release history](../RELEASE_NOTES.md) describe the current product and published versions. Historical findings retain the conditions and source version they originally reviewed; use the current remediation and release reports for later status.
+The root [README](../README.md), [security policy](../SECURITY.md), [changelog](../CHANGELOG.md) and [release history](../RELEASE_NOTES.md) describe the current product and published versions. The changelog's Unreleased section tracks changes not yet published. Release outcomes, readiness snapshots and audit findings are retained as evidence of the source and environment they originally reviewed; they are not current-state assertions unless explicitly refreshed. Use the current audit status and platform guide for present behavior.
 
 ## Current security and operations guidance
 
@@ -8,7 +8,7 @@ The root [README](../README.md), [security policy](../SECURITY.md), [changelog](
 - [Threat model](THREAT_MODEL.md)
 - [Security architecture](SECURITY_ARCHITECTURE.md)
 - [Cryptography](CRYPTOGRAPHY.md)
-- [Data protection](DATA_PROTECTION.md)
+- [Data protection, including import and export](DATA_PROTECTION.md)
 - [Memory handling](MEMORY_HANDLING.md)
 - [Backup and recovery](BACKUP_AND_RECOVERY.md)
 - [Disaster recovery](DISASTER_RECOVERY.md)

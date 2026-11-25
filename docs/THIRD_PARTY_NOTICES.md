@@ -4,12 +4,13 @@ SQLitePass is distributed under GPL-3.0. Runtime dependencies retain their own l
 
 | Component | Version | Declared license |
 | --- | --- | --- |
-| Avalonia desktop UI and Fluent theme | 12.1.6 | MIT |
-| MicroCom.Runtime | 0.11.6 | MIT |
+| Avalonia desktop UI and Fluent theme | 12.2.0 | MIT |
+| MicroCom.Runtime | 0.11.7 | MIT |
 | Tmds.DBus.Protocol | 0.94.1 | MIT |
-| Microsoft.Win32.SystemEvents | 10.0.15 | MIT |
+| Microsoft.Win32.SystemEvents | 11.0.0 | MIT |
 | Microsoft.Windows.SDK.NET.Ref runtime files (Windows only) | 10.0.26100.56 | Windows SDK terms ([redistributable files](https://learn.microsoft.com/en-us/legal/windows-sdk/redist#microsoftwindowssdknetref)) |
 | DgNet.Keepass vendored source | 0.2.0 snapshot | MIT |
+| BouncyCastle.Cryptography | 2.7.0 | MIT |
 | Konscious.Security.Cryptography.Argon2 | 1.3.1 | MIT |
 | Konscious.Security.Cryptography.Blake2 | 1.1.1 | MIT |
 | Microsoft.Data.Sqlite and Microsoft.Data.Sqlite.Core | 11.0.0 | MIT |

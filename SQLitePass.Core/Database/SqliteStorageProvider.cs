@@ -88,7 +88,9 @@ public sealed partial class SqliteStorageProvider : IDisposable
     public Task<bool> CheckDatabaseIntegrityAsync() => Task.Run(() =>
     {
         try { using var c = Open(true); return CheckIntegrity(c); }
-        catch (Exception ex) when (ex is SqliteException or IOException or InvalidDataException) { return false; }
+        // A corrupt or non-SQLite database is an integrity failure. I/O failures and
+        // other SQLite errors (for example SQLITE_CANTOPEN) must remain storage errors.
+        catch (SqliteException ex) when (ex.SqliteErrorCode is 11 or 26) { return false; }
     });
     private static bool CheckIntegrity(SqliteConnection c)
     {

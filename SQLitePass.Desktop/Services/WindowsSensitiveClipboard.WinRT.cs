@@ -25,6 +25,14 @@ internal sealed class WindowsSensitiveClipboard : ISensitiveClipboard
         finally { RoUninitialize(); }
     }
 
+    internal static bool IsClipboardHistoryEnabledForCurrentUser()
+    {
+        int initialized = RoInitialize(RoInitSingleThreaded);
+        if (initialized < 0) Marshal.ThrowExceptionForHR(initialized);
+        try { return Clipboard.IsHistoryEnabled(); }
+        finally { RoUninitialize(); }
+    }
+
     internal static bool IsClipboardPrivacyUnreliableOnCurrentBuild() =>
         Environment.OSVersion.Version.Build == ClipboardPrivacyFailureBuild;
 
@@ -50,7 +58,7 @@ internal sealed class WindowsSensitiveClipboard : ISensitiveClipboard
                     CopyBlockedReason = ClipboardCopyBlockedReason.WindowsClipboardSyncEnabled;
                     return ValueTask.FromResult<IClipboardLease?>(null);
                 }
-                if (IsClipboardPrivacyUnreliableOnCurrentBuild())
+                if (IsClipboardPrivacyUnreliableOnCurrentBuild() && Clipboard.IsHistoryEnabled())
                 {
                     CopyBlockedReason = ClipboardCopyBlockedReason.SecureWindowsClipboardUnavailable;
                     return ValueTask.FromResult<IClipboardLease?>(null);
