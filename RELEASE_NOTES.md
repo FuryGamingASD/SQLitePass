@@ -20,6 +20,18 @@ Security guarantees should always be interpreted according to the current docume
 
 ---
 
+# SQLitePass 1.3.1
+
+- Fix KeePass CSV format handling and improve KDBX import validation, credential prompts and missing-file feedback.
+- Resize entry-grid columns and keep their widths per vault. The minimum window width now keeps the vault toolbar and filter controls on one row.
+- Improve the Windows taskbar icon and localize clipboard and missing-file guidance in all five supported languages.
+- Refine Windows clipboard handling on build 26300 and distinguish damaged vault files from other storage errors.
+- Rename the English grid label to **Username**.
+
+Existing vaults remain compatible. Existing 1.3.0 installations can update through **Check for Updates** after the signed release is published. For a new installation, verify the downloaded package digest independently and follow the initial trust transition in [Update signing and transition](https://github.com/FuryGamingASD/SQLitePass/blob/v1.3.1/docs/UPDATE_SIGNING.md#transition-for-existing-installations).
+
+---
+
 # SQLitePass 1.3.0
 
 - Import KeePass KDBX 4.0 and 4.1 into a new encrypted vault. Review the migration report before switching to SQLitePass.

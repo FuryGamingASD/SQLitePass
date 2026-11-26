@@ -2,8 +2,11 @@
 
 ## [Unreleased]
 
-- Ask for the destination vault credentials inside the KDBX import flow instead of requiring them on the unlock screen; show a more specific missing-file message when the chosen file disappears.
-- Add accessible draggable separators for entry-grid columns and save their widths per vault. Keep the vault toolbar and filter controls on one row by enforcing a minimum window width.
+
+## [1.3.1] - 2026-11-26
+
+- Fix KeePass CSV format handling and improve KDBX import validation, credential prompts, and missing-file feedback.
+- Add resizable entry-grid columns and save their widths per vault; keep the vault toolbar and filter controls on one row.
 - Refresh the Windows taskbar icon after the window opens, and localize clipboard and missing-file guidance across all five supported languages.
 - On Windows build 26300, allow credential copying only when Windows reports both clipboard history and roaming disabled; continue requesting per-item exclusion from history and synchronization.
 - Treat SQLite corruption and non-database files as integrity failures while allowing other SQLite/I/O errors to surface as storage errors.
