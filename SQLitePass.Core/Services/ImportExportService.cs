@@ -12,7 +12,7 @@ namespace SQLitePass.Core.Services
         public static string ExportToKeePassCsv(IEnumerable<PwEntry> entries, IDictionary<Guid, string> groupNames)
         {
             var sb = new StringBuilder();
-            // KeePass CSV standard header: "Group","Title","Username","Password","URL","Notes"
+            // SQLitePass grouped CSV variant; KeePass 1.x uses a different five-column format.
             sb.AppendLine("\"Group\",\"Title\",\"Username\",\"Password\",\"URL\",\"Notes\"");
 
             foreach (var entry in entries)
@@ -27,34 +27,91 @@ namespace SQLitePass.Core.Services
         public static List<PwEntry> ImportFromKeePassCsv(string csvContent, Guid defaultGroupId)
         {
             var result = new List<PwEntry>();
-            var records = ParseCsvRecords(csvContent);
+            List<List<string>> records;
+            try
+            {
+                records = ParseCsvRecords(csvContent);
+                if (records.Count > 0 && IsKeePass1CsvHeader(records[0]))
+                    records = ParseCsvRecords(csvContent, keepassBackslashEscapes: true);
+            }
+            catch (InvalidDataException)
+            {
+                // KeePass 1.x escapes quotes with backslashes instead of RFC 4180 doubled quotes.
+                records = ParseCsvRecords(csvContent, keepassBackslashEscapes: true);
+            }
             if (records.Count <= 1) return result;
 
-            string[] expected = ["Group", "Title", "Username", "Password", "URL", "Notes"];
-            if (!records[0].SequenceEqual(expected, StringComparer.OrdinalIgnoreCase))
-                throw new InvalidDataException("Formato KeePass CSV non riconosciuto. Attese colonne Group, Title, Username, Password, URL, Notes.");
+            string[] headers = records[0].Select(NormalizeCsvHeader).ToArray();
+            if (headers.Any(string.IsNullOrEmpty))
+                throw new InvalidDataException("CSV: ogni colonna deve avere un'intestazione.");
+            if (headers.Distinct(StringComparer.OrdinalIgnoreCase).Count() != headers.Length)
+                throw new InvalidDataException("CSV: le intestazioni duplicate rendono ambigua l'importazione.");
+
+            int FindColumn(params string[] aliases)
+            {
+                var accepted = aliases.Select(NormalizeCsvHeader).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                int found = -1;
+                for (int i = 0; i < headers.Length; i++)
+                {
+                    if (!accepted.Contains(headers[i])) continue;
+                    if (found >= 0) throw new InvalidDataException("CSV ambiguo: più colonne corrispondono allo stesso campo.");
+                    found = i;
+                }
+                return found;
+            }
+
+            int groupIndex = FindColumn("Group", "Folder", "Group Path", "Folder Path");
+            int titleIndex = FindColumn("Title", "Account", "Name");
+            int userIndex = FindColumn("Username", "User Name", "Login Name", "Login", "User", "Email");
+            int passwordIndex = FindColumn("Password", "Pwd", "Pass");
+            int urlIndex = FindColumn("URL", "Web Site", "Website", "URI", "Site");
+            int notesIndex = FindColumn("Notes", "Comments", "Comment");
+            if (titleIndex < 0 || userIndex < 0 || passwordIndex < 0)
+                throw new InvalidDataException("Formato CSV non riconosciuto. Servono colonne Account/Title, Login Name/Username e Password.");
+
+            var mappedColumns = new HashSet<int> { titleIndex, userIndex, passwordIndex };
+            foreach (int index in new[] { groupIndex, urlIndex, notesIndex })
+                if (index >= 0) mappedColumns.Add(index);
 
             for (int r = 1; r < records.Count; r++)
             {
                 var cols = records[r];
                 if (cols.Count != records[0].Count) throw new InvalidDataException($"CSV: numero di colonne non valido al record {r + 1}.");
+                var entry = new PwEntry
                 {
-                    var entry = new PwEntry
+                    GroupId = defaultGroupId,
+                    SourceGroupPath = groupIndex >= 0 ? cols[groupIndex] : "",
+                    Title = cols[titleIndex],
+                    UserName = cols[userIndex],
+                    Password = cols[passwordIndex],
+                    Url = urlIndex >= 0 ? cols[urlIndex] : "",
+                    Notes = notesIndex >= 0 ? cols[notesIndex] : "",
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                for (int i = 0; i < headers.Length; i++)
+                {
+                    if (mappedColumns.Contains(i)) continue;
+                    entry.CustomFields.Add(new PwCustomField
                     {
-                        GroupId = defaultGroupId,
-                        SourceGroupPath = cols[0],
-                        Title = cols.Count > 1 ? cols[1] : "",
-                        UserName = cols.Count > 2 ? cols[2] : "",
-                        Password = cols.Count > 3 ? cols[3] : "",
-                        Url = cols.Count > 4 ? cols[4] : "",
-                        Notes = cols.Count > 5 ? cols[5] : "",
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    };
-                    result.Add(entry);
+                        EntryId = entry.Id,
+                        Key = records[0][i].Trim(),
+                        Value = cols[i],
+                        IsProtected = true
+                    });
                 }
+                result.Add(entry);
             }
             return result;
+        }
+
+        private static string NormalizeCsvHeader(string header) =>
+            string.Join(" ", header.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)).ToLowerInvariant();
+
+        private static bool IsKeePass1CsvHeader(IReadOnlyList<string> headers)
+        {
+            var normalized = headers.Select(NormalizeCsvHeader).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            return normalized.Contains("account") && normalized.Contains("login name");
         }
 
         /// <summary>
@@ -272,8 +329,9 @@ namespace SQLitePass.Core.Services
         }
 
         /// <summary>
-        /// RFC 4180 compliant finite-state machine CSV parser that supports multiline fields within double quotes.
+        /// Delimited-text parser supporting RFC 4180 quoting, embedded line breaks, and optional KeePass escapes.
         /// </summary>
-        public static List<List<string>> ParseCsvRecords(string csvContent) => CsvParser.Parse(csvContent);
+        public static List<List<string>> ParseCsvRecords(string csvContent, bool keepassBackslashEscapes = false) =>
+            CsvParser.Parse(csvContent, keepassBackslashEscapes);
     }
 }

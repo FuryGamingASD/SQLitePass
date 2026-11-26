@@ -254,7 +254,7 @@ Where supported by Windows, SQLitePass requests exclusion from:
 - Clipboard History
 - Cloud Clipboard Synchronization
 
-The Linux X11 adapter advertises a password-manager hint. A clipboard manager can retain the data if it ignores the hint.
+Credential copies are blocked whenever Windows reports clipboard roaming enabled. On Windows build 26300, copies are also blocked when Clipboard History is enabled or its state cannot be checked; if both settings are disabled, the copy is permitted with per-item exclusions requested. On Linux, the X11 adapter advertises a password-manager hint and SQLitePass blocks copies when the tested clipboard-manager signals are present. See the [platform-specific behavior and limitations](CROSS_PLATFORM.md#desktop-clipboard).
 
 ---
 
@@ -431,11 +431,13 @@ Logs remain operational data and should still be protected appropriately.
 ## Supported Imports
 
 - KeePass KDBX 4.0 and 4.1 into a new vault
-- KeePass CSV
+- KeePass 1.x CSV (`Account`, `Login Name`, `Password`, `Web Site`, `Comments`) and the SQLitePass grouped CSV variant; headings are matched by name, comma/semicolon/tab separators are accepted, and KeePass backslash escapes are decoded
 - Browser CSV
 - Bitwarden JSON
 
-CSV and JSON import files can contain plaintext credentials. KeePass KDBX files are encrypted. From the unlock screen, enter the intended new vault credentials and choose **Import KeePass KDBX into a new vault**. Provide the source credentials when asked, review the preserved and unsupported data, and choose a new `.kpd` path. The import reads the source without changing it. Keep the source until you have verified the new vault and made a backup. [Import memory handling](MEMORY_HANDLING.md) · [KeePass migration evidence](audit/KEEPASS_GAP_ROADMAP.md)
+CSV and JSON import files can contain plaintext credentials. KeePass KDBX files are encrypted; KDBX 3.x is not supported. From the unlock screen, choose **Import KDBX** and provide the source credentials when asked. Review the preserved and unsupported data, choose a new `.kpd` destination, and then enter credentials for the new SQLitePass vault in the import dialog. A password is confirmed; a key file may also be used, including by itself. On success, SQLitePass opens the imported vault and shows the saved path. The import reads the source without changing it. Keep the source until you have verified the new vault and made a backup. Unknown CSV columns are retained as protected custom fields. [Import memory handling](MEMORY_HANDLING.md) · [KeePass migration evidence](audit/KEEPASS_GAP_ROADMAP.md)
+
+New vaults start with **General** and **Recycle Bin** groups. Their names follow the selected application language, then the operating-system language when no language is selected, and fall back to English for unsupported locales.
 
 ---
 

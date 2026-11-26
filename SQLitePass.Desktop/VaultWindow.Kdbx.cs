@@ -27,9 +27,16 @@ public sealed partial class VaultWindow
         var sourceCredential = await credentialDialog.ShowDialog<KdbxCredentialResult?>(this);
         token.ThrowIfCancellationRequested();
         if (sourceCredential == null) return;
+        if (string.IsNullOrEmpty(sourceCredential.Password) && string.IsNullOrWhiteSpace(sourceCredential.KeyFilePath))
+        {
+            StatusText.Text = Text("KdbxSourceCredentialRequired");
+            return;
+        }
 
         string sourcePassword = sourceCredential.Password;
         string? sourceKeyFilePath = sourceCredential.KeyFilePath;
+        string destinationPassword = string.Empty;
+        string? destinationKeyFilePath = null;
         sourceCredential = null;
         KdbxImportPlan? plan = null;
         try
@@ -48,10 +55,6 @@ public sealed partial class VaultWindow
             if (!await ConfirmAsync(Text("KdbxImportReviewTitle"), review)) return;
             token.ThrowIfCancellationRequested();
 
-            string password = MasterPassword.Text ?? string.Empty;
-            if (password.Length != 0 && !await ConfirmAsync(Text("ConfirmNewVaultTitle"), Text("ConfirmMasterPassword"), password)) return;
-            token.ThrowIfCancellationRequested();
-
             var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
                 Title = Text("KdbxImportDestination"),
@@ -61,20 +64,59 @@ public sealed partial class VaultWindow
             });
             token.ThrowIfCancellationRequested();
             if (file == null) return;
+            string destinationPath = RequireLocalFile(file);
+            if (File.Exists(destinationPath) || Directory.Exists(destinationPath))
+            {
+                StatusText.Text = Text("KdbxDestinationExists");
+                return;
+            }
 
-            using var destinationMaster = await ReadCredentialAsync(token);
+            var destinationDialog = new KdbxCredentialDialog(Text("KdbxDestinationCredentials"),
+                Text("KdbxDestinationPassword"), Text("KdbxDestinationKeyFile"), Text("Browse"),
+                Text("KdbxContinue"), Text("Cancel"), Text("KdbxKeyFileOnlyNote"));
+            ProtectDialog(destinationDialog);
+            var destinationCredential = await destinationDialog.ShowDialog<KdbxCredentialResult?>(this);
+            token.ThrowIfCancellationRequested();
+            if (destinationCredential == null) return;
+            destinationPassword = destinationCredential.Password;
+            destinationKeyFilePath = destinationCredential.KeyFilePath;
+            destinationCredential = null;
+            if (string.IsNullOrEmpty(destinationPassword) && string.IsNullOrWhiteSpace(destinationKeyFilePath))
+            {
+                StatusText.Text = Text("KdbxDestinationCredentialRequired");
+                return;
+            }
+            if (destinationPassword.Length != 0 &&
+                !await ConfirmAsync(Text("ConfirmNewVaultTitle"), Text("ConfirmMasterPassword"), destinationPassword)) return;
+            token.ThrowIfCancellationRequested();
+
+            using var destinationMaster = await Task.Run(() => string.IsNullOrWhiteSpace(destinationKeyFilePath)
+                ? new MasterKey(destinationPassword)
+                : MasterKey.FromFile(destinationPassword, destinationKeyFilePath), token);
             StatusText.Text = Text("KdbxImportWriting");
-            var result = await KdbxImportService.CreateNewVaultAsync(plan, RequireLocalFile(file), destinationMaster,
+            var result = await KdbxImportService.CreateNewVaultAsync(plan, destinationPath, destinationMaster,
                 _settings, Text("DefaultGeneralGroup"), Text("RecycleBin"), token,
                 new Progress<VaultImportProgress>(value => ReportTransferProgress(token, Text("ImportProgress", value.Completed, value.Total))));
             VaultPath.Text = result.Session.Storage.FilePath;
-            await PresentSessionAsync(result.Session, CancellationToken.None);
-            if (!_closing) StatusText.Text = Text("KdbxImportCompleted", report.EntriesImported, report.GroupsImported);
+            try
+            {
+                await PresentSessionAsync(result.Session, CancellationToken.None);
+            }
+            catch (Exception error)
+            {
+                AppLogger.LogError("The imported vault was saved but could not be opened in the current window", error);
+                if (!_closing) StatusText.Text = Text("KdbxImportSavedOpenFailed", result.Session.Storage.FilePath);
+                return;
+            }
+            if (!_closing) StatusText.Text = Text("KdbxImportCompleted", report.EntriesImported, report.GroupsImported,
+                result.Session.Storage.FilePath);
         }
         finally
         {
             sourcePassword = string.Empty;
             sourceKeyFilePath = null;
+            destinationPassword = string.Empty;
+            destinationKeyFilePath = null;
             plan?.Dispose();
         }
     }, canCancel: true);

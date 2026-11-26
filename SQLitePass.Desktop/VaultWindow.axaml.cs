@@ -130,10 +130,10 @@ public sealed partial class VaultWindow : Window
         KeyFileLabel.Text = Text("LoginUseKeyFile");
         Unlock.Content = Text("LoginUnlock");
         NewVault.Content = Text("LoginNewVault");
-        ImportKdbx.Content = Text("KdbxImportTitle");
-        RestoreBackup.Content = Text("LoginRestoreBackup");
-        LoginGenerator.Content = Text("GeneratorTitle");
-        LoginCheckUpdates.Content = Text("MenuCheckUpdates").Replace("_", "", StringComparison.Ordinal);
+        ImportKdbxLabel.Text = Text("KdbxImportAction");
+        RestoreBackupLabel.Text = Text("LoginRestoreBackup");
+        LoginGeneratorLabel.Text = Text("GeneratorTitle");
+        LoginCheckUpdatesLabel.Text = Text("MenuCheckUpdates").Replace("_", "", StringComparison.Ordinal);
         SearchBox.PlaceholderText = Text("SearchPlaceholder");
         InitializeBrowseOptions();
         SetVaultCommandLabels();
@@ -148,6 +148,7 @@ public sealed partial class VaultWindow : Window
         _idleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _idleTimer.Tick += IdleTimer_Tick;
         Opened += (_, _) => MasterPassword.Focus();
+        Opened += (_, _) => Dispatcher.UIThread.Post(RefreshWindowsTaskbarIcon, DispatcherPriority.Background);
         Opened += (_, _) => _idleTimer.Start();
         if (useNativeSession) Opened += (_, _) =>
         {
@@ -289,6 +290,7 @@ public sealed partial class VaultWindow : Window
             await LoadPageAsync(session, _query, null, token);
             token.ThrowIfCancellationRequested();
             _session = session;
+            LoadEntryColumnWidths(session.Metadata.VaultId);
             session.Storage.BackupStatusChanged += OnBackupStatusChanged;
             UpdateBackupStatus();
             ResetIdleTime();
@@ -533,6 +535,12 @@ public sealed partial class VaultWindow : Window
         {
             if (_session != null && !_closing) StatusText.Text = Text("ErrorCancelled");
         }
+        catch (FileNotFoundException ex)
+        {
+            string fileName = string.IsNullOrWhiteSpace(ex.FileName) ? string.Empty : Path.GetFileName(ex.FileName);
+            StatusText.Text = fileName.Length == 0 ? Text("ErrorMissingFile") : Text("ErrorMissingFileNamed", fileName);
+            AppLogger.LogError("Required file unavailable", ex);
+        }
         catch (Exception ex)
         {
             AppLogger.LogError("Operation did not complete", ex);
@@ -540,6 +548,7 @@ public sealed partial class VaultWindow : Window
             {
                 UnauthorizedAccessException => "ErrorAccess",
                 CryptographicException => "ErrorCredential",
+                NotSupportedException => "ErrorUnsupportedFormat",
                 FileNotFoundException or DirectoryNotFoundException => "ErrorMissingFile",
                 InvalidDataException or FormatException => "ErrorIntegrity",
                 VaultConflictException => "ErrorConflict",

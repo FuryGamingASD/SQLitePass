@@ -101,11 +101,13 @@ public sealed class KdbxImportTests
         Assert.Contains(plan.Report.UnsupportedData, item => item.TextKey == "KdbxUnsupportedCustomIcons" && item.Count > 0);
 
         using var destinationMaster = new MasterKey("new synthetic SQLitePass password");
-        var created = await KdbxImportService.CreateNewVaultAsync(plan, System.IO.Path.Combine(scratch.Path, "imported.kpd"),
+        string destination = System.IO.Path.Combine(scratch.Path, "imported.kpd");
+        var created = await KdbxImportService.CreateNewVaultAsync(plan, destination,
             destinationMaster, new AppSettings { EnableDualFileBackup = false }, "General", "Recycle Bin");
         await using var session = created.Session;
         Assert.Equal("4.1", created.Report.FormatVersion);
-        Assert.Equal(System.IO.Path.Combine(scratch.Path, "imported.kpd"), session.Storage.FilePath);
+        Assert.True(File.Exists(destination));
+        Assert.Equal(destination, session.Storage.FilePath);
         Assert.True(await session.Storage.CheckDatabaseIntegrityAsync());
         Assert.Equal(sourceHash, SHA256.HashData(File.ReadAllBytes(source)));
 

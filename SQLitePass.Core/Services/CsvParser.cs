@@ -4,10 +4,11 @@ namespace SQLitePass.Core.Services;
 
 internal static class CsvParser
 {
-    internal static List<List<string>> Parse(string input)
+    internal static List<List<string>> Parse(string input, bool keepassBackslashEscapes = false)
     {
         if (input.Length > 32 * 1024 * 1024) throw new InvalidDataException("Il CSV supera 32 MB.");
         input = input.TrimStart('\uFEFF');
+        char delimiter = DetectDelimiter(input, keepassBackslashEscapes);
         var rows = new List<List<string>>(); var row = new List<string>(); var field = new StringBuilder();
         bool quoted = false, closed = false; int line = 1;
         void EndField()
@@ -26,14 +27,19 @@ internal static class CsvParser
             char ch = input[i];
             if (quoted)
             {
-                if (ch == '"')
+                if (keepassBackslashEscapes && ch == '\\' && i + 1 < input.Length &&
+                    (input[i + 1] is '\\' or '"' || input[i + 1] == delimiter))
+                {
+                    field.Append(input[++i]);
+                }
+                else if (ch == '"')
                 {
                     if (i + 1 < input.Length && input[i + 1] == '"') { field.Append('"'); i++; }
                     else { quoted = false; closed = true; }
                 }
                 else { field.Append(ch); if (ch == '\n') line++; }
             }
-            else if (ch == ',') EndField();
+            else if (ch == delimiter) EndField();
             else if (ch is '\r' or '\n')
             {
                 if (ch == '\r' && i + 1 < input.Length && input[i + 1] == '\n') i++;
@@ -47,5 +53,35 @@ internal static class CsvParser
         if (quoted) throw new InvalidDataException($"CSV: virgolette non chiuse alla riga {line}.");
         if (field.Length > 0 || row.Count > 0 || closed) EndRow();
         return rows;
+    }
+
+    private static char DetectDelimiter(string input, bool keepassBackslashEscapes)
+    {
+        var counts = new Dictionary<char, int> { [','] = 0, [';'] = 0, ['\t'] = 0 };
+        bool quoted = false;
+        for (int i = 0; i < input.Length; i++)
+        {
+            char ch = input[i];
+            if (quoted && keepassBackslashEscapes && ch == '\\' && i + 1 < input.Length &&
+                (input[i + 1] is '\\' or '"' || input[i + 1] == ','))
+            {
+                i++;
+                continue;
+            }
+            if (ch == '"')
+            {
+                if (quoted && i + 1 < input.Length && input[i + 1] == '"') { i++; continue; }
+                quoted = !quoted;
+                continue;
+            }
+            if (quoted) continue;
+            if (ch is '\r' or '\n') break;
+            if (counts.ContainsKey(ch)) counts[ch]++;
+        }
+
+        char delimiter = ',';
+        foreach (char candidate in new[] { ';', '\t' })
+            if (counts[candidate] > counts[delimiter]) delimiter = candidate;
+        return delimiter;
     }
 }

@@ -145,6 +145,10 @@ public sealed class AppSettingsStore(string directory)
         settings.WindowSizes = (settings.WindowSizes ?? []).Where(pair => pair.Key.Length <= 80 && pair.Value != null &&
             double.IsFinite(pair.Value.Width) && double.IsFinite(pair.Value.Height) && pair.Value.Width is >= 320 and <= 7680 && pair.Value.Height is >= 200 and <= 4320)
             .Take(20).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+        settings.EntryColumnWidths = (settings.EntryColumnWidths ?? []).Where(pair =>
+            Guid.TryParseExact(pair.Key, "N", out _) && pair.Value is { Length: 6 } widths &&
+            widths.All(width => double.IsFinite(width) && width is > 0 and <= 1000))
+            .TakeLast(20).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
         if (!new[] { "", "it", "en", "fr", "de", "es" }.Contains(settings.Language)) settings.Language = "";
         if (string.IsNullOrWhiteSpace(settings.SecondaryBackupDir)) settings.SecondaryBackupDir = null;
     }

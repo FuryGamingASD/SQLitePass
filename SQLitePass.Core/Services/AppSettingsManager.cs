@@ -14,6 +14,7 @@ namespace SQLitePass.Core.Services
         public List<string> RecentVaults { get; set; } = new();
         public Dictionary<string, bool> GroupExpansion { get; set; } = new();
         public Dictionary<string, WindowSizePreference> WindowSizes { get; set; } = new();
+        public Dictionary<string, double[]> EntryColumnWidths { get; set; } = new();
         public bool EnableDiagnosticLogging { get; set; }
 
         // Clipboard

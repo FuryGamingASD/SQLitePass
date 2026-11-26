@@ -42,9 +42,21 @@ internal static class NativeDesktopSessionVerification
         await window.OpenVaultAsync().WaitAsync(token);
         if (!vault.IsVisible) throw new InvalidOperationException("The synthetic dispatcher error vault did not open.");
 
-        Dispatcher.UIThread.Post(static () => throw new InvalidOperationException("Synthetic dispatcher error."));
-        await WaitForAsync(() => !vault.IsVisible && login.IsVisible && login.IsEnabled && string.IsNullOrEmpty(password.Text), token);
-        Console.WriteLine("Verified an unhandled dispatcher error closes the synthetic vault.");
+        var recovery = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        App.UnexpectedErrorRecoveryProbe = recovery;
+        try
+        {
+            Dispatcher.UIThread.Post(static () => throw new InvalidOperationException("Synthetic dispatcher error."));
+            string? recoveryFailure = await recovery.Task.WaitAsync(token);
+            if (recoveryFailure != null)
+                throw new InvalidOperationException($"The synthetic dispatcher error did not complete vault recovery: {recoveryFailure}");
+            await WaitForAsync(() => !vault.IsVisible && login.IsVisible && login.IsEnabled && string.IsNullOrEmpty(password.Text), token);
+            Console.WriteLine("Verified an unhandled dispatcher error closes the synthetic vault.");
+        }
+        finally
+        {
+            if (ReferenceEquals(App.UnexpectedErrorRecoveryProbe, recovery)) App.UnexpectedErrorRecoveryProbe = null;
+        }
     }
 
     internal static async Task<bool> VerifySessionLockInteractivelyAsync(VaultWindow window)

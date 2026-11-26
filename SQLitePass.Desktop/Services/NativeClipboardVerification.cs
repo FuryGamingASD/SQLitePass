@@ -81,20 +81,21 @@ internal static class NativeClipboardVerification
     internal static async Task<bool> VerifyWindowsClipboardSyncGuardAsync(VaultWindow window)
     {
         bool roamingEnabled = WindowsSensitiveClipboard.IsClipboardRoamingEnabledForCurrentUser();
+        bool historyEnabled = WindowsSensitiveClipboard.IsClipboardHistoryEnabledForCurrentUser();
         var expectedReason = roamingEnabled
             ? ClipboardCopyBlockedReason.WindowsClipboardSyncEnabled
-            : WindowsSensitiveClipboard.IsClipboardPrivacyUnreliableOnCurrentBuild()
+            : WindowsSensitiveClipboard.IsClipboardPrivacyUnreliableOnCurrentBuild() && historyEnabled
                 ? ClipboardCopyBlockedReason.SecureWindowsClipboardUnavailable
                 : ClipboardCopyBlockedReason.None;
         if (expectedReason == ClipboardCopyBlockedReason.None)
-            throw new InvalidOperationException("The clipboard guard probe requires enabled roaming or a known unreliable Windows build.");
+            throw new InvalidOperationException("The clipboard guard probe requires clipboard roaming or history to be enabled on a privacy-unverified build.");
         var clipboard = window.NativeClipboard ?? throw new InvalidOperationException("Native clipboard backend unavailable.");
         uint sequenceBefore = WindowsSensitiveClipboard.GetClipboardSequenceNumberForVerification();
         bool copied = await clipboard.CopyAsync("SQLitePass clipboard sync guard fixture", TimeSpan.FromSeconds(30));
         uint sequenceAfter = WindowsSensitiveClipboard.GetClipboardSequenceNumberForVerification();
         if (copied || clipboard.CopyBlockedReason != expectedReason || sequenceBefore != sequenceAfter)
             throw new InvalidOperationException("The Windows clipboard sync guard did not block the copy without changing the clipboard.");
-        Console.WriteLine($"Verified Windows clipboard guard blocks copy (roaming enabled: {roamingEnabled}; reason: {expectedReason}) without modifying the clipboard.");
+        Console.WriteLine($"Verified Windows clipboard guard blocks copy (roaming enabled: {roamingEnabled}; history enabled: {historyEnabled}; reason: {expectedReason}) without modifying the clipboard.");
         return true;
     }
 #else

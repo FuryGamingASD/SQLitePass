@@ -446,7 +446,7 @@ Features include:
 
 ## Clipboard History Controls
 
-On Windows, SQLitePass requests exclusion from Clipboard History and cloud synchronization. On Linux X11, it advertises a password-manager hint that clipboard managers can honor.
+On Windows, SQLitePass requests exclusion from Clipboard History and cloud synchronization. Credential copying is blocked whenever clipboard roaming is enabled. On Windows build 26300, it is also blocked while Clipboard History is enabled or its state cannot be queried; copying is permitted on that build only when both history and roaming are disabled. On Linux X11, SQLitePass advertises a password-manager hint that clipboard managers can honor and rejects copying when tested manager signals are present.
 
 ---
 

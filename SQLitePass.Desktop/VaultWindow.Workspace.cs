@@ -33,7 +33,6 @@ public sealed partial class VaultWindow
         LoginSubtitle.Text = Text("LoginHeaderSubtitle");
         LoginBackupFound.Text = Text("LoginBackupPresent");
         LoginSettingsLabel.Text = VaultSettingsLabel.Text = Text("TbSettings");
-        LoginExit.Content = Text("MenuExit").Replace("_", "");
         FolderHeading.Text = Text("FoldersAndGroups");
         AddEntryLabel.Text = Text("TbNewEntry");
         TitleColumn.Text = Text("ColTitle");
@@ -42,11 +41,15 @@ public sealed partial class VaultWindow
         UrlColumn.Text = Text("ColUrl");
         NotesColumn.Text = Text("ColNotes");
         UpdatedColumn.Text = Text("ColUpdatedAt");
+        InitializeEntryColumnResizing();
         EmptyEntries.Text = Text("NoEntriesInView");
         EmptyNewEntry.Content = Text("TbNewEntry");
         foreach (var (control, key) in new (Control, string)[]
         {
-            (LoginTheme, "MenuToggleTheme"), (VaultTheme, "MenuToggleTheme"), (RecentVaultButton, "RecentVaults"),
+            (LoginTheme, "MenuToggleTheme"), (VaultTheme, "MenuToggleTheme"),
+            (LoginMinimize, "WindowMinimize"), (LoginClose, "Close"), (RecentVaultButton, "RecentVaults"),
+            (ImportKdbx, "KdbxImportTitle"), (RestoreBackup, "LoginRestoreBackup"),
+            (LoginGenerator, "GeneratorTitle"), (LoginCheckUpdates, "MenuCheckUpdates"),
             (LoginReveal, "ShowPassword"), (PreviewReveal, "ShowPassword"), (PreviewCopyPassword, "TbCopyPassword"),
             (PreviewEstimateQuality, "EstimatePasswordQuality"),
             (LockVault, "TbLock"), (AddEntry, "TbNewEntry"), (EditEntry, "TbEdit"), (ToolbarDelete, "TbDelete"),
@@ -66,7 +69,9 @@ public sealed partial class VaultWindow
         UpdateRecentVaults();
         PropertyChanged += (_, change) =>
         {
-            if (change.Property == BoundsProperty) Classes.Set("wide", Bounds.Width >= 1000);
+            if (change.Property != BoundsProperty) return;
+            Classes.Set("wide", Bounds.Width >= 1000);
+            if (_session is not null) ApplyEntryColumnDefinitions();
         };
         Deactivated += (_, _) => HidePasswordReveals();
         _loginRevealTimer.Tick += (_, _) => HideLoginPassword();

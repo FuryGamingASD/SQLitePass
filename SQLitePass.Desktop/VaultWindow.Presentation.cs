@@ -1,6 +1,9 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Platform;
+using Avalonia.Threading;
 using SQLitePass.Core.Services;
 using SQLitePass.UI.Controls;
 
@@ -38,6 +41,14 @@ public sealed partial class VaultWindow
             UpdateWindowMaximize();
             UpdateWorkspaceResizeEdges();
         };
+    }
+
+    private void RefreshWindowsTaskbarIcon()
+    {
+        if (!OperatingSystem.IsWindows()) return;
+        ShowInTaskbar = true;
+        using var iconStream = AssetLoader.Open(new Uri("avares://SQLitePass.Desktop/Resources/app.ico"));
+        Icon = new WindowIcon(iconStream);
     }
 
     private void UpdateWindowMaximize()
@@ -88,6 +99,20 @@ public sealed partial class VaultWindow
         MinWidth = 620;
         MinHeight = 460;
         PrepareWindowSize(this);
+        VaultToolbar.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        BrowseFiltersToolbar.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        double nativeBorder = WindowDecorations == WindowDecorations.None ? 0 : 16;
+        double toolbarMinimum = VaultToolbar.DesiredSize.Width + 24 + nativeBorder;
+        double filtersMinimum = 380 + 5 + 26 + BrowseFiltersToolbar.DesiredSize.Width + nativeBorder;
+        double contentMinimum = Math.Ceiling(Math.Max(toolbarMinimum, filtersMinimum));
+        if (contentMinimum > MinWidth)
+        {
+            MinWidth = contentMinimum;
+            Width = Math.Max(Width, contentMinimum);
+        }
+        Classes.Set("wide", Width >= 1000);
+        ApplyEntryColumnDefinitions();
+        Dispatcher.UIThread.Post(RefreshWindowsTaskbarIcon, DispatcherPriority.Background);
         if (_restoreVaultMaximized && WindowState == WindowState.Normal) WindowState = WindowState.Maximized;
         UpdateWorkspaceResizeEdges();
     }

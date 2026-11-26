@@ -4,6 +4,8 @@ This document contains release notes and the public release history of SQLitePas
 
 Historical release notes describe functionality and expectations at the time they were published.
 
+Unreleased source changes are tracked in [CHANGELOG.md](CHANGELOG.md). A release section remains a record of the package published for that version; it is not silently rewritten to describe later fixes.
+
 Where differences exist, the following documents take precedence:
 
 - README.md

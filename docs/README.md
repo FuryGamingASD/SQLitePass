@@ -1,6 +1,6 @@
 # Documentation index
 
-The root [README](../README.md), [security policy](../SECURITY.md), [changelog](../CHANGELOG.md) and [release history](../RELEASE_NOTES.md) describe the current product and published versions. Historical audit and release reports retain the scope and conclusions applicable when they were written; consult current guidance for present behavior.
+The root [README](../README.md), [security policy](../SECURITY.md), [changelog](../CHANGELOG.md) and [release history](../RELEASE_NOTES.md) describe the current product and published versions. The changelog's Unreleased section tracks changes not yet published. Historical audit and release reports retain the scope and conclusions applicable when written; use the current audit status and platform guide for present behavior.
 
 ## Current security and operations guidance
 
@@ -8,7 +8,7 @@ The root [README](../README.md), [security policy](../SECURITY.md), [changelog](
 - [Threat model](THREAT_MODEL.md)
 - [Security architecture](SECURITY_ARCHITECTURE.md)
 - [Cryptography](CRYPTOGRAPHY.md)
-- [Data protection](DATA_PROTECTION.md)
+- [Data protection, including import and export](DATA_PROTECTION.md)
 - [Memory handling](MEMORY_HANDLING.md)
 - [Backup and recovery](BACKUP_AND_RECOVERY.md)
 - [Disaster recovery](DISASTER_RECOVERY.md)

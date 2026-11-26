@@ -13,7 +13,7 @@ Its objectives are to:
 - Validate recovery workflows
 - Reduce the likelihood of introducing vulnerabilities
 
-Automated security checks run in development and release workflows. The 1.3.0 suite adds KDBX import, machine-policy and signed-update regressions, including invalid signatures, mismatched packages and expired checkpoints. Native release gates exercise installation, upgrade and reopening a synthetic vault on both platforms. The verification roadmap and audit status record the scope and unresolved checks.
+Automated security checks run in development and release workflows. The 1.3.0 suite adds KDBX import, machine-policy and signed-update regressions, including invalid signatures, mismatched packages and expired checkpoints. Native release gates exercise installation, upgrade and reopening a synthetic vault on both platforms. The [CI and release verification guide](CI_AND_RELEASE_VERIFICATION.md) records current workflow scope; the [verification roadmap](audit/KEEPASS_GAP_ROADMAP.md) and [audit status](AUDIT_STATUS.md) record evidence and unresolved checks.
 
 Testing improves confidence but does not guarantee the absence of vulnerabilities.
 
@@ -88,11 +88,11 @@ For public release tags, the candidate assembly creates Windows and Linux Cyclon
 
 ## CodeQL
 
-The [CodeQL workflow](../.github/workflows/codeql.yml) runs on pushes and pull requests to `main`, weekly, and by manual dispatch. It initializes CodeQL for C# using `build-mode: none` and publishes code-scanning results.
+The [CodeQL workflow](../.github/workflows/codeql.yml) uses CodeQL Action v4 and runs on pushes and pull requests to `main`, weekly, and by manual dispatch. It analyzes C# using `build-mode: none` and publishes code-scanning results.
 
 ## Semgrep
 
-The [Semgrep workflow](../.github/workflows/semgrep.yml) runs on pushes and pull requests to `main`, weekly, and by manual dispatch. It executes `semgrep scan --config auto --sarif`, validates that the report was produced, and uploads findings to GitHub code scanning for pull requests and `main` pushes.
+The [Semgrep workflow](../.github/workflows/semgrep.yml) runs on pushes and pull requests to `main`, weekly, and by manual dispatch. It executes `semgrep scan --config auto --sarif`, validates that the report was produced, and uploads findings to GitHub code scanning for pull requests and `main` scans. Reported findings are triaged in code scanning; their presence alone does not fail a successful scan. The workflow does fail if Semgrep itself or SARIF validation fails.
 
 Static-analysis findings require triage. A finding is not itself evidence that an issue is exploitable.
 
@@ -810,10 +810,11 @@ High-risk modifications should receive additional review.
 Potential future additions:
 
 - Fuzz testing
-- Coverage reporting
+- Coverage trend reporting and selected percentage gates; CI currently summarizes Cobertura line and branch coverage but does not enforce a project-wide threshold
 - Dynamic Application Security Testing (DAST)
 - External penetration testing
 - Independent cryptographic review
+- Additional project-specific Semgrep rules and review of findings as the codebase changes
 
 CodeQL and Semgrep are already implemented repository workflows. Dependency scanning automation is also implemented in `Invoke-Ci.ps1` through NuGet audit and should not be classified as future work.
 
