@@ -210,6 +210,10 @@ jobs:
 
           $sbomDirectory = Join-Path $PWD 'artifacts/sbom'
           New-Item -ItemType Directory -Path $sbomDirectory -Force | Out-Null
+          # Restore the full graph first; CycloneDX must not force the desktop TFM onto project references.
+          dotnet restore 'SQLitePass.Desktop/SQLitePass.Desktop.csproj' --locked-mode
+          if ($LASTEXITCODE -ne 0) { throw 'Locked restore for SBOM generation failed.' }
+
           $targetSets = @(
               @{ Runtime = 'win-x64'; Framework = 'net10.0-windows10.0.17763.0' },
               @{ Runtime = 'linux-x64'; Framework = 'net10.0' }
@@ -220,7 +224,8 @@ jobs:
               & (Join-Path $toolPath 'dotnet-CycloneDX') 'SQLitePass.Desktop/SQLitePass.Desktop.csproj' `
                   --framework $target.Framework --runtime $target.Runtime --recursive --include-project-references `
                   --output $sbomDirectory --filename $name --output-format Json `
-                  --set-name "SQLitePass-$($target.Runtime)" --set-version $env:PACKAGE_VERSION --configuration Release
+                  --set-name "SQLitePass-$($target.Runtime)" --set-version $env:PACKAGE_VERSION --configuration Release `
+                  --disable-package-restore
               if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $output -PathType Leaf)) {
                   throw "CycloneDX failed to generate the $($target.Runtime) SBOM."
               }
