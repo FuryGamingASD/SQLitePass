@@ -37,7 +37,7 @@ The client checks a cached package after acquiring Velopack's package lock, befo
 
 ## Transition for existing installations
 
-1. Keep an independent vault backup and close SQLitePass. Download the Windows installer, portable ZIP or Linux AppImage for 1.3.0. [Release downloads](https://github.com/FuryGamingASD/SQLitePass/releases/latest)
+1. Keep an independent vault backup and close SQLitePass. If the installed client predates 1.3.0, download a published Windows installer, portable ZIP or Linux AppImage for 1.3.0 or later; these versions contain the pinned publisher key. [Release downloads](https://github.com/FuryGamingASD/SQLitePass/releases/latest)
 2. Compare the download's SHA-256 with a digest obtained through an independently trusted channel. On Windows use `Get-FileHash <download> -Algorithm SHA256`. On Linux use `sha256sum <download>`. GitHub also publishes a checksum manifest for file integrity. The signed update manifest covers the full Velopack packages, while these downloads establish the initial trust in the publisher key.
 3. Run the Windows installer, replace the portable app files, or replace the Linux AppImage. Keep the AppImage executable and in a writable directory. Open the existing vault with its current credentials and check that it opens successfully.
 4. Future installed versions can use **Check for Updates**. The pinned key authenticates the publisher, and a current signed checkpoint is required.
