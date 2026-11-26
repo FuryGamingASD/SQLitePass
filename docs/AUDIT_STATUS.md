@@ -1,6 +1,6 @@
 # Audit Status
 
-Updated on 26 November 2026 for the current source branch following SQLitePass 1.3.0. This document summarizes the project's internal evidence; the published 1.3.0 verification remains a record of that release only. [Release verification](releases/RELEASE_OUTCOME_1.3.0.md)
+Updated on 26 November 2026 after PR #21 was merged into `main`. This document summarizes the project's internal evidence; the published 1.3.0 verification remains a record of that release only. [Release verification](releases/RELEASE_OUTCOME_1.3.0.md)
 
 ## Purpose
 
@@ -22,7 +22,7 @@ It reflects the current state of publicly available evidence.
 
 # Current Assessment
 
-The 1.3.0 review covers KDBX 4 import, machine policy, clipboard guards and update signatures. The results apply to the commits and test environments recorded in the roadmap. The 26 November source changes add responsive workspace sizing, per-vault entry-column widths, an in-flow KDBX destination credential dialog, improved missing-file feedback and a more selective Windows 26300 clipboard guard. These changes have not yet received the full cross-platform CI run; the conditional clipboard path has not been exercised by an interactive copy test. An independent cryptographic audit and penetration test remain open. [KeePass migration and hardening roadmap](audit/KEEPASS_GAP_ROADMAP.md)
+The 1.3.0 review covers KDBX 4 import, machine policy, clipboard guards and update signatures. PR #21 was merged into `main` as `a7b148b`; it adds responsive workspace sizing, per-vault entry-column widths, an in-flow KDBX destination credential dialog, improved missing-file feedback and a more selective Windows 26300 clipboard guard. The post-merge [Verify run](https://github.com/FuryGamingASD/SQLitePass/actions/runs/45726681637), [CodeQL run](https://github.com/FuryGamingASD/SQLitePass/actions/runs/45726681589) and [Semgrep run](https://github.com/FuryGamingASD/SQLitePass/actions/runs/45726681610) all succeeded. Verify passed its Windows and Linux jobs, including the Linux XWayland probes; release-only installation and upgrade gates were skipped on this push-triggered run. The permitted Windows 26300 clipboard path still needs an interactive native copy test. An independent cryptographic audit and penetration test remain open. [KeePass migration and hardening roadmap](audit/KEEPASS_GAP_ROADMAP.md)
 
 | Area | Status |
 |---------|---------|
