@@ -10,7 +10,7 @@ namespace SQLitePass.Desktop;
 
 public sealed partial class App : Application
 {
-    internal static TaskCompletionSource<bool>? UnexpectedErrorRecoveryProbe { get; set; }
+    internal static TaskCompletionSource<string?>? UnexpectedErrorRecoveryProbe { get; set; }
 
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
@@ -124,8 +124,19 @@ public sealed partial class App : Application
 
         void OnDispatcherError(object? sender, DispatcherUnhandledExceptionEventArgs args)
         {
-            if (recovering) return;
             args.Handled = true;
+            if (recovering)
+            {
+                string diagnostic = $"A second dispatcher error interrupted vault recovery: {args.Exception}";
+                AppLogger.LogError("A second dispatcher error occurred during vault recovery", args.Exception);
+                if (UnexpectedErrorRecoveryProbe is { } probe)
+                {
+                    probe.TrySetResult(diagnostic);
+                    return;
+                }
+                desktop.Shutdown(1);
+                return;
+            }
             _ = RecoverAsync(args.Exception);
         }
 
@@ -142,22 +153,26 @@ public sealed partial class App : Application
             if (recovering) return;
             recovering = true;
             bool recovered = false;
+            string? recoveryFailure = null;
+            var probe = UnexpectedErrorRecoveryProbe;
             try
             {
                 AppLogger.LogError("Unexpected desktop error", error);
                 recovered = await window.LockAfterUnexpectedErrorAsync();
+                if (!recovered) recoveryFailure = "The window had no active vault session to lock or was already closing.";
             }
             catch (Exception lockError)
             {
                 AppLogger.LogError("Could not lock the vault after an unexpected desktop error", lockError);
+                recoveryFailure = lockError.ToString();
             }
             finally
             {
                 recovering = false;
-                UnexpectedErrorRecoveryProbe?.TrySetResult(recovered);
+                probe?.TrySetResult(recovered ? null : recoveryFailure ?? "Vault recovery did not complete.");
             }
 
-            if (!recovered) desktop.Shutdown(1);
+            if (!recovered && probe is null) desktop.Shutdown(1);
         }
     }
 }
